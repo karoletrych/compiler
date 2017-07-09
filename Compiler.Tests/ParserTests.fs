@@ -15,5 +15,5 @@ let tests =
       Expect.isTrue subject "I should fail because the subject is false."
 
     testCase "parser" <| fun _ ->
-    Expect.IsEqual "program" (Compiler.Parser.parse "program")
+    Expect.equal "a" (Compiler.Parser.parse "a") "tests work"
   ]
