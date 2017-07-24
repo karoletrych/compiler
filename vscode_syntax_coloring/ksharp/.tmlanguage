@@ -1,0 +1,20 @@
+{
+    "name": "ksharp",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": ">=0.9.0-pre.1"
+    },
+    "publisher": "Karol Etrych",
+    "contributes": {
+        "languages": [{
+            "id": "ksharp",
+            "aliases": ["KSharp", "ksharp"],
+            "extensions": [".ks"]
+        }],
+        "grammars": [{
+            "language": "ksharp",
+            "scopeName": "source.ksharp",
+            "path": "./syntaxes/ksharp.tmLanguage"
+        }]
+    }
+}
