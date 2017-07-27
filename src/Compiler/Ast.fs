@@ -14,8 +14,12 @@ and FunctionDeclaration = Identifier * Parameters * TypeSpec option * CompoundSt
 
 and TypeSpec =
   | Bool
+  | Char
   | Int
   | Float
+  | Double
+  | String
+  | Void
   | UserDefinedType
 
 and UserDefinedType =

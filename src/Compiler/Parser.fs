@@ -1,8 +1,8 @@
 module Compiler.Parser
-open Compiler.Ast
-open FParsec
 open System
 open System.Text.RegularExpressions
+open Compiler.Ast
+open FParsec
 
 let removeComments input =  
     let blockComments = @"/\*(.*?)\*/";
@@ -16,15 +16,18 @@ let removeComments input =
 
 let keywordParsers =
     dict [ 
-        ("fun", stringReturn "fun" ());
+        ("fun", pstring "fun");
+        ("return", pstring "return")
         ]
 let builtInTypesParsersDict =
     dict [ 
             ("bool", stringReturn "bool" Bool);
-            ("int", stringReturn "int" Bool);
-            ("float", stringReturn "float" Bool);
-            ("string", stringReturn "string" Bool);
-            ("void", stringReturn "void" Bool);
+            ("char", stringReturn "char" Char);
+            ("int", stringReturn "int" Int);
+            ("float", stringReturn "float" Float);
+            ("double", stringReturn "double" Double);
+            ("string", stringReturn "string" String);
+            ("void", stringReturn "void" Void);
          ]
 
 let identifier = 
@@ -42,42 +45,69 @@ let pIdentifier =
                    then (preturn s) 
                    else fail "a keyword cannot be an identifier")
 
+
 let leftBrace = skipChar '{' .>> spaces
 let rightBrace = skipChar '}' .>> spaces
+let semicolon = skipChar ';' .>> spaces
+let colon = skipChar ':' .>> spaces
 let leftParen = skipChar '(' .>> spaces
 let rightParen = skipChar ')' .>> spaces
+let comma = skipChar ',' .>> spaces
 
-let (expression : Parser<Expression, unit>), expressionRef = createParserForwardedToRef()
-let pArgumentList = between leftParen rightParen (sepBy expression (pchar ','))
-let pFunctionCallExpression =
- identifier .>>. pArgumentList 
- |>> fun (funName, args) -> FunctionCallExpression(funName, args)
+
+
+let expression, expressionRef = createParserForwardedToRef()
+let pArgumentList = (sepBy expression comma)
+let pFunctionCallExpression = 
+    pipe2 
+        identifier 
+        (leftParen >>. pArgumentList .>> rightParen)
+        (fun funName args -> FunctionCallExpression(funName, args))
 
 let pStringLiteral = 
-    between (pstring "'") 
+    (between (pstring "'") 
         (pstring "'") 
-        (manySatisfy ((<>) ''')) 
+        (manySatisfy ((<>) ''')) )
+        .>> spaces
     |>> StringLiteral
 let pLiteralExpression = pStringLiteral |>> LiteralExpression
 
+let pParenthesizedExpression = between leftParen rightParen expression
+
+let pIdentifierExpression = 
+    identifier 
+    |>> fun id -> IdentifierExpression(
+                    {
+                        Identifier=id
+                    })
+
 expressionRef := choice 
-    [pFunctionCallExpression;
-     pLiteralExpression]
+    [
+        attempt pFunctionCallExpression;
+        pIdentifierExpression;
+        pLiteralExpression;
+        pParenthesizedExpression
+    ]
 
-let pExpressionStatement
-    = expression |>> ExpressionStatement
-let pStatement : Parser<Statement,unit> = 
-    choice[pExpressionStatement] .>> spaces .>> skipChar ';'
-let typeSpec = choice(builtInTypesParsersDict.Values)
+let pExpressionStatement =
+    expression |>> ExpressionStatement
 
-let (pFunctionDeclaration : Parser<Declaration, unit>) = 
+let pReturnStatement =
+    keyword "return" >>. opt expression 
+    |>> fun expr -> ReturnStatement(expr)
+let pStatement = 
+    choice[pReturnStatement; pExpressionStatement] .>> semicolon
+let typeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
+
+let pFunctionDeclaration = 
     let parameter =
-     (identifier .>>. opt (skipChar ':' >>. typeSpec))
-      |>> fun (id,t) -> ScalarVariableDeclaration(t, id)
+        let parenthesizedTypeParameter = leftParen >>. identifier  .>>. opt (colon >>. typeSpec) .>> rightParen |>> fun (id, typ) -> ScalarVariableDeclaration(typ, id)
+        let implicitTypeParameter = identifier |>> fun id -> ScalarVariableDeclaration(None, id)
+        parenthesizedTypeParameter <|> implicitTypeParameter
     let parametersList =
-     sepBy parameter spaces 
+        many parameter
 
-    let returnType = opt (skipChar ':' >>. typeSpec)
+    let returnType = opt (colon >>. typeSpec)
     let (body : Parser<Statement list, unit>)    
         = between 
             leftBrace

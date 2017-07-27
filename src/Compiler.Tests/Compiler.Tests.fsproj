@@ -42,7 +42,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ParserTests.fs" />
+    <Compile Include="Parser.Tests.FunctionCalls.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>

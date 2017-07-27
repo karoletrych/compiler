@@ -381,7 +381,6 @@ FakesAssemblies/
 _Pvt_Extensions
 
 # Paket dependency manager
-.paket/paket.exe
 **/.paket/
 **/paket-files/
 
@@ -391,3 +390,4 @@ _Pvt_Extensions
 # JetBrains Rider
 .idea/
 *.sln.iml
+src/.paket/
