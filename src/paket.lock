@@ -13,9 +13,9 @@ NUGET
       System.Diagnostics.FileVersionInfo (>= 4.3) - restriction: >= netstandard1.6
       System.Diagnostics.TraceSource (>= 4.3) - restriction: >= netstandard1.6
       System.Linq.Parallel (>= 4.3) - restriction: >= netstandard1.6
-    FAKE (4.62.1)
+    FAKE (4.63)
     FParsec (1.0.2)
-    FSharp.Core (4.2.1)
+    FSharp.Core (4.2.2)
       System.Collections (>= 4.0.11) - restriction: >= netstandard1.6
       System.Console (>= 4.0) - restriction: >= netstandard1.6
       System.Diagnostics.Debug (>= 4.0.11) - restriction: >= netstandard1.6
