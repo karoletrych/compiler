@@ -1,4 +1,4 @@
-module Tests
+module Parser.Tests.FunctionCalls
 
 open Expecto
 open Compiler.Ast
