@@ -58,6 +58,7 @@ let colon = skipChar ':' .>> spaces
 let leftParen = skipChar '(' .>> spaces
 let rightParen = skipChar ')' .>> spaces
 let comma = skipChar ',' .>> spaces
+let equals = skipChar '=' .>> spaces
 
 
 
@@ -71,13 +72,21 @@ let pFunctionCallExpression =
         (leftParen >>. pArgumentList .>> rightParen)
         (fun funName args -> FunctionCallExpression(funName, args))
 
-let pStringLiteral = 
-    (between (pstring "'") 
-        (pstring "'") 
-        (manySatisfy ((<>) ''')) )
-        .>> spaces
-    |>> StringLiteral
-let pLiteralExpression = pStringLiteral |>> LiteralExpression
+module Literals =
+    let pStringLiteral = 
+        (between (pstring "'") 
+            (pstring "'") 
+            (manySatisfy ((<>) ''')) )
+            .>> spaces
+        |>> StringLiteral
+
+    let pIntLiteral = attempt pint32 .>> spaces |>> IntLiteral
+    let pFloatLiteral = pfloat >>= 
+                        (fun x -> 
+                            if x % 1.0 = 0.0 
+                            then fail "Not a float" 
+                            else preturn (FloatLiteral x))
+    let pLiteralExpression = choice [pStringLiteral; attempt pFloatLiteral; pIntLiteral] |>> LiteralExpression
 
 let pParenthesizedExpression = between leftParen rightParen expression
 
@@ -92,7 +101,7 @@ expressionRef := choice
     [
         attempt pFunctionCallExpression;
         pIdentifierExpression;
-        pLiteralExpression;
+        Literals.pLiteralExpression;
         pParenthesizedExpression
     ]
 
@@ -105,12 +114,18 @@ module Statement =
             Keyword.pKeyword "return" >>. opt expression 
             |>> fun expr -> ReturnStatement(expr)
         let pLocalVariableDeclarationStatement = 
-            Keyword.pKeyword "var" >>. identifier  .>>. opt (colon >>. pTypeSpec)
-            |>> fun (varName,typ) -> ScalarVariableDeclaration(varName, typ, false) |> VariableDeclarationStatement
+            pipe3 
+                (Keyword.pKeyword "var" >>. identifier)
+                (opt (colon >>. pTypeSpec))
+                (opt (equals >>. expression))
+                (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
 
-        let pLocalValueDeclarationStatement : Parser<Statement, unit> = 
-            Keyword.pKeyword "val" >>. identifier  .>>. opt (colon >>. pTypeSpec)
-            |>> fun (varName,typ) -> ScalarVariableDeclaration(varName, typ, true) |> VariableDeclarationStatement
+        let pLocalValueDeclarationStatement = 
+            pipe3
+                (Keyword.pKeyword "val" >>. identifier)
+                (opt (colon >>. pTypeSpec))
+                (equals >>. expression)
+                (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
 
         let pStatement = 
             choice
@@ -125,8 +140,8 @@ module Statement =
 let pFunctionDeclaration = 
     let parameter =
         let parenthesizedTypeParameter = leftParen >>. identifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
-                                        |>> fun (id, typ) -> ScalarVariableDeclaration(id, typ, true)
-        let implicitTypeParameter = identifier |>> fun id -> ScalarVariableDeclaration(id, None, true)
+                                        |>> fun (id, typ) -> (id, typ)
+        let implicitTypeParameter = identifier |>> fun id -> (id, None)
         parenthesizedTypeParameter <|> implicitTypeParameter
     let parametersList =
         many parameter

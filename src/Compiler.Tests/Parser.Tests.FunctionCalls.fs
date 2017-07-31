@@ -58,7 +58,7 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [FunctionDeclaration
-          ("print", [ScalarVariableDeclaration ("arg1",None, true)], None, []);
+          ("print", ["arg1",None], None, []);
        FunctionDeclaration
          ("main", [], None,
           [ExpressionStatement
@@ -89,14 +89,14 @@ let tests =
         [
           FunctionDeclaration
          ("internalPrint",
-          [ScalarVariableDeclaration ("arg1",Some String, true);
-           ScalarVariableDeclaration ("arg2",Some Int, true)], Some Void,
+          [("arg1", Some String);
+           ("arg2", Some Int)], Some Void,
           [ReturnStatement
              (Some
                 (FunctionCallExpression
                    ("pr",[IdentifierExpression {Identifier = "arg1";}])))]);
            FunctionDeclaration
-                   ("print", [ScalarVariableDeclaration ("arg1", None, true)], None,
+                   ("print", [("arg1", None)], None,
                     [ExpressionStatement
                        (FunctionCallExpression
                           ("internalPrint",

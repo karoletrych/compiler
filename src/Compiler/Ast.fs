@@ -8,11 +8,12 @@ and Declaration =
   | TypeDeclaration of string * Declaration list
 
 and VariableDeclaration = 
-    | ScalarVariableDeclaration of Identifier * TypeSpec option * IsReadonly
+    | ScalarVariableDeclaration of Identifier * TypeSpec option  * Expression option
+    | ScalarValueDeclaration of Identifier * TypeSpec option * Expression
 
 and IsReadonly = bool
 
-and FunctionDeclaration = Identifier * Parameters * TypeSpec option * CompoundStatement
+and FunctionDeclaration = Identifier * Parameter list * TypeSpec option * CompoundStatement
 
 and TypeSpec =
   | Bool
@@ -31,7 +32,7 @@ and NonGenericUserDefinedType = string
 
 and Identifier = string
 
-and Parameters = VariableDeclaration list
+and Parameter = Identifier * TypeSpec option 
 
 and IdentifierRef = { Identifier : string; }
 
