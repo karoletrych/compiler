@@ -8,7 +8,9 @@ and Declaration =
   | TypeDeclaration of string * Declaration list
 
 and VariableDeclaration = 
-    | ScalarVariableDeclaration of TypeSpec option * Identifier
+    | ScalarVariableDeclaration of Identifier * TypeSpec option * IsReadonly
+
+and IsReadonly = bool
 
 and FunctionDeclaration = Identifier * Parameters * TypeSpec option * CompoundStatement
 
@@ -40,12 +42,9 @@ and Statement =
   | WhileStatement of WhileStatement
   | ReturnStatement of Expression option
   | BreakStatement
-  | VariableDeclaration
+  | VariableDeclarationStatement of VariableDeclaration
 
 and ExpressionStatement = Expression
-
-and LocalDeclarations = VariableDeclaration list
-
 
 and CompoundStatement =  Statement list
 

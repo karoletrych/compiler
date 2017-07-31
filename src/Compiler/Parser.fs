@@ -14,11 +14,18 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
-let keywordParsers =
-    dict [ 
-        ("fun", pstring "fun");
-        ("return", pstring "return")
-        ]
+let nonAlphanumeric = nextCharSatisfiesNot (isAsciiLetter)
+
+module Keyword =
+    let keywordParsers =
+        dict [ 
+            ("fun", pstring "fun");
+            ("return", pstring "return")
+            ("var", pstring "var")
+            ("val", pstring "val")
+            ]
+    let pKeyword keywordName = keywordParsers.[keywordName] .>> nonAlphanumeric .>> spaces
+
 let builtInTypesParsersDict =
     dict [ 
             ("bool", stringReturn "bool" Bool);
@@ -33,15 +40,13 @@ let builtInTypesParsersDict =
 let identifier = 
     identifier (IdentifierOptions()) .>> spaces
         >>= (fun (id:Identifier) -> 
-            if not (keywordParsers.ContainsKey(id))
+            if not (Keyword.keywordParsers.ContainsKey(id))
             then preturn id
             else fail "Identifier cannot be a keyword")
-let nonAlphanumeric = nextCharSatisfiesNot (isAsciiLetter)
-let keyword keywordName = keywordParsers.[keywordName] .>> nonAlphanumeric .>> spaces
 
 let pIdentifier =
    (many1Satisfy isLower .>> nonAlphanumeric .>> spaces) // [a-z]+
-   >>= (fun s -> if not (keywordParsers.ContainsKey(s)) 
+   >>= (fun s -> if not (Keyword.keywordParsers.ContainsKey(s)) 
                    then (preturn s) 
                    else fail "a keyword cannot be an identifier")
 
@@ -56,6 +61,8 @@ let comma = skipChar ',' .>> spaces
 
 
 
+//  EXPRESSIONS 
+//  ----------
 let expression, expressionRef = createParserForwardedToRef()
 let pArgumentList = (sepBy expression comma)
 let pFunctionCallExpression = 
@@ -89,33 +96,50 @@ expressionRef := choice
         pParenthesizedExpression
     ]
 
-let pExpressionStatement =
-    expression |>> ExpressionStatement
+let pTypeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
 
-let pReturnStatement =
-    keyword "return" >>. opt expression 
-    |>> fun expr -> ReturnStatement(expr)
-let pStatement = 
-    choice[pReturnStatement; pExpressionStatement] .>> semicolon
-let typeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
+module Statement =
+        let pExpressionStatement = expression |>> ExpressionStatement
+
+        let pReturnStatement =
+            Keyword.pKeyword "return" >>. opt expression 
+            |>> fun expr -> ReturnStatement(expr)
+        let pLocalVariableDeclarationStatement = 
+            Keyword.pKeyword "var" >>. identifier  .>>. opt (colon >>. pTypeSpec)
+            |>> fun (varName,typ) -> ScalarVariableDeclaration(varName, typ, false) |> VariableDeclarationStatement
+
+        let pLocalValueDeclarationStatement : Parser<Statement, unit> = 
+            Keyword.pKeyword "val" >>. identifier  .>>. opt (colon >>. pTypeSpec)
+            |>> fun (varName,typ) -> ScalarVariableDeclaration(varName, typ, true) |> VariableDeclarationStatement
+
+        let pStatement = 
+            choice
+                [
+                    pLocalValueDeclarationStatement;
+                    pLocalVariableDeclarationStatement
+                    pReturnStatement;
+                    pExpressionStatement;
+                ] .>> semicolon
+    
 
 let pFunctionDeclaration = 
     let parameter =
-        let parenthesizedTypeParameter = leftParen >>. identifier  .>>. opt (colon >>. typeSpec) .>> rightParen |>> fun (id, typ) -> ScalarVariableDeclaration(typ, id)
-        let implicitTypeParameter = identifier |>> fun id -> ScalarVariableDeclaration(None, id)
+        let parenthesizedTypeParameter = leftParen >>. identifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
+                                        |>> fun (id, typ) -> ScalarVariableDeclaration(id, typ, true)
+        let implicitTypeParameter = identifier |>> fun id -> ScalarVariableDeclaration(id, None, true)
         parenthesizedTypeParameter <|> implicitTypeParameter
     let parametersList =
         many parameter
 
-    let returnType = opt (colon >>. typeSpec)
+    let returnType = opt (colon >>. pTypeSpec)
     let (body : Parser<Statement list, unit>)    
         = between 
             leftBrace
             rightBrace
-            (many pStatement)
+            (many Statement.pStatement)
 
     pipe4 
-        (keyword "fun" >>. identifier)
+        (Keyword.pKeyword "fun" >>. identifier)
         parametersList 
         returnType
         body 
