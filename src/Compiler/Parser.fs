@@ -23,6 +23,8 @@ module Keyword =
             ("return", pstring "return")
             ("var", pstring "var")
             ("val", pstring "val")
+            ("if", pstring "if")
+            ("else", pstring "else")
             ]
     let pKeyword keywordName = keywordParsers.[keywordName] .>> nonAlphanumeric .>> spaces
 
@@ -128,33 +130,43 @@ module Expression =
 let pTypeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
 
 module Statement =
-        let pExpressionStatement = Expression.pExpression |>> ExpressionStatement
+    let pStatement, pStatementRef = createParserForwardedToRef()
 
-        let pReturnStatement =
-            Keyword.pKeyword "return" >>. opt Expression.pExpression 
-            |>> fun expr -> ReturnStatement(expr)
-        let pLocalVariableDeclarationStatement = 
-            pipe3 
-                (Keyword.pKeyword "var" >>. identifier)
-                (opt (colon >>. pTypeSpec))
-                (opt (equals >>. Expression.pExpression))
-                (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
+    let pElseStatement = Keyword.pKeyword "else" >>. pStatement
+    let pIfStatement = pipe3 
+                        (Keyword.pKeyword "if" >>. Expression.pExpression) 
+                        (pStatement) 
+                        (opt pElseStatement)
+                        (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-        let pLocalValueDeclarationStatement = 
-            pipe3
-                (Keyword.pKeyword "val" >>. identifier)
-                (opt (colon >>. pTypeSpec))
-                (equals >>. Expression.pExpression)
-                (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
+    let pExpressionStatement = Expression.pExpression |>> ExpressionStatement
 
-        let pStatement = 
-            choice
-                [
-                    pLocalValueDeclarationStatement;
-                    pLocalVariableDeclarationStatement
-                    pReturnStatement;
-                    pExpressionStatement;
-                ] .>> semicolon
+    let pReturnStatement =
+        Keyword.pKeyword "return" >>. opt Expression.pExpression 
+        |>> fun expr -> ReturnStatement(expr)
+    let pLocalVariableDeclarationStatement = 
+        pipe3 
+            (Keyword.pKeyword "var" >>. identifier)
+            (opt (colon >>. pTypeSpec))
+            (opt (equals >>. Expression.pExpression))
+            (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
+
+    let pLocalValueDeclarationStatement = 
+        pipe3
+            (Keyword.pKeyword "val" >>. identifier)
+            (opt (colon >>. pTypeSpec))
+            (equals >>. Expression.pExpression)
+            (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
+
+    pStatementRef := 
+        choice
+            [
+                pIfStatement;
+                pLocalValueDeclarationStatement .>> semicolon;
+                pLocalVariableDeclarationStatement .>> semicolon
+                pReturnStatement .>> semicolon;
+                pExpressionStatement .>> semicolon;
+            ]
     
 
 let pFunctionDeclaration = 

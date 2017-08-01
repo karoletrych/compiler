@@ -48,6 +48,7 @@
   <ItemGroup>
     <Compile Include="Parser.Tests.FunctionCalls.fs" />
     <Compile Include="Parser.Tests.VariableDeclarations.fs" />
+    <Compile Include="Parser.Tests.Expressions.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>
