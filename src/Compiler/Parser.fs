@@ -62,69 +62,89 @@ let equals = skipChar '=' .>> spaces
 
 
 
-//  EXPRESSIONS 
-//  ----------
-let expression, expressionRef = createParserForwardedToRef()
-let pArgumentList = (sepBy expression comma)
-let pFunctionCallExpression = 
-    pipe2 
+module Expression = 
+
+    let opp = new OperatorPrecedenceParser<Expression,_,_>()
+    let pExpression = opp.ExpressionParser
+
+    let pArgumentList = (sepBy pExpression comma)
+    let pFunctionCallExpression = 
+        pipe2 
+            identifier 
+            (leftParen >>. pArgumentList .>> rightParen)
+            (fun funName args -> FunctionCallExpression(funName, args))
+
+    module Literal =
+        let pStringLiteral = 
+            (between (pstring "'") 
+                (pstring "'") 
+                (manySatisfy ((<>) ''')) )
+                .>> spaces
+            |>> StringLiteral
+
+        let pIntLiteral = attempt pint32 .>> spaces |>> IntLiteral
+        let pFloatLiteral = pfloat >>= 
+                            (fun x -> 
+                                if x % 1.0 = 0.0 
+                                then fail "Not a float" 
+                                else preturn (FloatLiteral x))
+        let pLiteralExpression = choice [pStringLiteral; attempt pFloatLiteral; pIntLiteral] |>> LiteralExpression
+
+    let pParenthesizedExpression = between leftParen rightParen pExpression
+
+    let pIdentifierExpression = 
         identifier 
-        (leftParen >>. pArgumentList .>> rightParen)
-        (fun funName args -> FunctionCallExpression(funName, args))
+        |>> fun id -> IdentifierExpression(
+                        {
+                            Identifier=id
+                        })
 
-module Literals =
-    let pStringLiteral = 
-        (between (pstring "'") 
-            (pstring "'") 
-            (manySatisfy ((<>) ''')) )
-            .>> spaces
-        |>> StringLiteral
+    opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y)))
+    opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y)))
+    opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y)))
+    opp.AddOperator(InfixOperator("<=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, LessEqual, y)))
+    opp.AddOperator(InfixOperator(">=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, GreaterEqual, y)))
+    opp.AddOperator(InfixOperator(">",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Greater, y)))
+    opp.AddOperator(InfixOperator("<",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Less, y)))
+    opp.AddOperator(InfixOperator("&&", spaces, 5, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalAnd, y)))
+    opp.AddOperator(InfixOperator("+",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Add, y)))
+    opp.AddOperator(InfixOperator("-",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Subtract, y)))
+    opp.AddOperator(InfixOperator("*",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Multiply, y)))
+    opp.AddOperator(InfixOperator("/",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Divide, y)))
+    opp.AddOperator(InfixOperator("%",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Modulus, y)))
 
-    let pIntLiteral = attempt pint32 .>> spaces |>> IntLiteral
-    let pFloatLiteral = pfloat >>= 
-                        (fun x -> 
-                            if x % 1.0 = 0.0 
-                            then fail "Not a float" 
-                            else preturn (FloatLiteral x))
-    let pLiteralExpression = choice [pStringLiteral; attempt pFloatLiteral; pIntLiteral] |>> LiteralExpression
+    opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x))) 
+    opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
+    opp.AddOperator(PrefixOperator("+", spaces, 8, true, fun x -> UnaryExpression(Identity, x))) 
 
-let pParenthesizedExpression = between leftParen rightParen expression
-
-let pIdentifierExpression = 
-    identifier 
-    |>> fun id -> IdentifierExpression(
-                    {
-                        Identifier=id
-                    })
-
-expressionRef := choice 
-    [
+    opp.TermParser <- choice [
         attempt pFunctionCallExpression;
         pIdentifierExpression;
-        Literals.pLiteralExpression;
+        Literal.pLiteralExpression;
         pParenthesizedExpression
     ]
+
 
 let pTypeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
 
 module Statement =
-        let pExpressionStatement = expression |>> ExpressionStatement
+        let pExpressionStatement = Expression.pExpression |>> ExpressionStatement
 
         let pReturnStatement =
-            Keyword.pKeyword "return" >>. opt expression 
+            Keyword.pKeyword "return" >>. opt Expression.pExpression 
             |>> fun expr -> ReturnStatement(expr)
         let pLocalVariableDeclarationStatement = 
             pipe3 
                 (Keyword.pKeyword "var" >>. identifier)
                 (opt (colon >>. pTypeSpec))
-                (opt (equals >>. expression))
+                (opt (equals >>. Expression.pExpression))
                 (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
 
         let pLocalValueDeclarationStatement = 
             pipe3
                 (Keyword.pKeyword "val" >>. identifier)
                 (opt (colon >>. pTypeSpec))
-                (equals >>. expression)
+                (equals >>. Expression.pExpression)
                 (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
 
         let pStatement = 
