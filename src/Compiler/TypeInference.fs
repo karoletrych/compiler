@@ -1,3 +1,7 @@
+module TypeInference
+open Compiler.Ast
+open Compiler.Parser
+
 type Type =
         {
             Name : string;
@@ -15,7 +19,26 @@ let createType name typeParams : Type =
                                             ImplementedInterfaces = [];
                                             BaseClass = None
                                         }
-let createParameterlessType name : Type = {Name = name; Guid = System.Guid.NewGuid(); TypeParameters = []}
+
+type ExpressionRef =
+    Expression * int
+
+type Constraint =
+     ExpressionRef * Type 
+
+type ConstraintTable =
+    Expression * Constraint list
+// let getExpressions (program : Declaration list ) =
+//     let getExprs (statement : Statement) =
+//         function 
+//         | ExpressionStatement ()
+//         | IfStatement ()
+//         | ReturnStatement ()
+//     function
+//     | FunctionDeclaration (id, funParams, typ, statements) ->
+//         List.fold (fun stmts s -> stmts @ (getExprs s) ([]:Expression) statements 
+     
 
 
-createType "Dictionary" [(createParameterlessType "int" ); (createParameterlessType "string" )];;
+// getExpressions program;;
+

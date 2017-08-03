@@ -39,18 +39,12 @@ let builtInTypesParsersDict =
             ("void", stringReturn "void" Void);
          ]
 
-let identifier = 
+let pIdentifier = 
     identifier (IdentifierOptions()) .>> spaces
         >>= (fun (id:Identifier) -> 
             if not (Keyword.keywordParsers.ContainsKey(id))
             then preturn id
             else fail "Identifier cannot be a keyword")
-
-let pIdentifier =
-   (many1Satisfy isLower .>> nonAlphanumeric .>> spaces) // [a-z]+
-   >>= (fun s -> if not (Keyword.keywordParsers.ContainsKey(s)) 
-                   then (preturn s) 
-                   else fail "a keyword cannot be an identifier")
 
 
 let leftBrace = skipChar '{' .>> spaces
@@ -72,7 +66,7 @@ module Expression =
     let pArgumentList = (sepBy pExpression comma)
     let pFunctionCallExpression = 
         pipe2 
-            identifier 
+            pIdentifier 
             (leftParen >>. pArgumentList .>> rightParen)
             (fun funName args -> FunctionCallExpression(funName, args))
 
@@ -84,18 +78,14 @@ module Expression =
                 .>> spaces
             |>> StringLiteral
 
-        let pIntLiteral = attempt pint32 .>> spaces |>> IntLiteral
-        let pFloatLiteral = pfloat >>= 
-                            (fun x -> 
-                                if x % 1.0 = 0.0 
-                                then fail "Not a float" 
-                                else preturn (FloatLiteral x))
-        let pLiteralExpression = choice [pStringLiteral; attempt pFloatLiteral; pIntLiteral] |>> LiteralExpression
+        let pFloatLiteral = pfloat |>> FloatLiteral
+        let pIntLiteral = (pint32 .>> notFollowedBy (pstring ".")) .>> spaces |>> IntLiteral
+        let pLiteralExpression = choice [attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
 
     let pParenthesizedExpression = between leftParen rightParen pExpression
 
     let pIdentifierExpression = 
-        identifier 
+        pIdentifier 
         |>> fun id -> IdentifierExpression(
                         {
                             Identifier=id
@@ -119,10 +109,16 @@ module Expression =
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
     opp.AddOperator(PrefixOperator("+", spaces, 8, true, fun x -> UnaryExpression(Identity, x))) 
 
+    let pAssignmentExpression = pipe2
+                                 (pIdentifier .>> equals)  
+                                 pExpression 
+                                 (fun id expr -> ScalarAssignmentExpression({Identifier = id}, expr))
+
     opp.TermParser <- choice [
+        Literal.pLiteralExpression;
+        attempt pAssignmentExpression;
         attempt pFunctionCallExpression;
         pIdentifierExpression;
-        Literal.pLiteralExpression;
         pParenthesizedExpression
     ]
 
@@ -146,14 +142,14 @@ module Statement =
         |>> fun expr -> ReturnStatement(expr)
     let pLocalVariableDeclarationStatement = 
         pipe3 
-            (Keyword.pKeyword "var" >>. identifier)
+            (Keyword.pKeyword "var" >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (opt (equals >>. Expression.pExpression))
             (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
 
     let pLocalValueDeclarationStatement = 
         pipe3
-            (Keyword.pKeyword "val" >>. identifier)
+            (Keyword.pKeyword "val" >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (equals >>. Expression.pExpression)
             (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
@@ -171,9 +167,9 @@ module Statement =
 
 let pFunctionDeclaration = 
     let parameter =
-        let parenthesizedTypeParameter = leftParen >>. identifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
+        let parenthesizedTypeParameter = leftParen >>. pIdentifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
                                         |>> fun (id, typ) -> (id, typ)
-        let implicitTypeParameter = identifier |>> fun id -> (id, None)
+        let implicitTypeParameter = pIdentifier |>> fun id -> (id, None)
         parenthesizedTypeParameter <|> implicitTypeParameter
     let parametersList =
         many parameter
@@ -186,7 +182,7 @@ let pFunctionDeclaration =
             (many Statement.pStatement)
 
     pipe4 
-        (Keyword.pKeyword "fun" >>. identifier)
+        (Keyword.pKeyword "fun" >>. pIdentifier)
         parametersList 
         returnType
         body 
