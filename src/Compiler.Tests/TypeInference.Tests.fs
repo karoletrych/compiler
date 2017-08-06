@@ -6,19 +6,9 @@ open Compiler.Parser
 
 [<Tests>]
 let tests =
-  testList "Parser.Tests.FunctionCalls" [
+  testList "TypeInference.Tests" [
     testCase "type inference works" <| fun _ ->
-        let program1 = parse "
-                fun factorial n 
-                {
-                    if n==0
-                        return 1;
-                    else
-                        return n * factorial(n-1);
-                }"
-        Expect.equal program1 [] ""
-    testCase "type inference works" <| fun _ ->
-        let program2 = parse "
+        let program = parse "
                 fun addone x 
                 {
                     var result;
@@ -27,5 +17,26 @@ let tests =
                     result2 = x+1.0;     //won't work
                     return result;
                 }"
-        Expect.equal program2 [] ""
+        Expect.equal program [] ""
+    testCase "recursive type inference fails" <| fun _ ->
+        let program = parse "
+                fun factorial n 
+                {
+                    if n==0
+                        return 1;
+                    else
+                        return n * factorial(n-1);
+                }"
+        printfn "%A" program
+        Expect.equal program [] ""
+    testCase "basic types" <| fun _ ->
+        let program = parse "
+                fun main 
+                {
+                    val name = 'Karol';
+                    val age = 22;
+                    val weight = 65.1;
+                }"
+        printfn "%A" program
+        Expect.equal program [] ""
     ]

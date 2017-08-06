@@ -64,11 +64,11 @@ module Expression =
     let pExpression = opp.ExpressionParser
 
     let pArgumentList = (sepBy pExpression comma)
-    let pFunctionCallExpression = 
+    let pFunctionCallExpression : Parser<FunctionCallExpression, unit>= 
         pipe2 
             pIdentifier 
             (leftParen >>. pArgumentList .>> rightParen)
-            (fun funName args -> FunctionCallExpression(funName, args))
+            (fun funName args -> (funName, args))
 
     module Literal =
         let pStringLiteral = 
@@ -117,7 +117,7 @@ module Expression =
     opp.TermParser <- choice [
         Literal.pLiteralExpression;
         attempt pAssignmentExpression;
-        attempt pFunctionCallExpression;
+        attempt pFunctionCallExpression |>> FunctionCallExpression;
         pIdentifierExpression;
         pParenthesizedExpression
     ]
@@ -135,7 +135,7 @@ module Statement =
                         (opt pElseStatement)
                         (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-    let pExpressionStatement = Expression.pExpression |>> ExpressionStatement
+    let pExpressionStatement = Expression.pFunctionCallExpression |>> FunctionCallStatement
 
     let pReturnStatement =
         Keyword.pKeyword "return" >>. opt Expression.pExpression 
@@ -145,14 +145,14 @@ module Statement =
             (Keyword.pKeyword "var" >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (opt (equals >>. Expression.pExpression))
-            (fun varName typ expr -> ScalarVariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
+            (fun varName typ expr -> VariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
 
     let pLocalValueDeclarationStatement = 
         pipe3
             (Keyword.pKeyword "val" >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (equals >>. Expression.pExpression)
-            (fun valName typ expr -> ScalarValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
+            (fun valName typ expr -> ValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
 
     pStatementRef := 
         choice

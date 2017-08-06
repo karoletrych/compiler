@@ -2,20 +2,15 @@ module Compiler.Ast
 
 type Program = Declaration list
 
-and Declaration =
-  | StaticVariableDeclaration of VariableDeclaration
+and Declaration = 
   | FunctionDeclaration of FunctionDeclaration
   | TypeDeclaration of string * Declaration list
-
-and VariableDeclaration = 
-    | ScalarVariableDeclaration of Identifier * TypeSpec option  * Expression option
-    | ScalarValueDeclaration of Identifier * TypeSpec option * Expression
 
 and IsReadonly = bool
 
 and FunctionDeclaration = Identifier * Parameter list * TypeSpec option * CompoundStatement
 
-and TypeSpec =
+and TypeSpec = 
   | Bool
   | Char
   | Int
@@ -25,47 +20,48 @@ and TypeSpec =
   | Void
   | UserDefinedType
 
-and UserDefinedType =
-  | NonGenericUserDefinedType 
+and UserDefinedType = 
+  | NonGenericUserDefinedType
 
 and NonGenericUserDefinedType = string
 
 and Identifier = string
 
-and Parameter = Identifier * TypeSpec option 
+and Parameter = Identifier * TypeSpec option
 
-and IdentifierRef = { Identifier : string; }
+and IdentifierRef = 
+  { Identifier : string }
 
-and Statement =
-  | ExpressionStatement of ExpressionStatement
-  | CompoundStatement of CompoundStatement
-  | IfStatement of IfStatement
-  | WhileStatement of WhileStatement
+and Statement = 
+  | FunctionCallStatement of FunctionCallExpression
+  | CompoundStatement of Statement list
+  | IfStatement of Expression * Statement * Statement option
+  | WhileStatement of Expression * Statement
   | ReturnStatement of Expression option
   | BreakStatement
   | VariableDeclarationStatement of VariableDeclaration
 
-and ExpressionStatement = Expression
+and VariableDeclaration = 
+  | VariableDeclaration of Identifier * TypeSpec option * Expression option
+  | ValueDeclaration of Identifier * TypeSpec option * Expression
 
-and CompoundStatement =  Statement list
+and CompoundStatement = Statement list
 
-and IfStatement = Expression * Statement * Statement option
-
-and WhileStatement = Expression * Statement
-
-and Expression =
+and Expression = 
   | ScalarAssignmentExpression of IdentifierRef * Expression
   | ArrayAssignmentExpression of IdentifierRef * Expression * Expression
   | BinaryExpression of Expression * BinaryOperator * Expression
   | UnaryExpression of UnaryOperator * Expression
   | IdentifierExpression of IdentifierRef
   | ArrayIdentifierExpression of IdentifierRef * Expression
-  | FunctionCallExpression of Identifier * Arguments
+  | FunctionCallExpression of FunctionCallExpression
   | ArraySizeExpression of IdentifierRef
   | LiteralExpression of Literal
   | ArrayAllocationExpression of TypeSpec * Expression
 
-and BinaryOperator =
+and FunctionCallExpression = Identifier * Arguments
+
+and BinaryOperator = 
   | ConditionalOr
   | Equal
   | NotEqual
@@ -82,12 +78,12 @@ and BinaryOperator =
 
 and Arguments = Expression list
 
-and UnaryOperator =
+and UnaryOperator = 
   | LogicalNegate
   | Negate
   | Identity
 
-and Literal =
+and Literal = 
   | BoolLiteral of bool
   | IntLiteral of int
   | FloatLiteral of float

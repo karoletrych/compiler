@@ -16,8 +16,8 @@ let tests =
           FunctionDeclaration("main", [], None,
             (
               [
-                  ExpressionStatement(
-                      FunctionCallExpression(
+                  FunctionCallStatement(
+                      (
                         ("print"),
                         [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"
     testCase "hello world with spaces" <| fun _ ->
@@ -36,8 +36,8 @@ let tests =
           FunctionDeclaration("main", [], None,
             (
               [
-                  ExpressionStatement(
-                      FunctionCallExpression(
+                  FunctionCallStatement(
+                      (
                         ("print"),
                         [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"                    
     testCase "function calls" <| fun _ ->
@@ -61,8 +61,8 @@ let tests =
           ("print", ["arg1",None], None, []);
        FunctionDeclaration
          ("main", [], None,
-          [ExpressionStatement
-             (FunctionCallExpression
+          [FunctionCallStatement
+             (
                 ("print",[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
     testCase "function calls with explicit types" <| fun _ ->
       let source = "
@@ -97,16 +97,16 @@ let tests =
                    ("pr",[IdentifierExpression {Identifier = "arg1";}])))]);
            FunctionDeclaration
                    ("print", [("arg1", None)], None,
-                    [ExpressionStatement
-                       (FunctionCallExpression
+                    [FunctionCallStatement
+                       (
                           ("internalPrint",
                            [IdentifierExpression {Identifier = "arg1";};
                             FunctionCallExpression
                               ("count",[IdentifierExpression {Identifier = "arg1";}])]))]);
            FunctionDeclaration
                    ("main", [], None,
-                    [ExpressionStatement
-                       (FunctionCallExpression
+                    [FunctionCallStatement
+                       (
                           ("print",[LiteralExpression (StringLiteral "hello world!")]))])] )
                           "print function call"               
   ]
