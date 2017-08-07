@@ -34,12 +34,12 @@ and IdentifierRef =
 
 and Statement = 
   | FunctionCallStatement of FunctionCallExpression
-  | CompoundStatement of Statement list
+  | CompoundStatement of CompoundStatement
   | IfStatement of Expression * Statement * Statement option
   | WhileStatement of Expression * Statement
   | ReturnStatement of Expression option
-  | BreakStatement
   | VariableDeclarationStatement of VariableDeclaration
+  | BreakStatement
 
 and VariableDeclaration = 
   | VariableDeclaration of Identifier * TypeSpec option * Expression option
@@ -49,13 +49,11 @@ and CompoundStatement = Statement list
 
 and Expression = 
   | ScalarAssignmentExpression of IdentifierRef * Expression
-  | ArrayAssignmentExpression of IdentifierRef * Expression * Expression
   | BinaryExpression of Expression * BinaryOperator * Expression
   | UnaryExpression of UnaryOperator * Expression
   | IdentifierExpression of IdentifierRef
   | ArrayIdentifierExpression of IdentifierRef * Expression
   | FunctionCallExpression of FunctionCallExpression
-  | ArraySizeExpression of IdentifierRef
   | LiteralExpression of Literal
   | ArrayAllocationExpression of TypeSpec * Expression
 
