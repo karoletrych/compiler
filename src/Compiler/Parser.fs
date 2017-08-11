@@ -170,10 +170,8 @@ module Statement =
 let pFunctionDeclaration = 
     let parameter =
         //TODO: add immutable parameters parsing
-        let parenthesizedTypeParameter = leftParen >>. pIdentifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
+        leftParen >>. pIdentifier  .>>. (colon >>. pTypeSpec) .>> rightParen 
                                         |>> fun (id, typ) -> (id, typ)
-        let implicitTypeParameter = pIdentifier |>> fun id -> (id, None)
-        parenthesizedTypeParameter <|> implicitTypeParameter
     let parametersList =
         many parameter
 

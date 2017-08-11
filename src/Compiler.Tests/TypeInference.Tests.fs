@@ -9,7 +9,7 @@ let tests =
   testList "TypeInference.Tests" [
     testCase "type inference works" <| fun _ ->
         let program = parse "
-                fun addone x 
+                fun addone (x : int)
                 {
                     var result;
                     var result2;
@@ -20,7 +20,7 @@ let tests =
         Expect.equal program [] ""
     testCase "recursive type inference fails" <| fun _ ->
         let program = parse "
-                fun factorial n 
+                fun factorial (n : int)
                 {
                     if n==0
                         return 1;

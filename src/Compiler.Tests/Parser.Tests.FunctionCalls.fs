@@ -42,7 +42,7 @@ let tests =
                         [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"                    
     testCase "function calls" <| fun _ ->
       let source = "
-        fun print arg1
+        fun print (arg1 : string)
         {
 
         }
@@ -58,7 +58,7 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [FunctionDeclaration
-          ("print", ["arg1",None], None, []);
+          ("print", ["arg1", String], None, []);
        FunctionDeclaration
          ("main", [], None,
           [FunctionCallStatement
@@ -71,7 +71,7 @@ let tests =
           return pr(arg1);
         }
 
-        fun print arg1
+        fun print (arg1 : string)
 
         {
           internalPrint (arg1, count(arg1));
@@ -89,14 +89,14 @@ let tests =
         [
           FunctionDeclaration
          ("internalPrint",
-          [("arg1", Some String);
-           ("arg2", Some Int)], Some Void,
+          [("arg1", String);
+           ("arg2", Int)], Some Void,
           [ReturnStatement
              (Some
                 (FunctionCallExpression
                    ("pr",[IdentifierExpression "arg1"])))]);
            FunctionDeclaration
-                   ("print", [("arg1", None)], None,
+                   ("print", [("arg1", String)], None,
                     [FunctionCallStatement
                        (
                           ("internalPrint",

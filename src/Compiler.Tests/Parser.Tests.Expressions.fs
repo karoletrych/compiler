@@ -9,7 +9,7 @@ let tests =
   testList "Parser.Tests.FunctionCalls" [
     testCase "factorial function is parsed" <| fun _ ->
       let source = "
-        fun factorial n 
+        fun factorial (n :int)
         {
             if n==0
                 return 1;
@@ -19,7 +19,7 @@ let tests =
         "
       Expect.equal (parse source) 
           [FunctionDeclaration
-               ("factorial", [("n", None)], None,
+               ("factorial", [("n", Int)], None,
                 [IfStatement
                    (BinaryExpression
                       (IdentifierExpression("n"),Equal,

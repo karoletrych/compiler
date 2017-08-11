@@ -27,7 +27,7 @@ and NonGenericUserDefinedType = string
 
 and Identifier = string
 
-and Parameter = Identifier * TypeSpec option
+and Parameter = Identifier * TypeSpec
 
 and Statement = 
   | FunctionCallStatement of FunctionCall

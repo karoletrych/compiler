@@ -16,22 +16,22 @@ module Compiler.TypeInference
 
 // let rec inferExpressionType 
 //     (expression : Ast.Expression) 
-//     (declaredVariables : Map<Ast.IdentifierRef, Types.Type>) : Types.Type option =
-
+//     (declaredVariables : Map<Ast.Identifier, Types.Type>) : Types.Type option =
 //     let lookupType = lookupPreviouslyDeclaredType declaredVariables
+
 //     match expression with
 //         | Ast.IdentifierExpression(ie) -> lookupType ie 
 //         | Ast.FunctionCallExpression(fc) -> lookupDeclaredFunctions fc
 //         | Ast.LiteralExpression(le) -> Some (Types.typeOfLiteral le)
 //         | Ast.BinaryExpression(e1, op, e2) -> inferBinaryExpressionType (inferExpressionType e1) op (inferExpressionType e2)
 //         | Ast.UnaryExpression(op, e) -> inferUnaryExpressionType op (inferExpressionType e)
-//         | Ast.ScalarAssignmentExpression(id, e) -> inferExpressionType e declaredVariables
+//         | Ast.AssignmentExpression(id, e) -> inferExpressionType e declaredVariables
 
 // let processStatement 
 //     (statement : Ast.Statement)
-//     (declaredVariables : Map<Ast.IdentifierRef, Types.Type>) : TypeInferenceAst.Statement = 
+//     (declaredVariables : Map<Ast.Identifier, Types.Type>) : TypeInferenceAst.Statement = 
 //     match statement with
-//     | Ast.VariableDeclarationStatement(vd) -> TypeInferenceAst.VariableDeclaration(id, typ, TypeInferenceAst.expr expr typ)
+//     | Ast.VariableDeclaration(id, typ, expr) -> TypeInferenceAst.VariableDeclaration(id, typ, (Some (TypeInferenceAst.expr expr typ)))
 //     | Ast.ValueDeclaration(id, typ, expr) -> TypeInferenceAst.ValueDeclaration(id, typ, TypeInferenceAst.exprWithType expr typ)
 //         var |> VariableDeclarationStatement
         
