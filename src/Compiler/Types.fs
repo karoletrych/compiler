@@ -1,0 +1,45 @@
+module Compiler.Types 
+
+open Compiler.Ast
+
+type Parameter = 
+    { Type : Type }
+
+and Method = 
+    { Parameters : Parameter list
+      Statements : Ast.Statement list }
+
+and Type = 
+    { Name : string
+      Guid : System.Guid
+      TypeParameters : Type list
+      ImplementedInterfaces : Type list
+      BaseClass : Type option
+      Methods : Method list
+      Fields : Field list }
+
+and Field = Type * string
+
+let createBasicType name : Type = 
+    { Name = name
+      Guid = System.Guid.NewGuid()
+      TypeParameters = []
+      ImplementedInterfaces = []
+      BaseClass = None
+      Methods = []
+      Fields = [] }
+
+let createGenericType name typeParams : Type = 
+    { Name = name
+      Guid = System.Guid.NewGuid()
+      TypeParameters = typeParams
+      ImplementedInterfaces = []
+      BaseClass = None
+      Methods = []
+      Fields = [] }
+let typeOfLiteral = 
+    function 
+    | Ast.IntLiteral(_) -> createBasicType "int"
+    | Ast.FloatLiteral(_) -> createBasicType "float"
+    | Ast.StringLiteral(_) -> createBasicType "string"
+    | Ast.BoolLiteral(_) -> createBasicType "bool"

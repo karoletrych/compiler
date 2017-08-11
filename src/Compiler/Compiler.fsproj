@@ -39,6 +39,8 @@
   <ItemGroup>
     <Compile Include="Ast.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="TypeInferenceAst.fs" />
     <Compile Include="TypeInference.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />

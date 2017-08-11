@@ -23,8 +23,8 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement
-                               (ValueDeclaration("x", Some Int, LiteralExpression(IntLiteral(4)))) ]) ] ""
+                         [ VariableDeclaration
+                               ("x", Some Int, (Some (LiteralExpression(IntLiteral(4))) )) ]) ] ""
           testCase "implicit type value declaration" <| fun _ -> 
               let source = " fun main
                         {
@@ -41,8 +41,7 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement
-                               (ValueDeclaration("x", None, LiteralExpression(IntLiteral(4)))) ]) ] ""
+                         [( (ValueDeclaration("x", None, LiteralExpression(IntLiteral(4))) )) ]) ] ""
           
           testCase "explicit type variable declaration" 
           <| fun _ -> 
@@ -53,7 +52,7 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement(VariableDeclaration("x", Some Int, None)) ]) ] ""
+                         [ (VariableDeclaration("x", Some Int, None)) ]) ] ""
           
           testCase "explicit type variable declaration with assignment" 
           <| fun _ -> 
@@ -64,7 +63,7 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement
+                         [ 
                                (VariableDeclaration("x", Some Int, (Some(LiteralExpression(IntLiteral(4)))))) ]) ] 
                   ""
           
@@ -76,7 +75,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        ("main", [], None, [ VariableDeclarationStatement(VariableDeclaration("x", None, None)) ]) ] 
+                        ("main", [], None, [ (VariableDeclaration("x", None, None)) ]) ] 
                   ""
           
           testCase "implicit type variable declaration with assignment" 
@@ -88,7 +87,7 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement
+                         [ 
                                (VariableDeclaration("x", None, Some(LiteralExpression(IntLiteral(4))))) ]) ] ""
           
           testCase "multiple variable declarations" 
@@ -105,23 +104,23 @@ let tests =
               Expect.equal (parse source) 
                   [ FunctionDeclaration
                         ("main", [], None, 
-                         [ VariableDeclarationStatement
+                         [ 
                                (VariableDeclaration("y", Some Int, Some(LiteralExpression(IntLiteral 4))))
                            
-                           VariableDeclarationStatement
+                           
                                (VariableDeclaration("a", None, Some(LiteralExpression(IntLiteral 4))))
                            
-                           VariableDeclarationStatement
+                           
                                (ValueDeclaration
                                     ("s1", None, LiteralExpression(StringLiteral "im a string variable")))
                            
-                           VariableDeclarationStatement
+                           
                                (VariableDeclaration
                                     ("s2", Some String, Some(LiteralExpression(StringLiteral "another string"))))
                            
-                           VariableDeclarationStatement
+                           
                                (ValueDeclaration("f1", Some Float, LiteralExpression(FloatLiteral 3.14)))
                            
-                           VariableDeclarationStatement
+                           
                                (VariableDeclaration
                                     ("f2", Some Double, Some(LiteralExpression(FloatLiteral 3.141231)))) ]) ] "" ]

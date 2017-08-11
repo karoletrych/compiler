@@ -94,15 +94,15 @@ let tests =
           [ReturnStatement
              (Some
                 (FunctionCallExpression
-                   ("pr",[IdentifierExpression {Identifier = "arg1";}])))]);
+                   ("pr",[IdentifierExpression "arg1"])))]);
            FunctionDeclaration
                    ("print", [("arg1", None)], None,
                     [FunctionCallStatement
                        (
                           ("internalPrint",
-                           [IdentifierExpression {Identifier = "arg1";};
+                           [IdentifierExpression "arg1";
                             FunctionCallExpression
-                              ("count",[IdentifierExpression {Identifier = "arg1";}])]))]);
+                              ("count",[IdentifierExpression "arg1"])]))]);
            FunctionDeclaration
                    ("main", [], None,
                     [FunctionCallStatement

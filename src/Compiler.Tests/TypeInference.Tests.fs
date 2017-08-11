@@ -35,7 +35,7 @@ let tests =
                 {
                     val name = 'Karol';
                     val age = 22;
-                    val weight = 65.1;
+                    val height = 170.3;
                 }"
         printfn "%A" program
         Expect.equal program [] ""

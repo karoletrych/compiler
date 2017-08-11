@@ -14,19 +14,23 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
-let nonAlphanumeric = nextCharSatisfiesNot (isAsciiLetter)
 
 module Keyword =
-    let keywordParsers =
-        dict [ 
-            ("fun", pstring "fun");
-            ("return", pstring "return")
-            ("var", pstring "var")
-            ("val", pstring "val")
-            ("if", pstring "if")
-            ("else", pstring "else")
-            ]
-    let pKeyword keywordName = keywordParsers.[keywordName] .>> nonAlphanumeric .>> spaces
+    let nonAlphanumericWs = nextCharSatisfiesNot (isAsciiLetter) >>. spaces
+    let pFun = skipString "fun" .>> nonAlphanumericWs
+    let pReturn = skipString "return" .>> nonAlphanumericWs
+    let pVar = skipString "var" .>> nonAlphanumericWs
+    let pVal = skipString "val" .>> nonAlphanumericWs
+    let pIf = skipString "if" .>> nonAlphanumericWs
+    let pElse = skipString "else" .>> nonAlphanumericWs
+    let keywordParsers = [ 
+        "fun";
+        "return";
+        "var";
+        "val";
+        "if";
+        "else";
+    ]
 
 let builtInTypesParsersDict =
     dict [ 
@@ -42,7 +46,7 @@ let builtInTypesParsersDict =
 let pIdentifier = 
     identifier (IdentifierOptions()) .>> spaces
         >>= (fun (id:Identifier) -> 
-            if not (Keyword.keywordParsers.ContainsKey(id))
+            if not (Keyword.keywordParsers |> List.contains id)
             then preturn id
             else fail "Identifier cannot be a keyword")
 
@@ -58,17 +62,16 @@ let equals = skipChar '=' .>> spaces
 
 
 
+
 module Expression = 
 
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
     let pExpression = opp.ExpressionParser
 
     let pArgumentList = (sepBy pExpression comma)
-    let pFunctionCallExpression : Parser<FunctionCallExpression, unit>= 
-        pipe2 
-            pIdentifier 
-            (leftParen >>. pArgumentList .>> rightParen)
-            (fun funName args -> (funName, args))
+    let pFunctionCallExpression = 
+        pIdentifier 
+        .>>. (leftParen >>. pArgumentList .>> rightParen)
 
     module Literal =
         let pStringLiteral = 
@@ -86,10 +89,7 @@ module Expression =
 
     let pIdentifierExpression = 
         pIdentifier 
-        |>> fun id -> IdentifierExpression(
-                        {
-                            Identifier=id
-                        })
+        |>> fun id -> IdentifierExpression(id)
 
     opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y)))
     opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y)))
@@ -109,10 +109,10 @@ module Expression =
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
     opp.AddOperator(PrefixOperator("+", spaces, 8, true, fun x -> UnaryExpression(Identity, x))) 
 
-    let pAssignmentExpression = pipe2
-                                 (pIdentifier .>> equals)  
-                                 pExpression 
-                                 (fun id expr -> ScalarAssignmentExpression({Identifier = id}, expr))
+    let pAssignment = (pIdentifier .>> equals) .>>. pExpression 
+    let pAssignmentExpression = 
+        pAssignment 
+        |>> (fun (id, expr) -> AssignmentExpression(id, expr))
 
     opp.TermParser <- choice [
         Literal.pLiteralExpression;
@@ -128,31 +128,32 @@ let pTypeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
 module Statement =
     let pStatement, pStatementRef = createParserForwardedToRef()
 
-    let pElseStatement = Keyword.pKeyword "else" >>. pStatement
+    let pElseStatement = Keyword.pElse >>. pStatement
     let pIfStatement = pipe3 
-                        (Keyword.pKeyword "if" >>. Expression.pExpression) 
+                        (Keyword.pIf >>. Expression.pExpression) 
                         (pStatement) 
                         (opt pElseStatement)
                         (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-    let pExpressionStatement = Expression.pFunctionCallExpression |>> FunctionCallStatement
+    let pFunctionCallStatement = Expression.pFunctionCallExpression |>> FunctionCallStatement
+    let pAssignmentStatement = Expression.pAssignment |>> AssignmentStatement
 
     let pReturnStatement =
-        Keyword.pKeyword "return" >>. opt Expression.pExpression 
+        Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
     let pLocalVariableDeclarationStatement = 
         pipe3 
-            (Keyword.pKeyword "var" >>. pIdentifier)
+            (Keyword.pVar >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (opt (equals >>. Expression.pExpression))
-            (fun varName typ expr -> VariableDeclaration(varName, typ, expr) |> VariableDeclarationStatement)
+            (fun varName typ expr -> VariableDeclaration(varName, typ, expr))
 
     let pLocalValueDeclarationStatement = 
         pipe3
-            (Keyword.pKeyword "val" >>. pIdentifier)
+            (Keyword.pVal >>. pIdentifier)
             (opt (colon >>. pTypeSpec))
             (equals >>. Expression.pExpression)
-            (fun valName typ expr -> ValueDeclaration(valName, typ, expr) |> VariableDeclarationStatement)
+            (fun valName typ expr -> ValueDeclaration(valName, typ, expr))
 
     pStatementRef := 
         choice
@@ -161,12 +162,14 @@ module Statement =
                 pLocalValueDeclarationStatement .>> semicolon;
                 pLocalVariableDeclarationStatement .>> semicolon
                 pReturnStatement .>> semicolon;
-                pExpressionStatement .>> semicolon;
+                attempt pFunctionCallStatement .>> semicolon;
+                pAssignmentStatement .>> semicolon;
             ]
     
 
 let pFunctionDeclaration = 
     let parameter =
+        //TODO: add immutable parameters parsing
         let parenthesizedTypeParameter = leftParen >>. pIdentifier  .>>. opt (colon >>. pTypeSpec) .>> rightParen 
                                         |>> fun (id, typ) -> (id, typ)
         let implicitTypeParameter = pIdentifier |>> fun id -> (id, None)
@@ -182,7 +185,7 @@ let pFunctionDeclaration =
             (many Statement.pStatement)
 
     pipe4 
-        (Keyword.pKeyword "fun" >>. pIdentifier)
+        (Keyword.pFun >>. pIdentifier)
         parametersList 
         returnType
         body 
@@ -192,7 +195,7 @@ let pDeclaration = choice[pFunctionDeclaration]
 let pProgram = spaces >>. many pDeclaration
 
 let parseProgram program =
-    //TODO consider using runParserOnString or sth else
+    //TODO: consider using runParserOnString or sth else
     run pProgram program
 
 let parse (sourceCode : string) : Program = 

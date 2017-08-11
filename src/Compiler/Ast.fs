@@ -29,35 +29,33 @@ and Identifier = string
 
 and Parameter = Identifier * TypeSpec option
 
-and IdentifierRef = 
-  { Identifier : string }
-
 and Statement = 
-  | FunctionCallStatement of FunctionCallExpression
+  | FunctionCallStatement of FunctionCall
+  | AssignmentStatement of Assignment
   | CompoundStatement of CompoundStatement
   | IfStatement of Expression * Statement * Statement option
   | WhileStatement of Expression * Statement
   | ReturnStatement of Expression option
-  | VariableDeclarationStatement of VariableDeclaration
-  | BreakStatement
-
-and VariableDeclaration = 
   | VariableDeclaration of Identifier * TypeSpec option * Expression option
   | ValueDeclaration of Identifier * TypeSpec option * Expression
+  | BreakStatement
+
 
 and CompoundStatement = Statement list
 
 and Expression = 
-  | ScalarAssignmentExpression of IdentifierRef * Expression
+  | AssignmentExpression of Assignment
   | BinaryExpression of Expression * BinaryOperator * Expression
   | UnaryExpression of UnaryOperator * Expression
-  | IdentifierExpression of IdentifierRef
-  | ArrayIdentifierExpression of IdentifierRef * Expression
-  | FunctionCallExpression of FunctionCallExpression
+  | IdentifierExpression of Identifier
+  | FunctionCallExpression of FunctionCall
   | LiteralExpression of Literal
-  | ArrayAllocationExpression of TypeSpec * Expression
 
-and FunctionCallExpression = Identifier * Arguments
+and Assignment = Identifier * Expression
+
+and FunctionCall = Identifier * Arguments
+
+and Arguments = Expression list
 
 and BinaryOperator = 
   | ConditionalOr
@@ -74,7 +72,6 @@ and BinaryOperator =
   | Divide
   | Modulus
 
-and Arguments = Expression list
 
 and UnaryOperator = 
   | LogicalNegate

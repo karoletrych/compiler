@@ -22,17 +22,37 @@ let tests =
                ("factorial", [("n", None)], None,
                 [IfStatement
                    (BinaryExpression
-                      (IdentifierExpression {Identifier = "n";},Equal,
+                      (IdentifierExpression("n"),Equal,
                        LiteralExpression (IntLiteral 0)),
                     ReturnStatement (Some (LiteralExpression (IntLiteral 1))),
                     Some
                       (ReturnStatement
                          (Some
                             (BinaryExpression
-                               (IdentifierExpression {Identifier = "n";},Multiply,
+                               (IdentifierExpression "n",Multiply,
                                 FunctionCallExpression
                                   ("factorial",
                                    [BinaryExpression
-                                      (IdentifierExpression {Identifier = "n";},Subtract,
+                                      (IdentifierExpression "n", Subtract,
                                        LiteralExpression (IntLiteral 1))]))))))])] ""
+    testCase "multiple assignments and function calls in single statement work" <| fun _ ->
+      let source = "
+        fun main
+        {
+          a = n = x = foo(123, 5);
+        }
+        "
+      Expect.equal (parse source) [FunctionDeclaration
+       ("main", [], None,
+        [AssignmentStatement
+           ("a",
+            AssignmentExpression
+              ("n",
+               AssignmentExpression
+                 ("x",
+                  FunctionCallExpression
+                    ("foo",
+                     [LiteralExpression (IntLiteral 123);
+                      LiteralExpression (IntLiteral 5)]))))])]  ""
   ]
+  
