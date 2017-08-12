@@ -51,27 +51,25 @@ let pIdentifier =
             else fail "Identifier cannot be a keyword")
 
 
-let leftBrace = skipChar '{' .>> spaces
-let rightBrace = skipChar '}' .>> spaces
-let semicolon = skipChar ';' .>> spaces
-let colon = skipChar ':' .>> spaces
-let leftParen = skipChar '(' .>> spaces
-let rightParen = skipChar ')' .>> spaces
-let comma = skipChar ',' .>> spaces
-let equals = skipChar '=' .>> spaces
-
-
-
+module Char =
+    let leftBrace = skipChar '{' .>> spaces
+    let rightBrace = skipChar '}' .>> spaces
+    let semicolon = skipChar ';' .>> spaces
+    let colon = skipChar ':' .>> spaces
+    let leftParen = skipChar '(' .>> spaces
+    let rightParen = skipChar ')' .>> spaces
+    let comma = skipChar ',' .>> spaces
+    let equals = skipChar '=' .>> spaces
 
 module Expression = 
 
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
     let pExpression = opp.ExpressionParser
 
-    let pArgumentList = (sepBy pExpression comma)
+    let pArgumentList = (sepBy pExpression Char.comma)
     let pFunctionCallExpression = 
         pIdentifier 
-        .>>. (leftParen >>. pArgumentList .>> rightParen)
+        .>>. (Char.leftParen >>. pArgumentList .>> Char.rightParen)
 
     module Literal =
         let pStringLiteral = 
@@ -85,7 +83,7 @@ module Expression =
         let pIntLiteral = (pint32 .>> notFollowedBy (pstring ".")) .>> spaces |>> IntLiteral
         let pLiteralExpression = choice [attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
 
-    let pParenthesizedExpression = between leftParen rightParen pExpression
+    let pParenthesizedExpression = between Char.leftParen Char.rightParen pExpression
 
     let pIdentifierExpression = 
         pIdentifier 
@@ -109,7 +107,7 @@ module Expression =
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
     opp.AddOperator(PrefixOperator("+", spaces, 8, true, fun x -> UnaryExpression(Identity, x))) 
 
-    let pAssignment = (pIdentifier .>> equals) .>>. pExpression 
+    let pAssignment = (pIdentifier .>> Char.equals) .>>. pExpression 
     let pAssignmentExpression = 
         pAssignment 
         |>> (fun (id, expr) -> AssignmentExpression(id, expr))
@@ -142,44 +140,53 @@ module Statement =
         Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
     let pLocalVariableDeclarationStatement = 
-        pipe3 
-            (Keyword.pVar >>. pIdentifier)
-            (opt (colon >>. pTypeSpec))
-            (opt (equals >>. Expression.pExpression))
-            (fun varName typ expr -> VariableDeclaration(varName, typ, expr))
-
+        let variableDeclaration =
+            pipe3 
+                (Keyword.pVar >>. pIdentifier)
+                (opt (Char.colon >>. pTypeSpec))
+                (opt (Char.equals >>. Expression.pExpression))
+                (fun x y z -> x,y,z)
+        (
+            variableDeclaration >>=
+                (fun (varName, t, expr)
+                    -> match (varName, t, expr) with
+                       | (name, Some t, Some expr) -> preturn (FullDeclaration(varName, t, expr))
+                       | (name, Some t, None) -> preturn (DeclarationWithType(varName, t))
+                       | (name, None, Some expr) -> preturn (DeclarationWithInitialization(varName, expr))
+                       | (name, None, None) -> fail "Implicitly typed variable must be initialized")
+        )  |>> VariableDeclaration
     let pLocalValueDeclarationStatement = 
         pipe3
             (Keyword.pVal >>. pIdentifier)
-            (opt (colon >>. pTypeSpec))
-            (equals >>. Expression.pExpression)
+            (opt (Char.colon >>. pTypeSpec))
+            (Char.equals >>. Expression.pExpression)
             (fun valName typ expr -> ValueDeclaration(valName, typ, expr))
 
     pStatementRef := 
         choice
             [
                 pIfStatement;
-                pLocalValueDeclarationStatement .>> semicolon;
-                pLocalVariableDeclarationStatement .>> semicolon
-                pReturnStatement .>> semicolon;
-                attempt pFunctionCallStatement .>> semicolon;
-                pAssignmentStatement .>> semicolon;
+                pLocalValueDeclarationStatement .>> Char.semicolon;
+                pLocalVariableDeclarationStatement .>> Char.semicolon
+                pReturnStatement .>> Char.semicolon;
+                attempt pFunctionCallStatement .>> Char.semicolon;
+                pAssignmentStatement .>> Char.semicolon;
             ]
     
 
 let pFunctionDeclaration = 
     let parameter =
         //TODO: add immutable parameters parsing
-        leftParen >>. pIdentifier  .>>. (colon >>. pTypeSpec) .>> rightParen 
+        Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. pTypeSpec) .>> Char.rightParen 
                                         |>> fun (id, typ) -> (id, typ)
     let parametersList =
         many parameter
 
-    let returnType = opt (colon >>. pTypeSpec)
+    let returnType = opt (Char.colon >>. pTypeSpec)
     let (body : Parser<Statement list, unit>)    
         = between 
-            leftBrace
-            rightBrace
+            Char.leftBrace
+            Char.rightBrace
             (many Statement.pStatement)
 
     pipe4 

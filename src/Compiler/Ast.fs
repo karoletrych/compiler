@@ -36,10 +36,14 @@ and Statement =
   | IfStatement of Expression * Statement * Statement option
   | WhileStatement of Expression * Statement
   | ReturnStatement of Expression option
-  | VariableDeclaration of Identifier * TypeSpec option * Expression option
+  | VariableDeclaration of VariableDeclaration
   | ValueDeclaration of Identifier * TypeSpec option * Expression
   | BreakStatement
 
+and VariableDeclaration =
+  | DeclarationWithInitialization of Identifier * Expression
+  | DeclarationWithType of Identifier * TypeSpec
+  | FullDeclaration of Identifier * TypeSpec * Expression
 
 and CompoundStatement = Statement list
 
