@@ -5,7 +5,7 @@ open Compiler.Ast
 type Parameter = 
     { Type : Type }
 
-and Method = 
+and Function = 
     { Parameters : Parameter list
       Statements : Ast.Statement list }
 
@@ -15,7 +15,7 @@ and Type =
       TypeParameters : Type list
       ImplementedInterfaces : Type list
       BaseClass : Type option
-      Methods : Method list
+      Methods : Function list
       Fields : Field list }
 
 and Field = Type * string

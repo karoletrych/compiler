@@ -7,16 +7,15 @@ type Expression = {
     Type : Types.Type option;
 }
 
-let expr e typ = {Expression = e; Type = typ}
 
 type FunctionDeclaration = {
+    Parameters : Types.Type list;
     CompoundStatement : CompoundStatement;
     InferredReturnType : Types.Type;
-    InferredParameters : Types.Type list;
 }
 
 and Statement = 
-  | FunctionCallStatement of FunctionCallExpression
+  | FunctionCallStatement of FunctionCall
   | CompoundStatement of CompoundStatement
   | IfStatement of Expression * Statement * Statement option
   | WhileStatement of Expression * Statement
@@ -28,4 +27,4 @@ and Statement =
 
 and CompoundStatement = Statement list
 
-and FunctionCallExpression = Ast.Identifier * Ast.Arguments
+and FunctionCall = Ast.Identifier * Ast.Arguments
