@@ -105,7 +105,6 @@ module Expression =
 
     opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x))) 
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
-    opp.AddOperator(PrefixOperator("+", spaces, 8, true, fun x -> UnaryExpression(Identity, x))) 
 
     let pAssignment = (pIdentifier .>> Char.equals) .>>. pExpression 
     let pAssignmentExpression = 
