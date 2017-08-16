@@ -4,11 +4,28 @@ type Program = Declaration list
 
 and Declaration = 
   | FunctionDeclaration of FunctionDeclaration
-  | TypeDeclaration of string * Declaration list
+  | ClassDeclaration of ClassDeclaration
 
-and IsReadonly = bool
+and ClassDeclaration = {
+  Type : NonGenericTypeSpec;
+  GenericTypeParameters : GenericTypeParameter list;
+  BaseTypes : TypeSpec list;
+  ValueDeclarations : ValueDeclaration list;
+  FieldsDeclarations : VariableDeclaration list;
+  Constructor : Constructor option;
+  FunctionDeclarations : FunctionDeclaration list;
+}
+
+and Constructor = {
+    Parameters : Parameter list;
+    BaseClassConstructorCall : Arguments;
+    Statements : Statement list;
+}
+
+and GenericTypeParameter = T of string
 
 and FunctionDeclaration = Identifier * Parameter list * TypeSpec option * CompoundStatement
+
 
 and TypeSpec = 
   | Bool
@@ -18,12 +35,13 @@ and TypeSpec =
   | Double
   | String
   | Void
-  | UserDefinedType
+  | CustomType of CustomTypeSpec
 
-and UserDefinedType = 
-  | NonGenericUserDefinedType
+and CustomTypeSpec = 
+| NonGenericCustomTypeSpec of NonGenericTypeSpec
+| GenericCustomTypeSpec of NonGenericTypeSpec * TypeSpec list
 
-and NonGenericUserDefinedType = string
+and NonGenericTypeSpec = NonGenericTypeSpec of string
 
 and Identifier = string
 
@@ -37,9 +55,11 @@ and Statement =
   | WhileStatement of Expression * Statement
   | ReturnStatement of Expression option
   | VariableDeclaration of VariableDeclaration
-  | ValueDeclaration of Identifier * TypeSpec option * Expression
+  | ValueDeclaration of ValueDeclaration
   | BreakStatement
 
+and ValueDeclaration =
+  Identifier * TypeSpec option * Expression
 and VariableDeclaration =
   | DeclarationWithInitialization of Identifier * Expression
   | DeclarationWithType of Identifier * TypeSpec
@@ -76,11 +96,9 @@ and BinaryOperator =
   | Divide
   | Modulus
 
-
 and UnaryOperator = 
   | LogicalNegate
   | Negate
-  | Identity
 
 and Literal = 
   | BoolLiteral of bool

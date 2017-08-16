@@ -14,6 +14,17 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
+module Char =
+    let leftBrace = skipChar '{' .>> spaces
+    let rightBrace = skipChar '}' .>> spaces
+    let semicolon = skipChar ';' .>> spaces
+    let colon = skipChar ':' .>> spaces
+    let leftParen = skipChar '(' .>> spaces
+    let rightParen = skipChar ')' .>> spaces
+    let leftAngleBracket = skipChar '<' .>> spaces
+    let rightAngleBracket = skipChar '>' .>> spaces
+    let comma = skipChar ',' .>> spaces
+    let equals = skipChar '=' .>> spaces
 
 module Keyword =
     let nonAlphanumericWs = nextCharSatisfiesNot (isAsciiLetter) >>. spaces
@@ -23,50 +34,55 @@ module Keyword =
     let pVal = skipString "val" .>> nonAlphanumericWs
     let pIf = skipString "if" .>> nonAlphanumericWs
     let pElse = skipString "else" .>> nonAlphanumericWs
-    let keywordParsers = [ 
+    let pClass = skipString "class" .>> nonAlphanumericWs
+    let pConstructor = skipString "construct" .>> nonAlphanumericWs
+    let keywords = [ 
         "fun";
         "return";
         "var";
         "val";
         "if";
         "else";
+        "class";
+        "construct";
     ]
 
-let builtInTypesParsersDict =
-    dict [ 
-            ("bool", stringReturn "bool" Bool);
-            ("char", stringReturn "char" Char);
-            ("int", stringReturn "int" Int);
-            ("float", stringReturn "float" Float);
-            ("double", stringReturn "double" Double);
-            ("string", stringReturn "string" String);
-            ("void", stringReturn "void" Void);
-         ]
+let pIdentifier, pIdentifierRef = createParserForwardedToRef<Identifier, _>() 
 
-let pIdentifier = 
-    identifier (IdentifierOptions()) .>> spaces
-        >>= (fun (id:Identifier) -> 
-            if not (Keyword.keywordParsers |> List.contains id)
-            then preturn id
-            else fail "Identifier cannot be a keyword")
+module Types =
+    let pTypeSpec, pTypeSpecRef = createParserForwardedToRef()
+    let pNonGenericTypeSpec = pIdentifier |>> NonGenericTypeSpec
+    let pGenericType =
+         pNonGenericTypeSpec 
+             .>>. between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
+             |>> (GenericCustomTypeSpec >> CustomType)
+    let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec >> CustomType)
+    let pCustomType = attempt pGenericType <|> pNonGenericType
+    let builtInTypesParsersDict =
+        dict [ 
+                ("bool", stringReturn "bool" Bool);
+                ("char", stringReturn "char" Char);
+                ("int", stringReturn "int" Int);
+                ("float", stringReturn "float" Float);
+                ("double", stringReturn "double" Double);
+                ("string", stringReturn "string" String);
+                ("void", stringReturn "void" Void);
+        ]
+
+    pTypeSpecRef := choice(pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
 
 
-module Char =
-    let leftBrace = skipChar '{' .>> spaces
-    let rightBrace = skipChar '}' .>> spaces
-    let semicolon = skipChar ';' .>> spaces
-    let colon = skipChar ':' .>> spaces
-    let leftParen = skipChar '(' .>> spaces
-    let rightParen = skipChar ')' .>> spaces
-    let comma = skipChar ',' .>> spaces
-    let equals = skipChar '=' .>> spaces
+pIdentifierRef := identifier (IdentifierOptions()) .>> spaces
+    >>= (fun (id:Identifier) -> 
+        if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
+        then preturn id
+        else fail "Identifier cannot be a keyword")
 
 module Expression = 
 
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
     let pExpression = opp.ExpressionParser
-
-    let pArgumentList = (sepBy pExpression Char.comma)
+    let pArgumentList = sepBy pExpression Char.comma 
     let pFunctionCallExpression = 
         pIdentifier 
         .>>. (Char.leftParen >>. pArgumentList .>> Char.rightParen)
@@ -114,13 +130,12 @@ module Expression =
     opp.TermParser <- choice [
         Literal.pLiteralExpression;
         attempt pAssignmentExpression;
-        attempt pFunctionCallExpression |>> FunctionCallExpression;
+        attempt pFunctionCallExpression |>> (FunctionCallExpression);
         pIdentifierExpression;
         pParenthesizedExpression
     ]
 
 
-let pTypeSpec = choice(builtInTypesParsersDict.Values) .>> spaces
 
 module Statement =
     let pStatement, pStatementRef = createParserForwardedToRef()
@@ -142,7 +157,7 @@ module Statement =
         let variableDeclaration =
             pipe3 
                 (Keyword.pVar >>. pIdentifier)
-                (opt (Char.colon >>. pTypeSpec))
+                (opt (Char.colon >>. Types.pTypeSpec))
                 (opt (Char.equals >>. Expression.pExpression))
                 (fun x y z -> x,y,z)
         (
@@ -157,9 +172,9 @@ module Statement =
     let pLocalValueDeclarationStatement = 
         pipe3
             (Keyword.pVal >>. pIdentifier)
-            (opt (Char.colon >>. pTypeSpec))
+            (opt (Char.colon >>. Types.pTypeSpec))
             (Char.equals >>. Expression.pExpression)
-            (fun valName typ expr -> ValueDeclaration(valName, typ, expr))
+            (fun valName t expr -> ValueDeclaration(valName, t, expr))
 
     pStatementRef := 
         choice
@@ -172,30 +187,82 @@ module Statement =
                 pAssignmentStatement .>> Char.semicolon;
             ]
     
-
-let pFunctionDeclaration = 
+module Function = 
     let parameter =
-        //TODO: add immutable parameters parsing
-        Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. pTypeSpec) .>> Char.rightParen 
-                                        |>> fun (id, typ) -> (id, typ)
+            //TODO: add immutable parameters parsing
+        between 
+            Char.leftParen 
+            Char.rightParen 
+            pIdentifier .>>. (Char.colon >>. Types.pTypeSpec)
     let parametersList =
         many parameter
 
-    let returnType = opt (Char.colon >>. pTypeSpec)
-    let (body : Parser<Statement list, unit>)    
-        = between 
-            Char.leftBrace
-            Char.rightBrace
-            (many Statement.pStatement)
+    let pFunctionDeclaration = 
+        let returnType = opt (Char.colon >>. Types.pTypeSpec)
+        let body =
+            between 
+                Char.leftBrace
+                Char.rightBrace
+                (many Statement.pStatement)
 
-    pipe4 
-        (Keyword.pFun >>. pIdentifier)
-        parametersList 
-        returnType
-        body 
-        (fun id pars ret body
-            -> FunctionDeclaration(id, pars, ret, body))
-let pDeclaration = choice[pFunctionDeclaration]
+        pipe4 
+            (Keyword.pFun >>. pIdentifier)
+            parametersList 
+            returnType
+            body 
+            (fun id pars ret body
+                -> FunctionDeclaration(id, pars, ret, body))
+module Class =
+    let pClassName = Types.pNonGenericTypeSpec
+    let pGenericParameters = 
+        let pGenericParameter = pIdentifier 
+        between Char.leftAngleBracket Char.rightAngleBracket 
+            (sepBy pGenericParameter Char.comma)
+    let pInheritanceDeclaration = 
+        opt (Char.colon >>. sepBy1 Types.pTypeSpec Char.comma) 
+            >>= function
+                | Some (typeSpecs) -> preturn typeSpecs
+                | None -> preturn []
+    
+    let pClassBody = 
+        let pConstructor =
+            let pBaseCall =
+                opt (Char.colon >>. (between Char.leftParen Char.rightParen 
+                        (sepBy1 Expression.pExpression Char.comma))) 
+                    >>= function
+                        | Some (args) -> preturn args
+                        | None -> preturn []
+            pipe3 
+                (Keyword.pConstructor >>. Function.parametersList)
+                pBaseCall
+                (many Statement.pStatement)
+                (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
+        pipe4
+            (many Statement.pLocalValueDeclarationStatement)
+            (many Statement.pLocalVariableDeclarationStatement)
+            (opt pConstructor)
+            (many Function.pFunctionDeclaration)
+            (fun a b c d -> a,b,c,d)
+
+    let pClass : Parser<ClassDeclaration, unit> =
+        pipe4
+            pClassName
+            (between Char.leftBrace Char.rightBrace pClassBody)
+            (opt pGenericParameters)
+            (opt pInheritanceDeclaration)
+            (fun name body genericParameters inheritanceDeclaration ->
+             let value, variables, constructor, functions = body
+             {
+                                Type = name;
+                                GenericTypeParameters = genericParameters;
+                                BaseTypes = inheritanceDeclaration;
+                                FieldsDeclarations = variables;
+                                ValueDeclarations = values;
+                                Constructor = constructor;
+                                FunctionDeclarations = functions;
+            })
+
+let pDeclaration = choice[Function.pFunctionDeclaration; Class.pClass |>> ClassDeclaration]
 let pProgram = spaces >>. many pDeclaration
 
 let parseProgram program =
@@ -207,5 +274,5 @@ let parse (sourceCode : string) : Program =
     |> removeComments
     |> parseProgram 
     |> function
-        | Success(result, _, _)   -> result
+        | Success(result, _, _) -> result
         | Failure(message, error, state) -> failwith ((message, error, state).ToString())

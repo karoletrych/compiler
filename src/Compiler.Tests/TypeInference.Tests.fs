@@ -1,4 +1,4 @@
-module TypeInference.Tests
+module Compiler.TypeInference.Tests
 
 open Expecto
 open Compiler.Ast

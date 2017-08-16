@@ -1,4 +1,4 @@
-module Parser.Tests.VariableDeclarations
+module Compiler.Parser.Tests.VariableDeclarations
 
 open Compiler.Ast
 open Compiler.Parser

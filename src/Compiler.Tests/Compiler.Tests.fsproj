@@ -49,6 +49,7 @@
     <Compile Include="Parser.Tests.FunctionCalls.fs" />
     <Compile Include="Parser.Tests.VariableDeclarations.fs" />
     <Compile Include="Parser.Tests.Expressions.fs" />
+    <Compile Include="Parser.Tests.Classes.fs" />
     <Compile Include="TypeInference.Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
