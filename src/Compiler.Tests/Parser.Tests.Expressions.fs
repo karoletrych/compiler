@@ -19,21 +19,21 @@ let tests =
         "
       Expect.equal (parse source) 
           [FunctionDeclaration
-               ("factorial", [("n", Int)], None,
+               (Identifier("factorial"), [(Identifier("n"), Int)], None,
                 [IfStatement
                    (BinaryExpression
-                      (IdentifierExpression("n"),Equal,
+                      (IdentifierExpression(Identifier("n")),Equal,
                        LiteralExpression (IntLiteral 0)),
                     ReturnStatement (Some (LiteralExpression (IntLiteral 1))),
                     Some
                       (ReturnStatement
                          (Some
                             (BinaryExpression
-                               (IdentifierExpression "n",Multiply,
+                               (IdentifierExpression (Identifier("n")),Multiply,
                                 FunctionCallExpression
-                                  ("factorial",
+                                  (Identifier("factorial"),
                                    [BinaryExpression
-                                      (IdentifierExpression "n", Subtract,
+                                      (IdentifierExpression (Identifier("n")), Subtract,
                                        LiteralExpression (IntLiteral 1))]))))))])] ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
@@ -43,15 +43,15 @@ let tests =
         }
         "
       Expect.equal (parse source) [FunctionDeclaration
-       ("main", [], None,
+       (Identifier("main"), [], None,
         [AssignmentStatement
-           ("a",
+           (Identifier("a"),
             AssignmentExpression
-              ("n",
+              (Identifier("n"),
                AssignmentExpression
-                 ("x",
+                 (Identifier("x"),
                   FunctionCallExpression
-                    ("foo",
+                    (Identifier("foo"),
                      [LiteralExpression (IntLiteral 123);
                       LiteralExpression (IntLiteral 5)]))))])]  ""
   ]

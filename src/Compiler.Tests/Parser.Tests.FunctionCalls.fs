@@ -13,12 +13,12 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [
-          FunctionDeclaration("main", [], None,
+          FunctionDeclaration(Identifier("main"), [], None,
             (
               [
                   FunctionCallStatement(
                       (
-                        ("print"),
+                        (Identifier("print")),
                         [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"
     testCase "hello world with spaces" <| fun _ ->
       let source = "
@@ -33,12 +33,12 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [
-          FunctionDeclaration("main", [], None,
+          FunctionDeclaration(Identifier("main"), [], None,
             (
               [
                   FunctionCallStatement(
                       (
-                        ("print"),
+                        (Identifier("print")),
                         [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"                    
     testCase "function calls" <| fun _ ->
       let source = "
@@ -58,12 +58,12 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [FunctionDeclaration
-          ("print", ["arg1", String], None, []);
+          (Identifier("print"), [Identifier("arg1"), String], None, []);
        FunctionDeclaration
-         ("main", [], None,
+         (Identifier("main"), [], None,
           [FunctionCallStatement
              (
-                ("print",[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
+                (Identifier("print"),[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
     testCase "function calls with explicit types" <| fun _ ->
       let source = "
         fun internalPrint (arg1 : string) (arg2: int) : void
@@ -88,26 +88,26 @@ let tests =
       Expect.equal (Compiler.Parser.parse source) (
         [
           FunctionDeclaration
-         ("internalPrint",
-          [("arg1", String);
-           ("arg2", Int)], Some Void,
+         (Identifier("internalPrint"),
+          [(Identifier("arg1"), String);
+           (Identifier("arg2"), Int)], Some Void,
           [ReturnStatement
              (Some
                 (FunctionCallExpression
-                   ("pr",[IdentifierExpression "arg1"])))]);
+                   (Identifier("pr"),[IdentifierExpression (Identifier("arg1"))])))]);
            FunctionDeclaration
-                   ("print", [("arg1", String)], None,
+                   (Identifier("print"), [(Identifier("arg1"), String)], None,
                     [FunctionCallStatement
                        (
-                          ("internalPrint",
-                           [IdentifierExpression "arg1";
+                          (Identifier("internalPrint"),
+                           [IdentifierExpression (Identifier("arg1"));
                             FunctionCallExpression
-                              ("count",[IdentifierExpression "arg1"])]))]);
+                              (Identifier("count"),[IdentifierExpression (Identifier("arg1"))])]))]);
            FunctionDeclaration
-                   ("main", [], None,
+                   (Identifier("main"), [], None,
                     [FunctionCallStatement
                        (
-                          ("print",[LiteralExpression (StringLiteral "hello world!")]))])] )
+                          (Identifier("print"),[LiteralExpression (StringLiteral "hello world!")]))])] )
                           "print function call"               
   ]
         

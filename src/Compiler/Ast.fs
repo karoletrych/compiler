@@ -22,10 +22,9 @@ and Constructor = {
     Statements : Statement list;
 }
 
-and GenericTypeParameter = T of string
+and GenericTypeParameter = GenericTypeParameter of Identifier
 
 and FunctionDeclaration = Identifier * Parameter list * TypeSpec option * CompoundStatement
-
 
 and TypeSpec = 
   | Bool
@@ -41,9 +40,9 @@ and CustomTypeSpec =
 | NonGenericCustomTypeSpec of NonGenericTypeSpec
 | GenericCustomTypeSpec of NonGenericTypeSpec * TypeSpec list
 
-and NonGenericTypeSpec = NonGenericTypeSpec of string
+and NonGenericTypeSpec = NonGenericTypeSpec of Identifier
 
-and Identifier = string
+and Identifier = Identifier of string
 
 and Parameter = Identifier * TypeSpec
 

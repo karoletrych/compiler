@@ -73,10 +73,11 @@ module Types =
 
 
 pIdentifierRef := identifier (IdentifierOptions()) .>> spaces
-    >>= (fun (id:Identifier) -> 
+    >>= (fun id -> 
         if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
-        then preturn id
+        then preturn id 
         else fail "Identifier cannot be a keyword")
+        |>> Identifier
 
 module Expression = 
 
@@ -159,7 +160,7 @@ module Statement =
                 (Keyword.pVar >>. pIdentifier)
                 (opt (Char.colon >>. Types.pTypeSpec))
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun x y z -> x,y,z)
+                (fun x y z -> x,y,z) // TODO: add utility functions for tupling arguments
         (
             variableDeclaration >>=
                 (fun (varName, t, expr)
@@ -168,20 +169,20 @@ module Statement =
                        | (name, Some t, None) -> preturn (DeclarationWithType(varName, t))
                        | (name, None, Some expr) -> preturn (DeclarationWithInitialization(varName, expr))
                        | (name, None, None) -> fail "Implicitly typed variable must be initialized")
-        )  |>> VariableDeclaration
+        )  
     let pLocalValueDeclarationStatement = 
         pipe3
             (Keyword.pVal >>. pIdentifier)
             (opt (Char.colon >>. Types.pTypeSpec))
             (Char.equals >>. Expression.pExpression)
-            (fun valName t expr -> ValueDeclaration(valName, t, expr))
+            (fun a b c -> a,b,c)
 
     pStatementRef := 
         choice
             [
                 pIfStatement;
-                pLocalValueDeclarationStatement .>> Char.semicolon;
-                pLocalVariableDeclarationStatement .>> Char.semicolon
+                (pLocalValueDeclarationStatement .>> Char.semicolon) |>> ValueDeclaration;
+                (pLocalVariableDeclarationStatement .>> Char.semicolon) |>> VariableDeclaration
                 pReturnStatement .>> Char.semicolon;
                 attempt pFunctionCallStatement .>> Char.semicolon;
                 pAssignmentStatement .>> Char.semicolon;
@@ -210,28 +211,29 @@ module Function =
             parametersList 
             returnType
             body 
-            (fun id pars ret body
-                -> FunctionDeclaration(id, pars, ret, body))
+            (fun id pars ret body -> id,pars,ret,body)
+
+let emptyListIfNone args = 
+                    match args with
+                    | Some (args) -> preturn args
+                    | None -> preturn [] 
+
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pGenericParameters = 
-        let pGenericParameter = pIdentifier 
+        let pGenericParameter = pIdentifier |>> GenericTypeParameter
         between Char.leftAngleBracket Char.rightAngleBracket 
             (sepBy pGenericParameter Char.comma)
     let pInheritanceDeclaration = 
         opt (Char.colon >>. sepBy1 Types.pTypeSpec Char.comma) 
-            >>= function
-                | Some (typeSpecs) -> preturn typeSpecs
-                | None -> preturn []
+            >>= emptyListIfNone
     
     let pClassBody = 
         let pConstructor =
             let pBaseCall =
                 opt (Char.colon >>. (between Char.leftParen Char.rightParen 
                         (sepBy1 Expression.pExpression Char.comma))) 
-                    >>= function
-                        | Some (args) -> preturn args
-                        | None -> preturn []
+                    >>= emptyListIfNone
             pipe3 
                 (Keyword.pConstructor >>. Function.parametersList)
                 pBaseCall
@@ -248,11 +250,11 @@ module Class =
         pipe4
             pClassName
             (between Char.leftBrace Char.rightBrace pClassBody)
-            (opt pGenericParameters)
-            (opt pInheritanceDeclaration)
+            (opt pGenericParameters >>= emptyListIfNone)
+            (opt pInheritanceDeclaration >>= emptyListIfNone)
             (fun name body genericParameters inheritanceDeclaration ->
-             let value, variables, constructor, functions = body
-             {
+            let values, variables, constructor, functions = body
+            {
                                 Type = name;
                                 GenericTypeParameters = genericParameters;
                                 BaseTypes = inheritanceDeclaration;
@@ -262,7 +264,7 @@ module Class =
                                 FunctionDeclarations = functions;
             })
 
-let pDeclaration = choice[Function.pFunctionDeclaration; Class.pClass |>> ClassDeclaration]
+let pDeclaration = choice[Function.pFunctionDeclaration |>> FunctionDeclaration; Class.pClass |>> ClassDeclaration]
 let pProgram = spaces >>. many pDeclaration
 
 let parseProgram program =
