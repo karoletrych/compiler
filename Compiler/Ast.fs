@@ -73,6 +73,7 @@ and Expression =
   | IdentifierExpression of Identifier
   | FunctionCallExpression of FunctionCall
   | LiteralExpression of Literal
+  | NewExpression of CustomTypeSpec * Arguments
 
 and Assignment = Identifier * Expression
 

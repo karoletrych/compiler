@@ -39,7 +39,7 @@
         "keywords": {
             "patterns": [
                 {
-                    "match": "\\b(if|else|for|return|while|break|continue)\\b",
+                    "match": "\\b(if|else|for|return|while|break|continue|new)\\b",
                     "name": "keyword.control.ksharp"
                 }
             ]

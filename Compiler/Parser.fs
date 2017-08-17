@@ -36,6 +36,7 @@ module Keyword =
     let pElse = skipString "else" .>> nonAlphanumericWs
     let pClass = skipString "class" .>> nonAlphanumericWs
     let pConstructor = skipString "construct" .>> nonAlphanumericWs
+    let pNew = skipString "new" .>> nonAlphanumericWs
     let keywords = [ 
         "fun";
         "return";
@@ -45,6 +46,7 @@ module Keyword =
         "else";
         "class";
         "construct";
+        "new";
     ]
 
 let pIdentifier, pIdentifierRef = createParserForwardedToRef<Identifier, _>() 
@@ -55,32 +57,31 @@ module Types =
     let pGenericType =
          pNonGenericTypeSpec 
              .>>. between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
-             |>> (GenericCustomTypeSpec >> CustomType)
-    let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec >> CustomType)
-    let pCustomType = attempt pGenericType <|> pNonGenericType
+             |>> (GenericCustomTypeSpec)
+    let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec)
+    // TODO: fix naming
+    let pCustomTypeSpec = (attempt pGenericType) <|> (pNonGenericType)
+    let pCustomType = (attempt pGenericType |>> CustomType) <|> (pNonGenericType |>> CustomType)
     let builtInTypesParsersDict =
         dict [ 
-                ("bool", stringReturn "bool" Bool);
-                ("char", stringReturn "char" Char);
-                ("int", stringReturn "int" Int);
-                ("float", stringReturn "float" Float);
-                ("double", stringReturn "double" Double);
-                ("string", stringReturn "string" String);
-                ("void", stringReturn "void" Void);
+            ("bool", stringReturn "bool" Bool);
+            ("char", stringReturn "char" Char);
+            ("int", stringReturn "int" Int);
+            ("float", stringReturn "float" Float);
+            ("double", stringReturn "double" Double);
+            ("string", stringReturn "string" String);
+            ("void", stringReturn "void" Void);
         ]
-
-    pTypeSpecRef := choice(pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
-
+    pTypeSpecRef := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
 
 pIdentifierRef := identifier (IdentifierOptions()) .>> spaces
     >>= (fun id -> 
         if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
         then preturn id 
-        else fail "Identifier cannot be a keyword")
+        else fail ("Identifier cannot be a keyword: " + id))
         |>> Identifier
 
 module Expression = 
-
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma 
@@ -127,13 +128,15 @@ module Expression =
     let pAssignmentExpression = 
         pAssignment 
         |>> (fun (id, expr) -> AssignmentExpression(id, expr))
+    let pNewExpression = Keyword.pNew >>. Types.pCustomTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
     opp.TermParser <- choice [
+        pNewExpression;
         Literal.pLiteralExpression;
         attempt pAssignmentExpression;
         attempt pFunctionCallExpression |>> (FunctionCallExpression);
         pIdentifierExpression;
-        pParenthesizedExpression
+        pParenthesizedExpression;
     ]
 
 
@@ -190,11 +193,8 @@ module Statement =
     
 module Function = 
     let parameter =
-            //TODO: add immutable parameters parsing
-        between 
-            Char.leftParen 
-            Char.rightParen 
-            pIdentifier .>>. (Char.colon >>. Types.pTypeSpec)
+        //TODO: add immutable parameters parsing
+        Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. Types.pTypeSpec) .>> Char.rightParen 
     let parametersList =
         many parameter
 
@@ -248,7 +248,7 @@ module Class =
 
     let pClass : Parser<ClassDeclaration, unit> =
         pipe4
-            pClassName
+            (Keyword.pClass >>. pClassName)
             (between Char.leftBrace Char.rightBrace pClassBody)
             (opt pGenericParameters >>= emptyListIfNone)
             (opt pInheritanceDeclaration >>= emptyListIfNone)
@@ -264,7 +264,11 @@ module Class =
                                 FunctionDeclarations = functions;
             })
 
-let pDeclaration = choice[Function.pFunctionDeclaration |>> FunctionDeclaration; Class.pClass |>> ClassDeclaration]
+let pDeclaration = 
+    choice[
+        (Function.pFunctionDeclaration) |>> FunctionDeclaration;
+        Class.pClass |>> ClassDeclaration
+        ]
 let pProgram = spaces >>. many pDeclaration
 
 let parseProgram program =

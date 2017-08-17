@@ -14,23 +14,44 @@ let tests =
         }
         "
       Expect.equal (parse source) 
-          [] ""
+          [ClassDeclaration {Type = NonGenericTypeSpec (Identifier "A");
+                   GenericTypeParameters = [];
+                   BaseTypes = [];
+                   ValueDeclarations = [];
+                   FieldsDeclarations = [];
+                   Constructor = None;
+                   FunctionDeclarations = [];}] ""
     testCase "class with fields" <| fun _ ->
       let source = "
         class A
         {
-            val a : A = new A();
-            var i : int = 3;
-            var f : float = 3;
+            val a : A = new A()
+            var i : int = 3
+            var f : float = 3
         }
         "
       Expect.equal (parse source) 
-        [] ""
+        [ClassDeclaration
+           {Type = NonGenericTypeSpec (Identifier "A");
+            GenericTypeParameters = [];
+            BaseTypes = [];
+            ValueDeclarations =
+             [(Identifier "a",
+               Some
+                 (CustomType
+                    (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
+               NewExpression
+                 (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]))];
+            FieldsDeclarations =
+             [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
+              FullDeclaration (Identifier "f",Float,LiteralExpression (IntLiteral 3))];
+            Constructor = None;
+            FunctionDeclarations = [];}] ""
     testCase "class with functions" <| fun _ ->
       let source = "
         class A
         {
-            var i : int;
+            var i : int
 
             fun increment
             {
