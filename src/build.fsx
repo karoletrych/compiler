@@ -33,10 +33,18 @@ Target "Deploy" (fun _ ->
     |> Zip buildDir (deployDir + "ApplicationName." + version + ".zip")
 )
 
+Target "Test" (fun _ ->
+    ["build/Compiler.Tests.exe", ""]
+    |> ProcessTestRunner.RunConsoleTests id
+)
+
 // Build order
 "Clean"
   ==> "Build"
   ==> "Deploy"
+
+"Build"
+    ==> "Test"
 
 // start build
 RunTargetOrDefault "Build"
