@@ -77,6 +77,56 @@ let tests =
         }
         "
       Expect.equal (parse source) 
-          [] ""
+          [ClassDeclaration
+       {Type = NonGenericTypeSpec (Identifier "A");
+        GenericTypeParameters = [];
+        BaseTypes = [];
+        ValueDeclarations = [];
+        FieldsDeclarations = [DeclarationWithType (Identifier "i",Int)];
+        Constructor = None;
+        FunctionDeclarations =
+         [(Identifier "increment", [], None,
+           [AssignmentStatement
+              (IdentifierExpression (Identifier "i"),
+               BinaryExpression
+                 (IdentifierExpression (Identifier "i"),Add,
+                  LiteralExpression (IntLiteral 1)))]);
+          (Identifier "getI", [], None,
+           [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
+     ClassDeclaration
+       {Type = NonGenericTypeSpec (Identifier "B");
+        GenericTypeParameters = [];
+        BaseTypes = [];
+        ValueDeclarations = [];
+        FieldsDeclarations = [];
+        Constructor = None;
+        FunctionDeclarations =
+         [(Identifier "useClassA", [], None,
+           [ValueDeclaration
+              (Identifier "a", None,
+               NewExpression
+                 (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]));
+            MemberFunctionCallStatement
+              (MemberFunctionCall
+                 (IdentifierExpression (Identifier "a"),
+                  FunctionCallExpression (Identifier "increment", [])));
+            MemberFunctionCallStatement
+              (MemberFunctionCall
+                 (IdentifierExpression (Identifier "a"),
+                  FunctionCallExpression (Identifier "increment", [])));
+            MemberFunctionCallStatement
+              (MemberFunctionCall
+                 (IdentifierExpression (Identifier "a"),
+                  FunctionCallExpression (Identifier "increment", [])));
+            IfStatement
+              (BinaryExpression
+                 (MemberExpression
+                    (MemberFunctionCall
+                       (IdentifierExpression (Identifier "a"),
+                        FunctionCallExpression (Identifier "getI", []))),Equal,
+                  LiteralExpression (IntLiteral 3)),
+               ReturnStatement (Some (IdentifierExpression (Identifier "true"))),
+               None);
+            ReturnStatement (Some (IdentifierExpression (Identifier "false")))])];}] ""
    ]
   

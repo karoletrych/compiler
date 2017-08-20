@@ -1,8 +1,20 @@
+#if !(INTERACTIVE)
 module Compiler.Parser
+#endif
+
+#if INTERACTIVE
+#r @"../packages/FParsec/lib/net40-client/FParsecCS.dll"
+#r @"../packages/FParsec/lib/net40-client/FParsec.dll"
+#load @"Ast.fs"
+#endif
+
 open System
 open System.Text.RegularExpressions
 open Compiler.Ast
 open FParsec
+
+
+//TODO: unify places of constructing union cases (in parser declaration vs in usage)
 
 let removeComments input =  
     let blockComments = @"/\*(.*?)\*/";
@@ -49,10 +61,10 @@ module Keyword =
         "new";
     ]
 
-let pIdentifier, pIdentifierRef = createParserForwardedToRef<Identifier, _>() 
+let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>() 
 
 module Types =
-    let pTypeSpec, pTypeSpecRef = createParserForwardedToRef()
+    let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
     let pNonGenericTypeSpec = pIdentifier |>> NonGenericTypeSpec
     let pGenericType =
          pNonGenericTypeSpec 
@@ -72,23 +84,25 @@ module Types =
             ("string", stringReturn "string" String);
             ("void", stringReturn "void" Void);
         ]
-    pTypeSpecRef := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
+    pTypeSpecImpl := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
 
-pIdentifierRef := identifier (IdentifierOptions()) .>> spaces
-    >>= (fun id -> 
-        if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
-        then preturn id 
-        else fail ("Identifier cannot be a keyword: " + id))
-        |>> Identifier
+pIdentifierImpl := identifier (IdentifierOptions()) .>> spaces
+>>= (fun id -> 
+    if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
+    then preturn id 
+    else fail ("Identifier cannot be a keyword: " + id))
+    |>> Identifier
 
 module Expression = 
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
     let pExpression = opp.ExpressionParser
-    let pArgumentList = sepBy pExpression Char.comma 
-    let pFunctionCallExpression = 
+    let pArgumentList = sepBy pExpression Char.comma
+    let pFunctionCall = 
         pIdentifier 
-        .>>. (Char.leftParen >>. pArgumentList .>> Char.rightParen)
+        .>>. between Char.leftParen Char.rightParen pArgumentList
 
+    let pFunctionCallExpression = 
+        pFunctionCall |>> FunctionCallExpression
     module Literal =
         let pStringLiteral = 
             (between (pstring "'") 
@@ -105,7 +119,9 @@ module Expression =
 
     let pIdentifierExpression = 
         pIdentifier 
-        |>> fun id -> IdentifierExpression(id)
+            |>> fun id -> IdentifierExpression(id)
+
+    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> AssignmentExpression(x, y))) 
 
     opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y)))
     opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y)))
@@ -124,22 +140,19 @@ module Expression =
     opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x))) 
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
 
-    let pAssignment = (pIdentifier .>> Char.equals) .>>. pExpression 
-    let pAssignmentExpression = 
-        pAssignment 
-        |>> (fun (id, expr) -> AssignmentExpression(id, expr))
+    opp.AddOperator(InfixOperator(".", lookAhead (spaces .>> pFunctionCall), 9, Associativity.Left, fun x y ->
+     MemberExpression (MemberFunctionCall(x,y) )
+     ))
+
     let pNewExpression = Keyword.pNew >>. Types.pCustomTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
     opp.TermParser <- choice [
         pNewExpression;
         Literal.pLiteralExpression;
-        attempt pAssignmentExpression;
-        attempt pFunctionCallExpression |>> (FunctionCallExpression);
+        attempt pFunctionCallExpression;
         pIdentifierExpression;
-        pParenthesizedExpression;
-    ]
-
-
+        pParenthesizedExpression
+    ] 
 
 module Statement =
     let pStatement, pStatementRef = createParserForwardedToRef()
@@ -151,9 +164,7 @@ module Statement =
                         (opt pElseStatement)
                         (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-    let pFunctionCallStatement = Expression.pFunctionCallExpression |>> FunctionCallStatement
-    let pAssignmentStatement = Expression.pAssignment |>> AssignmentStatement
-
+    let pFunctionCallStatement = Expression.pFunctionCall |>> FunctionCallStatement
     let pReturnStatement =
         Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
@@ -180,6 +191,15 @@ module Statement =
             (Char.equals >>. Expression.pExpression)
             (fun a b c -> a,b,c)
 
+    let expressionStatement =
+     Expression.pExpression
+     >>= (fun expr ->
+                 match expr with
+                 |MemberExpression(me) -> preturn (MemberFunctionCallStatement me)
+                 |AssignmentExpression(e1,e2) -> preturn (AssignmentStatement (e1, e2))
+                 |FunctionCallExpression(fc) -> preturn (FunctionCallStatement (fc))
+                 | _ -> fail "given expression cannot be a statement" )
+
     pStatementRef := 
         choice
             [
@@ -187,9 +207,9 @@ module Statement =
                 (pLocalValueDeclarationStatement .>> Char.semicolon) |>> ValueDeclaration;
                 (pLocalVariableDeclarationStatement .>> Char.semicolon) |>> VariableDeclaration
                 pReturnStatement .>> Char.semicolon;
+                attempt expressionStatement .>> Char.semicolon;
                 attempt pFunctionCallStatement .>> Char.semicolon;
-                pAssignmentStatement .>> Char.semicolon;
-            ]
+                ]
     
 module Function = 
     let parameter =
@@ -282,3 +302,13 @@ let parse (sourceCode : string) : Program =
     |> function
         | Success(result, _, _) -> result
         | Failure(message, error, state) -> failwith ((message, error, state).ToString())
+
+parse "
+fun main (i : int)
+{
+    // val x = b().as() = c().d();
+    // hello().dupa();
+    a();
+}
+    ";;
+

@@ -45,11 +45,11 @@ let tests =
       Expect.equal (parse source) [FunctionDeclaration
        (Identifier("main"), [], None,
         [AssignmentStatement
-           (Identifier("a"),
+           (IdentifierExpression( Identifier("a")),
             AssignmentExpression
-              (Identifier("n"),
+              (IdentifierExpression(Identifier("n")),
                AssignmentExpression
-                 (Identifier("x"),
+                 (IdentifierExpression(Identifier("x")),
                   FunctionCallExpression
                     (Identifier("foo"),
                      [LiteralExpression (IntLiteral 123);

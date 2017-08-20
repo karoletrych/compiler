@@ -56,6 +56,7 @@ and Statement =
   | VariableDeclaration of VariableDeclaration
   | ValueDeclaration of ValueDeclaration
   | BreakStatement
+  | MemberFunctionCallStatement of MemberFunctionCall
 
 and ValueDeclaration =
   Identifier * TypeSpec option * Expression
@@ -74,8 +75,12 @@ and Expression =
   | FunctionCallExpression of FunctionCall
   | LiteralExpression of Literal
   | NewExpression of CustomTypeSpec * Arguments
+  | MemberExpression of MemberFunctionCall
 
-and Assignment = Identifier * Expression
+and MemberFunctionCall = MemberFunctionCall of Expression * Expression
+
+
+and Assignment = Expression * Expression
 
 and FunctionCall = Identifier * Arguments
 
