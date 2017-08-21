@@ -40,8 +40,7 @@ let tests =
                Some
                  (CustomType
                     (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
-               NewExpression
-                 (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]))];
+               (Some (NewExpression (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]))))];
             FieldsDeclarations =
              [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
               FullDeclaration (Identifier "f",Float,LiteralExpression (IntLiteral 3))];
@@ -127,5 +126,123 @@ let tests =
                     LiteralExpression (IntLiteral 3)),
                  ReturnStatement (Some (LiteralExpression (BoolLiteral true))),None);
               ReturnStatement (Some (LiteralExpression (BoolLiteral false)))])];}]""
-   ]
-  
+    
+    testCase "generic class" <| fun _ ->
+      let source = "class A<T>{}"
+      Expect.equal (parse source) 
+          [ClassDeclaration
+         {Type = NonGenericTypeSpec (Identifier "A");
+          GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
+          BaseTypes = [];
+          ValueDeclarations = [];
+          FieldsDeclarations = [];
+          Constructor = None;
+          FunctionDeclarations = [];}] "" 
+    testCase "generic class with 2 type parameters" <| fun _ ->
+      let source = "class A<T, V>{}"
+      Expect.equal (parse source) 
+          [ClassDeclaration
+         {Type = NonGenericTypeSpec (Identifier "A");
+          GenericTypeParameters = [GenericTypeParameter (Identifier "T"); GenericTypeParameter (Identifier "V")];
+          BaseTypes = [];
+          ValueDeclarations = [];
+          FieldsDeclarations = [];
+          Constructor = None;
+          FunctionDeclarations = [];}] ""          
+    testCase "generic class with inheritance and base constructor call" <| fun _ ->
+      let source = "class B<T, V>
+    {
+        val _tValue : T
+        val _vValue : V
+
+        construct (tValue : T) (vValue : V)
+        {
+            _tValue = tValue;
+            _vValue = vValue;
+        }
+    }
+    class A<T> : B<T, int>
+    {
+        val _tValue : T
+        val _number : int
+
+        construct (tValue : T) (number : int) : (tValue, number)
+        {
+            _tValue = tValue;
+            _number = number;
+        }
+    }"
+      Expect.equal (parse source) 
+           [ClassDeclaration
+         {Type = NonGenericTypeSpec (Identifier "B");
+          GenericTypeParameters =
+           [GenericTypeParameter (Identifier "T");
+            GenericTypeParameter (Identifier "V")];
+          BaseTypes = [];
+          ValueDeclarations =
+           [(Identifier "_tValue",
+             Some
+               (CustomType
+                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+             None);
+            (Identifier "_vValue",
+             Some
+               (CustomType
+                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V")))),
+             None)];
+          FieldsDeclarations = [];
+          Constructor =
+           Some
+             {Parameters =
+               [(Identifier "tValue",
+                 CustomType
+                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                (Identifier "vValue",
+                 CustomType
+                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))))];
+              BaseClassConstructorCall = [];
+              Statements =
+               [AssignmentStatement
+                  (IdentifierExpression (Identifier "_tValue"),
+                   IdentifierExpression (Identifier "tValue"));
+                AssignmentStatement
+                  (IdentifierExpression (Identifier "_vValue"),
+                   IdentifierExpression (Identifier "vValue"))];};
+          FunctionDeclarations = [];};
+       ClassDeclaration
+         {Type = NonGenericTypeSpec (Identifier "A");
+          GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
+          BaseTypes =
+           [CustomType
+              (GenericCustomTypeSpec
+                 (NonGenericTypeSpec (Identifier "B"),
+                  [CustomType
+                     (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")));
+                   Int]))];
+          ValueDeclarations =
+           [(Identifier "_tValue",
+             Some
+               (CustomType
+                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+             None); (Identifier "_number", Some Int, None)];
+          FieldsDeclarations = [];
+          Constructor =
+           Some
+             {Parameters =
+               [(Identifier "tValue",
+                 CustomType
+                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                (Identifier "number", Int)];
+              BaseClassConstructorCall =
+               [IdentifierExpression (Identifier "tValue");
+                IdentifierExpression (Identifier "number")];
+              Statements =
+               [AssignmentStatement
+                  (IdentifierExpression (Identifier "_tValue"),
+                   IdentifierExpression (Identifier "tValue"));
+                AssignmentStatement
+                  (IdentifierExpression (Identifier "_number"),
+                   IdentifierExpression (Identifier "number"))];};
+          FunctionDeclarations = [];}] ""                  
+
+  ]

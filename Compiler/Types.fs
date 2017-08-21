@@ -37,9 +37,3 @@ let createGenericType name typeParams : Type =
       BaseClass = None
       Methods = []
       Fields = [] }
-let typeOfLiteral = 
-    function 
-    | Ast.IntLiteral(_) -> createBasicType "int"
-    | Ast.FloatLiteral(_) -> createBasicType "float"
-    | Ast.StringLiteral(_) -> createBasicType "string"
-    | Ast.BoolLiteral(_) -> createBasicType "bool"

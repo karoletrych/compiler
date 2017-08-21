@@ -16,7 +16,7 @@ type Stage =
     | Full
 
 type CLIArguments =
-    | [<MainCommand; ExactlyOnce; First>] Source_Files of path : string list
+    | [<MainCommand; ExactlyOnce; First>] SourceFiles of path : string list
     | [<Unique>] Output of path : string
     | [<Unique>] Stage of Stage
     | [<Unique>] PrintSyntax
@@ -25,7 +25,7 @@ with
     interface IArgParserTemplate with
         member s.Usage =
             match s with
-            | Source_Files _ -> "source file paths."
+            | SourceFiles _ -> "source file paths."
             | Output _ -> "output path."
             | Stage _ -> "compilation stage."
             | PrintSyntax _ -> "print syntax tree."
@@ -59,11 +59,11 @@ let main argv =
     try
         let results = parser.Parse()
         compile 
-            (results.GetResult (<@Source_Files@>, []))
+            (results.GetResult (<@SourceFiles@>, []))
             (results.GetResult (<@Output@>, "Program.exe"))
             (results.GetResult (<@Stage@>, Full))
             (results.Contains <@PrintSyntax@>)
             (results.Contains <@PrintInference@>)
     with
-    | ArguParseException as parseException -> (printfn "%s" parseException.Message)
+    | :? ArguParseException as parseException -> (printfn "%s" parseException.Message)
     0

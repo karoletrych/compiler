@@ -88,7 +88,18 @@ module Types =
         ]
     pTypeSpecImpl := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
 
-pIdentifierImpl := identifier (IdentifierOptions()) .>> spaces
+let isAsciiIdStart    = fun c -> isAsciiLetter c || c = '_'
+let isAsciiIdContinue = fun c -> isAsciiLetter c || isDigit c || c = '_'
+let identifier =
+  identifier (
+    IdentifierOptions(
+        isAsciiIdStart = isAsciiIdStart,
+        isAsciiIdContinue = isAsciiIdContinue,
+        normalization = System.Text.NormalizationForm.FormKC,
+        normalizeBeforeValidation = true,
+        allowAllNonAsciiCharsInPreCheck = true))
+
+pIdentifierImpl := identifier .>> spaces
 >>= (fun id -> 
     if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
     then preturn id 
@@ -177,7 +188,7 @@ module Statement =
                 (Keyword.pVar >>. pIdentifier)
                 (opt (Char.colon >>. Types.pTypeSpec))
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun x y z -> x,y,z) // TODO: add utility functions for tupling arguments
+                (fun x y z -> x,y,z) 
         (
             variableDeclaration >>=
                 (fun (varName, t, expr)
@@ -260,10 +271,16 @@ module Class =
             pipe3 
                 (Keyword.pConstructor >>. Function.parametersList)
                 pBaseCall
-                (many Statement.pStatement)
+                (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
+        let readonlyFieldDeclaration = 
+            pipe3
+                (Keyword.pVal >>. pIdentifier)
+                (opt (Char.colon >>. Types.pTypeSpec))
+                (opt (Char.equals >>. Expression.pExpression))
+                (fun a b c -> a,b,c)
         pipe4
-            (many Statement.pLocalValueDeclarationStatement)
+            (many readonlyFieldDeclaration)
             (many Statement.pLocalVariableDeclarationStatement)
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
@@ -272,19 +289,19 @@ module Class =
     let pClass : Parser<ClassDeclaration, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
-            (between Char.leftBrace Char.rightBrace pClassBody)
             (opt pGenericParameters >>= emptyListIfNone)
             (opt pInheritanceDeclaration >>= emptyListIfNone)
-            (fun name body genericParameters inheritanceDeclaration ->
+            (between Char.leftBrace Char.rightBrace pClassBody)
+            (fun name genericParameters inheritanceDeclaration body ->
             let values, variables, constructor, functions = body
             {
-                                Type = name;
-                                GenericTypeParameters = genericParameters;
-                                BaseTypes = inheritanceDeclaration;
-                                FieldsDeclarations = variables;
-                                ValueDeclarations = values;
-                                Constructor = constructor;
-                                FunctionDeclarations = functions;
+                Type = name;
+                GenericTypeParameters = genericParameters;
+                BaseTypes = inheritanceDeclaration;
+                FieldsDeclarations = variables;
+                ValueDeclarations = values;
+                Constructor = constructor;
+                FunctionDeclarations = functions;
             })
 
 let pDeclaration = 

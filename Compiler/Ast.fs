@@ -10,7 +10,7 @@ and ClassDeclaration = {
   Type : NonGenericTypeSpec;
   GenericTypeParameters : GenericTypeParameter list;
   BaseTypes : TypeSpec list;
-  ValueDeclarations : ValueDeclaration list;
+  ValueDeclarations : ReadOnlyFieldDeclaration list;
   FieldsDeclarations : VariableDeclaration list;
   Constructor : Constructor option;
   FunctionDeclarations : FunctionDeclaration list;
@@ -60,6 +60,8 @@ and Statement =
 
 and ValueDeclaration =
   Identifier * TypeSpec option * Expression
+and ReadOnlyFieldDeclaration =
+  Identifier * TypeSpec option * Expression option
 and VariableDeclaration =
   | DeclarationWithInitialization of Identifier * Expression
   | DeclarationWithType of Identifier * TypeSpec
