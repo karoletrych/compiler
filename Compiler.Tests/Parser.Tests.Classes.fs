@@ -108,21 +108,21 @@ let tests =
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
-                    FunctionCallExpression (Identifier "increment", [])));
+                    FunctionCallExpression (FunctionCall (Identifier "increment", [], []))));
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
-                    FunctionCallExpression (Identifier "increment", [])));
+                    FunctionCallExpression (FunctionCall (Identifier "increment", [], []))));
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
-                    FunctionCallExpression (Identifier "increment", [])));
+                    FunctionCallExpression (FunctionCall (Identifier "increment", [], []))));
               IfStatement
                 (BinaryExpression
                    (MemberExpression
                       (MemberFunctionCall
                          (IdentifierExpression (Identifier "a"),
-                          FunctionCallExpression (Identifier "getI", []))),Equal,
+                          FunctionCallExpression (FunctionCall (Identifier "getI", [], [])))),Equal,
                     LiteralExpression (IntLiteral 3)),
                  ReturnStatement (Some (LiteralExpression (BoolLiteral true))),None);
               ReturnStatement (Some (LiteralExpression (BoolLiteral false)))])];}]""

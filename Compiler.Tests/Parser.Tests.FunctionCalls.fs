@@ -18,8 +18,9 @@ let tests =
               [
                   FunctionCallStatement(
                       (
-                        (Identifier("print")),
-                        [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"
+                        FunctionCall(
+                          (Identifier("print")),[],
+                          [LiteralExpression(StringLiteral("hello world!"))])))]))]) "print function call"
     testCase "hello world with spaces" <| fun _ ->
       let source = "
         fun main
@@ -37,9 +38,7 @@ let tests =
             (
               [
                   FunctionCallStatement(
-                      (
-                        (Identifier("print")),
-                        [LiteralExpression(StringLiteral("hello world!"))]))]))]) "print function call"                    
+                      (FunctionCall (Identifier("print"),[], [LiteralExpression(StringLiteral("hello world!"))])))]))]) "print function call"                    
     testCase "function calls" <| fun _ ->
       let source = "
         fun print (arg1 : string)
@@ -62,8 +61,8 @@ let tests =
        FunctionDeclaration
          (Identifier("main"), [], None,
           [FunctionCallStatement
-             (
-                (Identifier("print"),[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
+             ( FunctionCall
+                (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
     testCase "function calls with explicit types" <| fun _ ->
       let source = "
         fun internalPrint (arg1 : string) (arg2: int) : void
@@ -94,20 +93,37 @@ let tests =
           [ReturnStatement
              (Some
                 (FunctionCallExpression
-                   (Identifier("pr"),[IdentifierExpression (Identifier("arg1"))])))]);
+                   (FunctionCall (Identifier("pr"),[],[IdentifierExpression (Identifier("arg1"))]))))]);
+                   
            FunctionDeclaration
                    (Identifier("print"), [(Identifier("arg1"), String)], None,
                     [FunctionCallStatement
                        (
-                          (Identifier("internalPrint"),
+                         FunctionCall
+                          (Identifier("internalPrint"),[],
                            [IdentifierExpression (Identifier("arg1"));
                             FunctionCallExpression
-                              (Identifier("count"),[IdentifierExpression (Identifier("arg1"))])]))]);
+                              (FunctionCall(Identifier("count"),[],[IdentifierExpression (Identifier("arg1"))]))
+                              ]))]);
            FunctionDeclaration
                    (Identifier("main"), [], None,
                     [FunctionCallStatement
-                       (
-                          (Identifier("print"),[LiteralExpression (StringLiteral "hello world!")]))])] )
+                       ((FunctionCall
+                          (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")])))])] )
                           "print function call"               
-  ]
+    testCase "generic function call" <| fun _ ->
+      let source = "
+          fun main{print<int,int,TMyType<int,float>>('hello world!');}
+          "
+      Expect.equal (parse source) [FunctionDeclaration
+         (Identifier "main", [], None,
+          [FunctionCallStatement
+             (FunctionCall
+                (Identifier "print",
+                 [Int; Int;
+                  CustomType
+                    (GenericCustomTypeSpec
+                       (NonGenericTypeSpec (Identifier "TMyType"),[Int; Float]))],
+                 [LiteralExpression (StringLiteral "hello world!")]))])] ""
+   ]
         

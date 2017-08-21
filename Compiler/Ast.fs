@@ -84,7 +84,7 @@ and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 
 and Assignment = Expression * Expression
 
-and FunctionCall = Identifier * Arguments
+and FunctionCall = FunctionCall of Identifier * TypeSpec list * Arguments
 
 and Arguments = Expression list
 

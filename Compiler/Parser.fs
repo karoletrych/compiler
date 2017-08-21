@@ -26,6 +26,11 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
+let emptyListIfNone args = 
+                    match args with
+                    | Some (args) -> preturn args
+                    | None -> preturn [] 
+
 module Char =
     let leftBrace = skipChar '{' .>> spaces
     let rightBrace = skipChar '}' .>> spaces
@@ -68,9 +73,10 @@ let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>()
 module Types =
     let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
     let pNonGenericTypeSpec = pIdentifier |>> NonGenericTypeSpec
+    let pGenericArguments =  between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
     let pGenericType =
          pNonGenericTypeSpec 
-             .>>. between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
+             .>>. pGenericArguments
              |>> (GenericCustomTypeSpec)
     let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec)
     // TODO: fix naming
@@ -111,11 +117,14 @@ module Expression =
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma
     let pFunctionCall = 
-        pIdentifier 
-        .>>. between Char.leftParen Char.rightParen pArgumentList
+        pipe3
+            pIdentifier
+            ((opt Types.pGenericArguments) >>= emptyListIfNone)
+            (between Char.leftParen Char.rightParen pArgumentList)
+            (fun q w e -> q,w,e)
 
     let pFunctionCallExpression = 
-        pFunctionCall |>> FunctionCallExpression
+        pFunctionCall |>> FunctionCall |>> FunctionCallExpression
     module Literal =
         let pStringLiteral = 
             (between (pstring "'") 
@@ -178,7 +187,7 @@ module Statement =
                         (opt pElseStatement)
                         (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-    let pFunctionCallStatement = Expression.pFunctionCall |>> FunctionCallStatement
+    let pFunctionCallStatement = Expression.pFunctionCall |>> FunctionCall |>> FunctionCallStatement
     let pReturnStatement =
         Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
@@ -247,10 +256,6 @@ module Function =
             body 
             (fun id pars ret body -> id,pars,ret,body)
 
-let emptyListIfNone args = 
-                    match args with
-                    | Some (args) -> preturn args
-                    | None -> preturn [] 
 
 module Class =
     let pClassName = Types.pNonGenericTypeSpec

@@ -31,10 +31,10 @@ let tests =
                             (BinaryExpression
                                (IdentifierExpression (Identifier("n")),Multiply,
                                 FunctionCallExpression
-                                  (Identifier("factorial"),
-                                   [BinaryExpression
-                                      (IdentifierExpression (Identifier("n")), Subtract,
-                                       LiteralExpression (IntLiteral 1))]))))))])] ""
+                                  (FunctionCall (Identifier("factorial"), [],
+                                     [BinaryExpression
+                                        (IdentifierExpression (Identifier("n")), Subtract,
+                                         LiteralExpression (IntLiteral 1))])))))))])] ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
         fun main
@@ -51,8 +51,9 @@ let tests =
                AssignmentExpression
                  (IdentifierExpression(Identifier("x")),
                   FunctionCallExpression
-                    (Identifier("foo"),
+                    (FunctionCall
+                    (Identifier("foo"),[],
                      [LiteralExpression (IntLiteral 123);
-                      LiteralExpression (IntLiteral 5)]))))])]  ""
+                      LiteralExpression (IntLiteral 5)])))))])]  ""
   ]
   
