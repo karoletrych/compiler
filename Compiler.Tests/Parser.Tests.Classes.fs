@@ -94,39 +94,38 @@ let tests =
           (Identifier "getI", [], None,
            [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
      ClassDeclaration
-       {Type = NonGenericTypeSpec (Identifier "B");
-        GenericTypeParameters = [];
-        BaseTypes = [];
-        ValueDeclarations = [];
-        FieldsDeclarations = [];
-        Constructor = None;
-        FunctionDeclarations =
-         [(Identifier "useClassA", [], None,
-           [ValueDeclaration
-              (Identifier "a", None,
-               NewExpression
-                 (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]));
-            MemberFunctionCallStatement
-              (MemberFunctionCall
-                 (IdentifierExpression (Identifier "a"),
-                  FunctionCallExpression (Identifier "increment", [])));
-            MemberFunctionCallStatement
-              (MemberFunctionCall
-                 (IdentifierExpression (Identifier "a"),
-                  FunctionCallExpression (Identifier "increment", [])));
-            MemberFunctionCallStatement
-              (MemberFunctionCall
-                 (IdentifierExpression (Identifier "a"),
-                  FunctionCallExpression (Identifier "increment", [])));
-            IfStatement
-              (BinaryExpression
-                 (MemberExpression
-                    (MemberFunctionCall
-                       (IdentifierExpression (Identifier "a"),
-                        FunctionCallExpression (Identifier "getI", []))),Equal,
-                  LiteralExpression (IntLiteral 3)),
-               ReturnStatement (Some (IdentifierExpression (Identifier "true"))),
-               None);
-            ReturnStatement (Some (IdentifierExpression (Identifier "false")))])];}] ""
+         {Type = NonGenericTypeSpec (Identifier "B");
+          GenericTypeParameters = [];
+          BaseTypes = [];
+          ValueDeclarations = [];
+          FieldsDeclarations = [];
+          Constructor = None;
+          FunctionDeclarations =
+           [(Identifier "useClassA", [], None,
+             [ValueDeclaration
+                (Identifier "a", None,
+                 NewExpression
+                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]));
+              MemberFunctionCallStatement
+                (MemberFunctionCall
+                   (IdentifierExpression (Identifier "a"),
+                    FunctionCallExpression (Identifier "increment", [])));
+              MemberFunctionCallStatement
+                (MemberFunctionCall
+                   (IdentifierExpression (Identifier "a"),
+                    FunctionCallExpression (Identifier "increment", [])));
+              MemberFunctionCallStatement
+                (MemberFunctionCall
+                   (IdentifierExpression (Identifier "a"),
+                    FunctionCallExpression (Identifier "increment", [])));
+              IfStatement
+                (BinaryExpression
+                   (MemberExpression
+                      (MemberFunctionCall
+                         (IdentifierExpression (Identifier "a"),
+                          FunctionCallExpression (Identifier "getI", []))),Equal,
+                    LiteralExpression (IntLiteral 3)),
+                 ReturnStatement (Some (LiteralExpression (BoolLiteral true))),None);
+              ReturnStatement (Some (LiteralExpression (BoolLiteral false)))])];}]""
    ]
   

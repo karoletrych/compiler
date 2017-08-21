@@ -59,6 +59,8 @@ module Keyword =
         "class";
         "construct";
         "new";
+        "true";
+        "false"
     ]
 
 let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>() 
@@ -113,7 +115,8 @@ module Expression =
 
         let pFloatLiteral = pfloat |>> FloatLiteral
         let pIntLiteral = (pint32 .>> notFollowedBy (pstring ".")) .>> spaces |>> IntLiteral
-        let pLiteralExpression = choice [attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
+        let pBoolParser = (pstring "true" >>% BoolLiteral true) <|> (pstring "false" >>% BoolLiteral false)
+        let pLiteralExpression = choice [pBoolParser; attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
 
     let pParenthesizedExpression = between Char.leftParen Char.rightParen pExpression
 
@@ -302,13 +305,3 @@ let parse (sourceCode : string) : Program =
     |> function
         | Success(result, _, _) -> result
         | Failure(message, error, state) -> failwith ((message, error, state).ToString())
-
-parse "
-fun main (i : int)
-{
-    // val x = b().as() = c().d();
-    // hello().dupa();
-    a();
-}
-    ";;
-
