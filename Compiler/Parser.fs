@@ -117,11 +117,10 @@ module Expression =
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma
     let pFunctionCall = 
-        pipe3
+        tuple3
             pIdentifier
             ((opt Types.pGenericArguments) >>= emptyListIfNone)
             (between Char.leftParen Char.rightParen pArgumentList)
-            (fun q w e -> q,w,e)
 
     let pFunctionCallExpression = 
         pFunctionCall 
@@ -195,11 +194,10 @@ module Statement =
         |>> fun expr -> ReturnStatement(expr)
     let pLocalVariableDeclarationStatement = 
         let variableDeclaration =
-            pipe3 
+            tuple3 
                 (Keyword.pVar >>. pIdentifier)
                 (opt (Char.colon >>. Types.pTypeSpec))
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun x y z -> x,y,z) 
         (
             variableDeclaration >>=
                 (fun (varName, t, expr)
@@ -210,11 +208,10 @@ module Statement =
                        | (name, None, None) -> fail "Implicitly typed variable must be initialized")
         )  
     let pLocalValueDeclarationStatement = 
-        pipe3
+        tuple3
             (Keyword.pVal >>. pIdentifier)
             (opt (Char.colon >>. Types.pTypeSpec))
             (Char.equals >>. Expression.pExpression)
-            (fun a b c -> a,b,c)
 
     let expressionStatement =
      Expression.pExpression
@@ -255,13 +252,12 @@ module Function =
                 Char.rightBrace
                 (many Statement.pStatement)
 
-        pipe5 
+        tuple5 
             (Keyword.pFun >>. pIdentifier)
             (opt pGenericParameters >>= emptyListIfNone)
             parametersList 
             returnType
             body 
-            (fun id genericParameters parameters ret body -> id, genericParameters,parameters,ret,body)
 
 
 module Class =
@@ -282,17 +278,15 @@ module Class =
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
         let readonlyFieldDeclaration = 
-            pipe3
+            tuple3
                 (Keyword.pVal >>. pIdentifier)
                 (opt (Char.colon >>. Types.pTypeSpec))
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun a b c -> a,b,c)
-        pipe4
+        tuple4
             (many readonlyFieldDeclaration)
             (many Statement.pLocalVariableDeclarationStatement)
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
-            (fun a b c d -> a,b,c,d)
 
     let pClass : Parser<ClassDeclaration, unit> =
         pipe4
