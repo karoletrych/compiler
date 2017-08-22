@@ -124,7 +124,9 @@ module Expression =
             (fun q w e -> q,w,e)
 
     let pFunctionCallExpression = 
-        pFunctionCall |>> FunctionCall |>> FunctionCallExpression
+        pFunctionCall 
+        |>> FunctionCall 
+        |>> FunctionCallExpression
     module Literal =
         let pStringLiteral = 
             (between (pstring "'") 
@@ -241,6 +243,10 @@ module Function =
     let parametersList =
         many parameter
 
+    let pGenericParameters = 
+        let pGenericParameter = pIdentifier |>> GenericTypeParameter
+        between Char.leftAngleBracket Char.rightAngleBracket 
+            (sepBy pGenericParameter Char.comma)
     let pFunctionDeclaration = 
         let returnType = opt (Char.colon >>. Types.pTypeSpec)
         let body =
@@ -249,20 +255,17 @@ module Function =
                 Char.rightBrace
                 (many Statement.pStatement)
 
-        pipe4 
+        pipe5 
             (Keyword.pFun >>. pIdentifier)
+            (opt pGenericParameters >>= emptyListIfNone)
             parametersList 
             returnType
             body 
-            (fun id pars ret body -> id,pars,ret,body)
+            (fun id genericParameters parameters ret body -> id, genericParameters,parameters,ret,body)
 
 
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
-    let pGenericParameters = 
-        let pGenericParameter = pIdentifier |>> GenericTypeParameter
-        between Char.leftAngleBracket Char.rightAngleBracket 
-            (sepBy pGenericParameter Char.comma)
     let pInheritanceDeclaration = 
         opt (Char.colon >>. sepBy1 Types.pTypeSpec Char.comma) 
             >>= emptyListIfNone
@@ -294,7 +297,7 @@ module Class =
     let pClass : Parser<ClassDeclaration, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
-            (opt pGenericParameters >>= emptyListIfNone)
+            (opt Function.pGenericParameters >>= emptyListIfNone)
             (opt pInheritanceDeclaration >>= emptyListIfNone)
             (between Char.leftBrace Char.rightBrace pClassBody)
             (fun name genericParameters inheritanceDeclaration body ->

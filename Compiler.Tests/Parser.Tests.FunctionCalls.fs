@@ -13,7 +13,7 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [
-          FunctionDeclaration(Identifier("main"), [], None,
+          FunctionDeclaration(Identifier("main"),[], [], None,
             (
               [
                   FunctionCallStatement(
@@ -34,7 +34,7 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [
-          FunctionDeclaration(Identifier("main"), [], None,
+          FunctionDeclaration(Identifier("main"),[], [], None,
             (
               [
                   FunctionCallStatement(
@@ -57,9 +57,9 @@ let tests =
         "
       Expect.equal (Compiler.Parser.parse source) (
         [FunctionDeclaration
-          (Identifier("print"), [Identifier("arg1"), String], None, []);
+          (Identifier("print"),[], [Identifier("arg1"), String], None, []);
        FunctionDeclaration
-         (Identifier("main"), [], None,
+         (Identifier("main"),[], [], None,
           [FunctionCallStatement
              ( FunctionCall
                 (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
@@ -87,7 +87,7 @@ let tests =
       Expect.equal (Compiler.Parser.parse source) (
         [
           FunctionDeclaration
-         (Identifier("internalPrint"),
+         (Identifier("internalPrint"),[],
           [(Identifier("arg1"), String);
            (Identifier("arg2"), Int)], Some Void,
           [ReturnStatement
@@ -96,7 +96,7 @@ let tests =
                    (FunctionCall (Identifier("pr"),[],[IdentifierExpression (Identifier("arg1"))]))))]);
                    
            FunctionDeclaration
-                   (Identifier("print"), [(Identifier("arg1"), String)], None,
+                   (Identifier("print"),[], [(Identifier("arg1"), String)], None,
                     [FunctionCallStatement
                        (
                          FunctionCall
@@ -106,7 +106,7 @@ let tests =
                               (FunctionCall(Identifier("count"),[],[IdentifierExpression (Identifier("arg1"))]))
                               ]))]);
            FunctionDeclaration
-                   (Identifier("main"), [], None,
+                   (Identifier("main"),[], [], None,
                     [FunctionCallStatement
                        ((FunctionCall
                           (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")])))])] )
@@ -116,7 +116,7 @@ let tests =
           fun main{print<int,int,TMyType<int,float>>('hello world!');}
           "
       Expect.equal (parse source) [FunctionDeclaration
-         (Identifier "main", [], None,
+         (Identifier "main",[], [], None,
           [FunctionCallStatement
              (FunctionCall
                 (Identifier "print",

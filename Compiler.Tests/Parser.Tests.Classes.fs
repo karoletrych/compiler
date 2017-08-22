@@ -84,13 +84,13 @@ let tests =
         FieldsDeclarations = [DeclarationWithType (Identifier "i",Int)];
         Constructor = None;
         FunctionDeclarations =
-         [(Identifier "increment", [], None,
+         [(Identifier "increment",[], [], None,
            [AssignmentStatement
               (IdentifierExpression (Identifier "i"),
                BinaryExpression
                  (IdentifierExpression (Identifier "i"),Add,
                   LiteralExpression (IntLiteral 1)))]);
-          (Identifier "getI", [], None,
+          (Identifier "getI",[], [], None,
            [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
      ClassDeclaration
          {Type = NonGenericTypeSpec (Identifier "B");
@@ -100,7 +100,7 @@ let tests =
           FieldsDeclarations = [];
           Constructor = None;
           FunctionDeclarations =
-           [(Identifier "useClassA", [], None,
+           [(Identifier "useClassA",[], [], None,
              [ValueDeclaration
                 (Identifier "a", None,
                  NewExpression
@@ -244,5 +244,36 @@ let tests =
                   (IdentifierExpression (Identifier "_number"),
                    IdentifierExpression (Identifier "number"))];};
           FunctionDeclarations = [];}] ""                  
+    testCase "generic function declaration" <| fun _ ->
+      let source = "
+          fun add<T,V,U> (t : T) (v : V) (u : U)
+          {
+            return t+v+u;
+          }
+        "
+      Expect.equal (parse source) 
+          [FunctionDeclaration
+       (Identifier "add",
+        [GenericTypeParameter (Identifier "T");
+         GenericTypeParameter (Identifier "V");
+         GenericTypeParameter (Identifier "U")],
+        [(Identifier "t",
+          CustomType
+            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+         (Identifier "v",
+          CustomType
+            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))));
+         (Identifier "u",
+          CustomType
+            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "U"))))], None,
+        [ReturnStatement
+           (Some
+              (BinaryExpression
+                 (BinaryExpression
+                    (IdentifierExpression (Identifier "t"),Add,
+                     IdentifierExpression (Identifier "v")),Add,
+                  IdentifierExpression (Identifier "u"))))])] 
+                  ""
+
 
   ]

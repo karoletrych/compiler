@@ -5,8 +5,7 @@ open System.Reflection
 
 open Compiler.Types
 
-
-let getBuiltInTypes =
+let getBuiltInType =
         function 
         | Ast.IntLiteral(_) -> createBasicType "int"
         | Ast.FloatLiteral(_) -> createBasicType "float"

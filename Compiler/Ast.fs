@@ -24,7 +24,7 @@ and Constructor = {
 
 and GenericTypeParameter = GenericTypeParameter of Identifier
 
-and FunctionDeclaration = Identifier * Parameter list * TypeSpec option * CompoundStatement
+and FunctionDeclaration = Identifier * GenericTypeParameter list * Parameter list * TypeSpec option * CompoundStatement
 
 and TypeSpec = 
   | Bool

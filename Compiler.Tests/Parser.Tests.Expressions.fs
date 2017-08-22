@@ -19,7 +19,7 @@ let tests =
         "
       Expect.equal (parse source) 
           [FunctionDeclaration
-               (Identifier("factorial"), [(Identifier("n"), Int)], None,
+               (Identifier("factorial"),[], [(Identifier("n"), Int)], None,
                 [IfStatement
                    (BinaryExpression
                       (IdentifierExpression(Identifier("n")),Equal,
@@ -43,7 +43,7 @@ let tests =
         }
         "
       Expect.equal (parse source) [FunctionDeclaration
-       (Identifier("main"), [], None,
+       (Identifier("main"),[], [], None,
         [AssignmentStatement
            (IdentifierExpression( Identifier("a")),
             AssignmentExpression

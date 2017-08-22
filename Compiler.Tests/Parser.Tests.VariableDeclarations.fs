@@ -22,7 +22,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [ ValueDeclaration
                                (Identifier("x"), Some Int, ((LiteralExpression(IntLiteral(4))) )) ]) ] ""
           testCase "implicit type value declaration" <| fun _ -> 
@@ -40,7 +40,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [( (ValueDeclaration(Identifier("x"), None, LiteralExpression(IntLiteral(4))) )) ]) ] ""
           
           testCase "explicit type variable declaration" 
@@ -51,7 +51,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [ (VariableDeclaration(DeclarationWithType( Identifier("x"), Int))) ]) ] ""
           
           testCase "explicit type variable declaration with assignment" 
@@ -62,7 +62,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [ 
                                (VariableDeclaration(
                                    FullDeclaration(Identifier("x"), Int, ((LiteralExpression(IntLiteral(4))))))) ]) ] 
@@ -84,7 +84,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [ 
                                (VariableDeclaration(DeclarationWithInitialization(Identifier("x"), (LiteralExpression(IntLiteral(4)))))) ]) ] ""
           
@@ -101,7 +101,7 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"), [], None, 
+                        (Identifier("main"),[], [], None, 
                          [ 
                                (VariableDeclaration(FullDeclaration(Identifier("y"), Int, (LiteralExpression(IntLiteral 4)))))
                            
