@@ -39,7 +39,7 @@ let tests =
              [(Identifier "a",
                Some
                  (CustomType
-                    (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
+                    ([], NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
                (Some (NewExpression (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]))))];
             FieldsDeclarations =
              [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
@@ -183,12 +183,12 @@ let tests =
            [(Identifier "_tValue",
              Some
                (CustomType
-                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
              None);
             (Identifier "_vValue",
              Some
                (CustomType
-                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V")))),
+                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V")))),
              None)];
           FieldsDeclarations = [];
           Constructor =
@@ -196,10 +196,10 @@ let tests =
              {Parameters =
                [(Identifier "tValue",
                  CustomType
-                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
                 (Identifier "vValue",
                  CustomType
-                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))))];
+                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))))];
               BaseClassConstructorCall = [];
               Statements =
                [AssignmentStatement
@@ -214,16 +214,16 @@ let tests =
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes =
            [CustomType
-              (GenericCustomTypeSpec
+              ([],GenericCustomTypeSpec
                  (NonGenericTypeSpec (Identifier "B"),
                   [CustomType
-                     (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")));
+                     ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")));
                    Int]))];
           ValueDeclarations =
            [(Identifier "_tValue",
              Some
                (CustomType
-                  (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
              None); (Identifier "_number", Some Int, None)];
           FieldsDeclarations = [];
           Constructor =
@@ -231,7 +231,7 @@ let tests =
              {Parameters =
                [(Identifier "tValue",
                  CustomType
-                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
                 (Identifier "number", Int)];
               BaseClassConstructorCall =
                [IdentifierExpression (Identifier "tValue");
@@ -259,13 +259,13 @@ let tests =
          GenericTypeParameter (Identifier "U")],
         [(Identifier "t",
           CustomType
-            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
          (Identifier "v",
           CustomType
-            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))));
+            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))));
          (Identifier "u",
           CustomType
-            (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "U"))))], None,
+            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "U"))))], None,
         [ReturnStatement
            (Some
               (BinaryExpression

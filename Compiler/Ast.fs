@@ -34,7 +34,9 @@ and TypeSpec =
   | Double
   | String
   | Void
-  | CustomType of CustomTypeSpec
+  | CustomType of Identifier list * CustomTypeSpec
+
+and StaticTypeItem = string
 
 and CustomTypeSpec = 
 | NonGenericCustomTypeSpec of NonGenericTypeSpec
@@ -80,7 +82,6 @@ and Expression =
   | MemberExpression of MemberFunctionCall
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
-
 
 and Assignment = Expression * Expression
 

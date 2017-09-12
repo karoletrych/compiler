@@ -122,7 +122,7 @@ let tests =
                 (Identifier "print",
                  [Int; Int;
                   CustomType
-                    (GenericCustomTypeSpec
+                    ([], GenericCustomTypeSpec
                        (NonGenericTypeSpec (Identifier "TMyType"),[Int; Float]))],
                  [LiteralExpression (StringLiteral "hello world!")]))])] ""
    ]

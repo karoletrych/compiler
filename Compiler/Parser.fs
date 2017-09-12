@@ -36,6 +36,7 @@ module Char =
     let rightBrace = skipChar '}' .>> spaces
     let semicolon = skipChar ';' .>> spaces
     let colon = skipChar ':' .>> spaces
+    let doubleColon = skipString "::" .>> spaces
     let leftParen = skipChar '(' .>> spaces
     let rightParen = skipChar ')' .>> spaces
     let leftAngleBracket = skipChar '<' .>> spaces
@@ -79,9 +80,26 @@ module Types =
              .>>. pGenericArguments
              |>> (GenericCustomTypeSpec)
     let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec)
-    // TODO: fix naming
     let pCustomTypeSpec = (attempt pGenericType) <|> (pNonGenericType)
-    let pCustomType = (attempt pGenericType |>> CustomType) <|> (pNonGenericType |>> CustomType)
+
+    
+    let convertToFullyQualifiedType types =
+        let rec qualifiers types acc : Parser<Identifier list * CustomTypeSpec, unit> =
+            match types with
+            | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
+            | head :: tail -> 
+                match head with
+                | GenericCustomTypeSpec (gcts, t)
+                    -> fail "No generic type is allowed as namespace qualifier"
+                | NonGenericCustomTypeSpec(NonGenericTypeSpec(identifier))
+                    -> qualifiers tail (identifier::acc)
+            | [] -> fail "Should not happen..."
+        qualifiers types []
+
+    let pCustomType = 
+                sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
+                      >>= convertToFullyQualifiedType
+                      |>> CustomType
     let builtInTypesParsersDict =
         dict [ 
             ("bool", stringReturn "bool" Bool);
@@ -231,7 +249,7 @@ module Statement =
                 pReturnStatement .>> Char.semicolon;
                 attempt expressionStatement .>> Char.semicolon;
                 attempt pFunctionCallStatement .>> Char.semicolon;
-                ]
+            ]
     
 module Function = 
     let parameter =
