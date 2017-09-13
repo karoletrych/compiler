@@ -8,8 +8,8 @@ open Compiler.Parser
 let tests =
   testList "Parser.Tests.FunctionCalls" [
     testCase "hello world" <| fun _ ->
-      let source = "
-        fun main{print ('hello world!');}
+      let source = @"
+        fun main{print (""hello world!"");}
         "
       Expect.equal (Compiler.Parser.parse source) (
         [
@@ -22,12 +22,12 @@ let tests =
                           (Identifier("print")),[],
                           [LiteralExpression(StringLiteral("hello world!"))])))]))]) "print function call"
     testCase "hello world with spaces" <| fun _ ->
-      let source = "
+      let source = @"
         fun main
         
         {
           
-          print ('hello world!')   ;   
+          print (""hello world!"")   ;   
           
         }
 
@@ -40,20 +40,16 @@ let tests =
                   FunctionCallStatement(
                       (FunctionCall (Identifier("print"),[], [LiteralExpression(StringLiteral("hello world!"))])))]))]) "print function call"                    
     testCase "function calls" <| fun _ ->
-      let source = "
+      let source = @"
         fun print (arg1 : string)
         {
 
         }
 
         fun main
-        
         {
-          
-          print ('hello world!')   ;   
-          
+          print (""hello world!"");
         }
-
         "
       Expect.equal (Compiler.Parser.parse source) (
         [FunctionDeclaration
@@ -64,7 +60,7 @@ let tests =
              ( FunctionCall
                 (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")]))])]) "print function call"                    
     testCase "function calls with explicit types" <| fun _ ->
-      let source = "
+      let source = @"
         fun internalPrint (arg1 : string) (arg2: int) : void
         {
           return pr(arg1);
@@ -80,7 +76,7 @@ let tests =
         
         {
           
-          print ('hello world!')   ;   
+          print (""hello world!"");   
         }
 
         "
@@ -112,8 +108,8 @@ let tests =
                           (Identifier("print"),[],[LiteralExpression (StringLiteral "hello world!")])))])] )
                           "print function call"               
     testCase "generic function call" <| fun _ ->
-      let source = "
-          fun main{print<int,int,TMyType<int,float>>('hello world!');}
+      let source = @"
+          fun main{print<int,int,TMyType<int,float>>(""hello world!"");}
           "
       Expect.equal (parse source) [FunctionDeclaration
          (Identifier "main",[], [], None,

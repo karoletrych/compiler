@@ -37,6 +37,7 @@ module Char =
     let semicolon = skipChar ';' .>> spaces
     let colon = skipChar ':' .>> spaces
     let doubleColon = skipString "::" .>> spaces
+    let colonDot = skipString ":." .>> spaces
     let leftParen = skipChar '(' .>> spaces
     let rightParen = skipChar ')' .>> spaces
     let leftAngleBracket = skipChar '<' .>> spaces
@@ -80,9 +81,7 @@ module Types =
              .>>. pGenericArguments
              |>> (GenericCustomTypeSpec)
     let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec)
-    let pCustomTypeSpec = (attempt pGenericType) <|> (pNonGenericType)
 
-    
     let convertToFullyQualifiedType types =
         let rec qualifiers types acc : Parser<Identifier list * CustomTypeSpec, unit> =
             match types with
@@ -146,9 +145,9 @@ module Expression =
         |>> FunctionCallExpression
     module Literal =
         let pStringLiteral = 
-            (between (pstring "'") 
-                (pstring "'") 
-                (manySatisfy ((<>) ''')) )
+            (between (pstring "\"") 
+                (pstring "\"") 
+                (manySatisfy ((<>) '\"')) )
                 .>> spaces
             |>> StringLiteral
 
@@ -182,13 +181,17 @@ module Expression =
     opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x))) 
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
 
-    opp.AddOperator(InfixOperator(".", lookAhead (spaces .>> pFunctionCall), 9, Associativity.Left, fun x y ->
-     MemberExpression (MemberFunctionCall(x,y) )
-     ))
+    opp.AddOperator(InfixOperator(".", lookAhead (spaces .>> pFunctionCall), 9, Associativity.Left,
+                                 fun x y -> MemberExpression (MemberFunctionCall(x,y))))
 
-    let pNewExpression = Keyword.pNew >>. Types.pCustomTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
+    let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
+
+    let pStaticMemberExpression =
+     Types.pCustomType .>>. ((Char.colonDot >>. pFunctionCall) |>> FunctionCall)
+     |>> StaticMemberExpression
 
     opp.TermParser <- choice [
+        attempt pStaticMemberExpression;
         pNewExpression;
         Literal.pLiteralExpression;
         attempt pFunctionCallExpression;
@@ -240,6 +243,11 @@ module Statement =
                  |FunctionCallExpression(fc) -> preturn (FunctionCallStatement (fc))
                  | _ -> fail "given expression cannot be a statement" )
 
+    let pStaticFunctionCallStatement =
+     attempt Types.pCustomType .>>.
+     ((Char.colonDot >>. Expression.pFunctionCall) |>> FunctionCall)
+     |>> StaticFunctionCallStatement
+
     pStatementRef := 
         choice
             [
@@ -247,6 +255,7 @@ module Statement =
                 (pLocalValueDeclarationStatement .>> Char.semicolon) |>> ValueDeclaration;
                 (pLocalVariableDeclarationStatement .>> Char.semicolon) |>> VariableDeclaration
                 pReturnStatement .>> Char.semicolon;
+                attempt pStaticFunctionCallStatement .>> Char.semicolon;
                 attempt expressionStatement .>> Char.semicolon;
                 attempt pFunctionCallStatement .>> Char.semicolon;
             ]

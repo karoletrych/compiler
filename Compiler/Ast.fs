@@ -34,9 +34,10 @@ and TypeSpec =
   | Double
   | String
   | Void
-  | CustomType of Identifier list * CustomTypeSpec
+  | CustomType of QualifiedType
 
-and StaticTypeItem = string
+and QualifiedType = Identifier list * CustomTypeSpec
+
 
 and CustomTypeSpec = 
 | NonGenericCustomTypeSpec of NonGenericTypeSpec
@@ -58,7 +59,9 @@ and Statement =
   | VariableDeclaration of VariableDeclaration
   | ValueDeclaration of ValueDeclaration
   | BreakStatement
-  | MemberFunctionCallStatement of MemberFunctionCall
+  | MemberFunctionCallStatement of MemberFunctionCall 
+  | StaticFunctionCallStatement of TypeSpec * FunctionCall
+
 
 and ValueDeclaration =
   Identifier * TypeSpec option * Expression
@@ -78,8 +81,9 @@ and Expression =
   | IdentifierExpression of Identifier
   | FunctionCallExpression of FunctionCall
   | LiteralExpression of Literal
-  | NewExpression of CustomTypeSpec * Arguments
+  | NewExpression of TypeSpec * Arguments
   | MemberExpression of MemberFunctionCall
+  | StaticMemberExpression of TypeSpec * FunctionCall
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 

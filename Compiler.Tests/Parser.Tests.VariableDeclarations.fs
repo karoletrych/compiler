@@ -90,12 +90,12 @@ let tests =
           
           testCase "multiple variable declarations" 
           <| fun _ -> 
-              let source = " fun main
+              let source = @" fun main
                         {
                             var y : int = 4;
                             var a = 4;
-                            val s1 = 'im a string variable';
-                            var s2 : string = 'another string';
+                            val s1 = ""im a string variable"";
+                            var s2 : string = ""another string"";
                             val f1 : float = 3.14;
                             var f2 : double = 3.141231;
                         }"

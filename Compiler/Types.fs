@@ -1,39 +1,52 @@
 module Compiler.Types 
 
 open Compiler.Ast
+open System.Reflection
 
-type Parameter = 
-    { Type : Type }
-
-and Function = 
-    { Parameters : Parameter list
-      Statements : Ast.Statement list }
+type Assembly =
+    {
+        FullName : string;
+        ExportedTypes : Type list;
+    }
 
 and Type = 
-    { Name : string
+    {
+      AssemblyName : string
+      BaseType : TypeName option
+      DeclaredConstructors : Constructor array
+      Name : string
       Guid : System.Guid
-      TypeParameters : Type list
-      ImplementedInterfaces : Type list
-      BaseClass : Type option
-      Methods : Function list
-      Fields : Field list }
+      GenericParameters : TypeName array
+      ImplementedInterfaces : TypeName array
+      Methods : Method array
+      Fields : Field array }
 
-and Field = Type * string
+and TypeName = string
 
-let createBasicType name : Type = 
-    { Name = name
-      Guid = System.Guid.NewGuid()
-      TypeParameters = []
-      ImplementedInterfaces = []
-      BaseClass = None
-      Methods = []
-      Fields = [] }
+and Method = 
+    { 
+        MethodName : string    
+        Parameters : Parameter array
+        ReturnType : TypeName }
+and Constructor = 
+    { Parameters : Parameter array}
+and Parameter = { Type : TypeName; ParameterName : string}
+and Field = string * TypeName
 
-let createGenericType name typeParams : Type = 
-    { Name = name
-      Guid = System.Guid.NewGuid()
-      TypeParameters = typeParams
-      ImplementedInterfaces = []
-      BaseClass = None
-      Methods = []
-      Fields = [] }
+// let createBasicType name : Type = 
+//     { Name = name
+//       Guid = System.Guid.NewGuid()
+//       GenericParameters = []
+//       ImplementedInterfaces = []
+//       BaseType = None
+//       Methods = []
+//       Fields = [] }
+
+// let createGenericType name typeParams : Type = 
+//     { Name = name
+//       Guid = System.Guid.NewGuid()
+//       GenericParameters = typeParams
+//       ImplementedInterfaces = []
+//       BaseType = None
+//       Methods = []
+//       Fields = [] }

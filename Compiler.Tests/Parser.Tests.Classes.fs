@@ -40,7 +40,7 @@ let tests =
                Some
                  (CustomType
                     ([], NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
-               (Some (NewExpression (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]))))];
+               (Some (NewExpression (CustomType([], NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A"))),[]))))];
             FieldsDeclarations =
              [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
               FullDeclaration (Identifier "f",Float,LiteralExpression (IntLiteral 3))];
@@ -104,7 +104,7 @@ let tests =
              [ValueDeclaration
                 (Identifier "a", None,
                  NewExpression
-                   (NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")),[]));
+                   (CustomType([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A"))),[]));
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
