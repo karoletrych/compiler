@@ -14,11 +14,11 @@ let tests =
         }
         "
       Expect.equal (parse source) 
-          [ClassDeclaration {Type = NonGenericTypeSpec (Identifier "A");
+          [ClassDeclaration {Type = SimpleTypeSpec(Identifier "A");
                    GenericTypeParameters = [];
                    BaseTypes = [];
                    ValueDeclarations = [];
-                   FieldsDeclarations = [];
+                   FieldDeclarations = [];
                    Constructor = None;
                    FunctionDeclarations = [];}] ""
     testCase "class with fields" <| fun _ ->
@@ -32,16 +32,16 @@ let tests =
         "
       Expect.equal (parse source) 
         [ClassDeclaration
-           {Type = NonGenericTypeSpec (Identifier "A");
+           {Type = SimpleTypeSpec(Identifier "A");
             GenericTypeParameters = [];
             BaseTypes = [];
             ValueDeclarations =
              [(Identifier "a",
                Some
-                 (CustomType
-                    ([], NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A")))),
-               (Some (NewExpression (CustomType([], NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A"))),[]))))];
-            FieldsDeclarations =
+                 (CustomTypeSpec
+                    ([], SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A")))),
+               (Some (NewExpression (CustomTypeSpec([], SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A"))),[]))))];
+            FieldDeclarations =
              [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
               FullDeclaration (Identifier "f",Float,LiteralExpression (IntLiteral 3))];
             Constructor = None;
@@ -77,11 +77,11 @@ let tests =
         "
       Expect.equal (parse source) 
           [ClassDeclaration
-       {Type = NonGenericTypeSpec (Identifier "A");
+       {Type = SimpleTypeSpec(Identifier "A");
         GenericTypeParameters = [];
         BaseTypes = [];
         ValueDeclarations = [];
-        FieldsDeclarations = [DeclarationWithType (Identifier "i",Int)];
+        FieldDeclarations = [DeclarationWithType (Identifier "i",Int)];
         Constructor = None;
         FunctionDeclarations =
          [(Identifier "increment",[], [], None,
@@ -93,18 +93,18 @@ let tests =
           (Identifier "getI",[], [], None,
            [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
      ClassDeclaration
-         {Type = NonGenericTypeSpec (Identifier "B");
+         {Type = SimpleTypeSpec(Identifier "B");
           GenericTypeParameters = [];
           BaseTypes = [];
           ValueDeclarations = [];
-          FieldsDeclarations = [];
+          FieldDeclarations = [];
           Constructor = None;
           FunctionDeclarations =
            [(Identifier "useClassA",[], [], None,
              [ValueDeclaration
                 (Identifier "a", None,
                  NewExpression
-                   (CustomType([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "A"))),[]));
+                   (CustomTypeSpec([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A"))),[]));
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
@@ -131,22 +131,22 @@ let tests =
       let source = "class A<T>{}"
       Expect.equal (parse source) 
           [ClassDeclaration
-         {Type = NonGenericTypeSpec (Identifier "A");
+         {Type = SimpleTypeSpec(Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes = [];
           ValueDeclarations = [];
-          FieldsDeclarations = [];
+          FieldDeclarations = [];
           Constructor = None;
           FunctionDeclarations = [];}] "" 
     testCase "generic class with 2 type parameters" <| fun _ ->
       let source = "class A<T, V>{}"
       Expect.equal (parse source) 
           [ClassDeclaration
-         {Type = NonGenericTypeSpec (Identifier "A");
+         {Type = SimpleTypeSpec(Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T"); GenericTypeParameter (Identifier "V")];
           BaseTypes = [];
           ValueDeclarations = [];
-          FieldsDeclarations = [];
+          FieldDeclarations = [];
           Constructor = None;
           FunctionDeclarations = [];}] ""          
     testCase "generic class with inheritance and base constructor call" <| fun _ ->
@@ -174,7 +174,7 @@ let tests =
     }"
       Expect.equal (parse source) 
            [ClassDeclaration
-         {Type = NonGenericTypeSpec (Identifier "B");
+         {Type = SimpleTypeSpec(Identifier "B");
           GenericTypeParameters =
            [GenericTypeParameter (Identifier "T");
             GenericTypeParameter (Identifier "V")];
@@ -182,24 +182,24 @@ let tests =
           ValueDeclarations =
            [(Identifier "_tValue",
              Some
-               (CustomType
-                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+               (CustomTypeSpec
+                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")))),
              None);
             (Identifier "_vValue",
              Some
-               (CustomType
-                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V")))),
+               (CustomTypeSpec
+                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V")))),
              None)];
-          FieldsDeclarations = [];
+          FieldDeclarations = [];
           Constructor =
            Some
              {Parameters =
                [(Identifier "tValue",
-                 CustomType
-                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                 CustomTypeSpec
+                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
                 (Identifier "vValue",
-                 CustomType
-                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))))];
+                 CustomTypeSpec
+                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V"))))];
               BaseClassConstructorCall = [];
               Statements =
                [AssignmentStatement
@@ -210,28 +210,27 @@ let tests =
                    IdentifierExpression (Identifier "vValue"))];};
           FunctionDeclarations = [];};
        ClassDeclaration
-         {Type = NonGenericTypeSpec (Identifier "A");
+         {Type = SimpleTypeSpec(Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes =
-           [CustomType
-              ([],GenericCustomTypeSpec
-                 (NonGenericTypeSpec (Identifier "B"),
-                  [CustomType
-                     ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")));
+           [CustomTypeSpec([],GenericCustomTypeSpec
+                 (SimpleTypeSpec(Identifier "B"),
+                  [CustomTypeSpec
+                     ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")));
                    Int]))];
           ValueDeclarations =
            [(Identifier "_tValue",
              Some
-               (CustomType
-                  ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T")))),
+               (CustomTypeSpec
+                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")))),
              None); (Identifier "_number", Some Int, None)];
-          FieldsDeclarations = [];
+          FieldDeclarations = [];
           Constructor =
            Some
              {Parameters =
                [(Identifier "tValue",
-                 CustomType
-                   ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+                 CustomTypeSpec
+                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
                 (Identifier "number", Int)];
               BaseClassConstructorCall =
                [IdentifierExpression (Identifier "tValue");
@@ -258,14 +257,14 @@ let tests =
          GenericTypeParameter (Identifier "V");
          GenericTypeParameter (Identifier "U")],
         [(Identifier "t",
-          CustomType
-            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "T"))));
+          CustomTypeSpec
+            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
          (Identifier "v",
-          CustomType
-            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "V"))));
+          CustomTypeSpec
+            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V"))));
          (Identifier "u",
-          CustomType
-            ([],NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "U"))))], None,
+          CustomTypeSpec
+            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "U"))))], None,
         [ReturnStatement
            (Some
               (BinaryExpression

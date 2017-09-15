@@ -16,9 +16,9 @@ let tests =
               Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
                    (Identifier "main", [], [], None,
                     [StaticFunctionCallStatement
-                       (CustomType
+                       (CustomTypeSpec
                           ([Identifier "System"],
-                           NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "Console"))),
+                           SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Console"))),
                         FunctionCall (Identifier "WriteLine",[],[]))])] ""
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
@@ -31,10 +31,10 @@ let tests =
                    (DeclarationWithInitialization
                       (Identifier "s",
                        StaticMemberExpression
-                         (CustomType
+                         (CustomTypeSpec
                             ([Identifier "System"],
-                             NonGenericCustomTypeSpec
-                               (NonGenericTypeSpec (Identifier "Console"))),
+                             SimpleCustomTypeSpec
+                               (SimpleTypeSpec(Identifier "Console"))),
                           FunctionCall (Identifier "ReadLine",[],[]))))])] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
@@ -47,10 +47,10 @@ let tests =
                                     [VariableDeclaration
                                        (DeclarationWithType
                                           (Identifier "s",
-                                           CustomType
+                                           CustomTypeSpec
                                              ([Identifier "System"],
-                                              NonGenericCustomTypeSpec
-                                                (NonGenericTypeSpec (Identifier "Object")))))])] ""
+                                              SimpleCustomTypeSpec
+                                                (SimpleTypeSpec(Identifier "Object")))))])] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
@@ -59,14 +59,14 @@ let tests =
               Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
                (Identifier "main", [],
                 [(Identifier "o",
-                  CustomType
+                  CustomTypeSpec
                     ([Identifier "System"],
-                     NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "Object"))))],
+                     SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Object"))))],
                 None,
                 [StaticFunctionCallStatement
-                   (CustomType
+                   (CustomTypeSpec
                       ([Identifier "System"],
-                       NonGenericCustomTypeSpec (NonGenericTypeSpec (Identifier "Console"))),
+                       SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Console"))),
                     FunctionCall
                       (Identifier "WriteLine",[],[IdentifierExpression (Identifier "o")]))])]""
         ]

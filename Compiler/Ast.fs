@@ -7,11 +7,11 @@ and Declaration =
   | ClassDeclaration of ClassDeclaration
 
 and ClassDeclaration = {
-  Type : NonGenericTypeSpec;
+  Type : SimpleTypeSpec;
   GenericTypeParameters : GenericTypeParameter list;
-  BaseTypes : TypeSpec list;
-  ValueDeclarations : ReadOnlyFieldDeclaration list;
-  FieldsDeclarations : VariableDeclaration list;
+  BaseTypes : (Identifier list * CustomType) list;
+  ValueDeclarations : ValueFieldDeclaration list;
+  FieldDeclarations : VariableDeclaration list;
   Constructor : Constructor option;
   FunctionDeclarations : FunctionDeclaration list;
 }
@@ -34,16 +34,13 @@ and TypeSpec =
   | Double
   | String
   | Void
-  | CustomType of QualifiedType
+  | CustomTypeSpec of Identifier list * CustomType
 
-and QualifiedType = Identifier list * CustomTypeSpec
+and CustomType = 
+| SimpleCustomTypeSpec of SimpleTypeSpec
+| GenericCustomTypeSpec of SimpleTypeSpec * TypeSpec list
 
-
-and CustomTypeSpec = 
-| NonGenericCustomTypeSpec of NonGenericTypeSpec
-| GenericCustomTypeSpec of NonGenericTypeSpec * TypeSpec list
-
-and NonGenericTypeSpec = NonGenericTypeSpec of Identifier
+and SimpleTypeSpec = SimpleTypeSpec of Identifier
 
 and Identifier = Identifier of string
 
@@ -65,8 +62,8 @@ and Statement =
 
 and ValueDeclaration =
   Identifier * TypeSpec option * Expression
-and ReadOnlyFieldDeclaration =
-  Identifier * TypeSpec option * Expression option
+and ValueFieldDeclaration =
+  Identifier * TypeSpec option * Expression option // can be assigned in constructor
 and VariableDeclaration =
   | DeclarationWithInitialization of Identifier * Expression
   | DeclarationWithType of Identifier * TypeSpec

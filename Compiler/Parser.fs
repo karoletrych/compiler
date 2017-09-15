@@ -26,8 +26,8 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
-let emptyListIfNone args = 
-                    match args with
+let emptyListIfNone = 
+                    function
                     | Some (args) -> preturn args
                     | None -> preturn [] 
 
@@ -74,31 +74,31 @@ let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>()
 
 module Types =
     let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
-    let pNonGenericTypeSpec = pIdentifier |>> NonGenericTypeSpec
+    let pNonGenericTypeSpec = pIdentifier |>> SimpleTypeSpec
     let pGenericArguments =  between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
     let pGenericType =
          pNonGenericTypeSpec 
              .>>. pGenericArguments
              |>> (GenericCustomTypeSpec)
-    let pNonGenericType = pNonGenericTypeSpec |>> (NonGenericCustomTypeSpec)
+    let pNonGenericType = pNonGenericTypeSpec |>> (SimpleCustomTypeSpec)
 
-    let convertToFullyQualifiedType types =
-        let rec qualifiers types acc : Parser<Identifier list * CustomTypeSpec, unit> =
+    let convertToFullyQualifiedType =
+        let rec qualifiers acc types =
             match types with
             | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
             | head :: tail -> 
                 match head with
                 | GenericCustomTypeSpec (gcts, t)
                     -> fail "No generic type is allowed as namespace qualifier"
-                | NonGenericCustomTypeSpec(NonGenericTypeSpec(identifier))
-                    -> qualifiers tail (identifier::acc)
+                | SimpleCustomTypeSpec(SimpleTypeSpec(identifier))
+                    -> qualifiers (identifier::acc) tail 
             | [] -> fail "Should not happen..."
-        qualifiers types []
+        qualifiers [] 
 
-    let pCustomType = 
+    let pQualifiedType = 
                 sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
                       >>= convertToFullyQualifiedType
-                      |>> CustomType
+    let pCustomType = pQualifiedType |>> CustomTypeSpec
     let builtInTypesParsersDict =
         dict [ 
             ("bool", stringReturn "bool" Bool);
@@ -124,7 +124,8 @@ let identifier =
 
 pIdentifierImpl := identifier .>> spaces
 >>= (fun id -> 
-    if not (List.contains id Keyword.keywords) && not (Types.builtInTypesParsersDict.Keys.Contains(id))
+    if not (List.contains id Keyword.keywords)
+     && not (Types.builtInTypesParsersDict.Keys.Contains(id))
     then preturn id 
     else fail ("Identifier cannot be a keyword: " + id))
     |>> Identifier
@@ -290,7 +291,7 @@ module Function =
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pInheritanceDeclaration = 
-        opt (Char.colon >>. sepBy1 Types.pTypeSpec Char.comma) 
+        opt (Char.colon >>. sepBy1 Types.pQualifiedType Char.comma) 
             >>= emptyListIfNone
     
     let pClassBody = 
@@ -327,7 +328,7 @@ module Class =
                 Type = name;
                 GenericTypeParameters = genericParameters;
                 BaseTypes = inheritanceDeclaration;
-                FieldsDeclarations = variables;
+                FieldDeclarations = variables;
                 ValueDeclarations = values;
                 Constructor = constructor;
                 FunctionDeclarations = functions;

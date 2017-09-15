@@ -117,9 +117,9 @@ let tests =
              (FunctionCall
                 (Identifier "print",
                  [Int; Int;
-                  CustomType
+                  CustomTypeSpec
                     ([], GenericCustomTypeSpec
-                       (NonGenericTypeSpec (Identifier "TMyType"),[Int; Float]))],
+                       (SimpleTypeSpec (Identifier "TMyType"),[Int; Float]))],
                  [LiteralExpression (StringLiteral "hello world!")]))])] ""
    ]
         
