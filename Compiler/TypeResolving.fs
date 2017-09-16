@@ -55,9 +55,30 @@ module ExternalTypes =
 #load @"Types.fs"
 #endif
 
-let scanAst scanType =
+
+type TypeSpecScanResult =
+| ValidTypeSpec
+| InvalidTypeSpec of TypeSpec
+
+
+let scanAst (scanType : TypeSpec -> TypeSpecScanResult) : Declaration list -> TypeSpecScanResult list list =
         let get = List.choose id 
-        let scanGenericType = () //TODO: implement
+        let rec scanStatement (statement : Statement) : TypeSpecScanResult list = 
+                match statement with
+                | FunctionCallStatement(FunctionCall(id, types, args))
+                        -> types |> List.map scanType
+                | StaticFunctionCallStatement(t, FunctionCall(id,types,args))
+                        -> scanType t :: (types |> List.map scanType)
+                | ValueDeclaration(id, typeSpec, expr)
+                        -> get [typeSpec] |> List.map scanType
+                | VariableDeclaration(vd)
+                        -> match vd with
+                           | DeclarationWithType (i,t) -> [scanType t]
+                           | FullDeclaration (i,t,e) -> [scanType t]
+                           | DeclarationWithInitialization _ -> []
+                | CompoundStatement(cs)
+                        -> cs |> List.collect scanStatement
+
         let rec scanDeclaration = function
         | FunctionDeclaration(
                                 identifier,
@@ -76,14 +97,22 @@ let scanAst scanType =
                               FieldDeclarations = variables;
                               Constructor = constructor;
                               FunctionDeclarations = methods})
-          -> (baseTypes |> List.map (CustomTypeSpec >> scanType))
-                @ (values |> List.map (fun (i,t,e) -> t) |> get)
+          ->
+           let scanConstructor : TypeSpecScanResult list = 
+                   match constructor with
+                   | None -> []
+                   | Some c ->
+                     let { Parameters = parameters; BaseClassConstructorCall = baseCall; Statements = stmts} = c
+                     (parameters |> List.map (snd >> scanType)) @ (stmts |> List.collect scanStatement)
+
+           (baseTypes |> List.map (CustomTypeSpec >> scanType))
+                @ (values |> List.collect (fun (i,t,e) -> get [t] |> List.map scanType))
                 @ (variables |> List.collect
                                 (function
-                                 | DeclarationWithType (i,t) -> [t]
-                                 | FullDeclaration (i,t,e) -> [t]
+                                 | DeclarationWithType (i,t) -> [scanType t]
+                                 | FullDeclaration (i,t,e) -> [scanType t]
                                  | DeclarationWithInitialization _ -> []))
-                |> List.map scanType
+                @ scanConstructor
         List.map scanDeclaration
 
 // let getBuiltInType =

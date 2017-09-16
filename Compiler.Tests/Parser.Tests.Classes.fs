@@ -213,7 +213,7 @@ let tests =
          {Type = SimpleTypeSpec(Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes =
-           [CustomTypeSpec([],GenericCustomTypeSpec
+           [([],GenericCustomTypeSpec
                  (SimpleTypeSpec(Identifier "B"),
                   [CustomTypeSpec
                      ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")));
