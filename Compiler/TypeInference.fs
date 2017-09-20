@@ -65,3 +65,65 @@ module Compiler.TypeInference
 //                 }"
 
 // program;;
+
+type T = {
+    Base : T list;
+    Name : string;
+}
+let o = { Base = []; Name = "Object"}
+let str = {Base = [o]; Name = "String"}
+let int = {Base = [o]; Name = "int"}
+let exc = { Base = [o]; Name = "exception"}
+let runtimeException = {
+    Base = [exc]; Name = "RuntimeException"
+    }
+let anotherException = {
+    Base = [exc]; Name = "AnotherException"
+    }
+let allTypes = [
+ o;
+ exc;
+ runtimeException;
+ str;
+ int;
+ anotherException
+ ]
+let rec allAncestors t : T list  =
+    let {Base = baseTypes; Name = name} = t
+    match baseTypes with 
+    | [] -> [] 
+    | b -> b @ (b |> List.collect allAncestors)
+
+let children allNodes parentNode = 
+            allNodes 
+            |> List.filter (fun t -> 
+                let {Base = baseTypes; Name = name} = t
+                baseTypes |> List.contains parentNode
+                )
+
+let rec longestPath root allNodes =
+    let childrenOf = children allNodes
+    let isALeaf = childrenOf root = List.empty
+    if isALeaf then
+        ([root], 0)
+    else
+        let edges = childrenOf root |> List.map (fun child ->
+            let (p, l) = longestPath child allNodes
+            (child :: p, l + 1)
+            )
+        edges |> List.maxBy snd
+
+let longest = longestPath o
+
+let types = [runtimeException; anotherException; str]
+
+types
+    |> List.map (fun t -> (t::allAncestors t))
+    |> List.map Set.ofList
+    |> Set.intersectMany
+    |> Set.toList
+    |> List.distinct
+    |> longest
+    |> fst
+    |> List.last
+    ;;

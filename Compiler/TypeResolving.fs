@@ -1,7 +1,13 @@
 module Compiler.TypeResolving
 
+#if INTERACTIVE
+#load @"Ast.fs"
+#load @"Types.fs"
+#endif
+
 open Compiler.Types
 open Compiler.Ast
+
 open System
 open System.Reflection
 
@@ -34,7 +40,7 @@ module ExternalTypes =
                     DeclaredConstructors = dotnetType.GetConstructors() |> Array.map createConstructor;
                     Fields = dotnetType.GetFields() |> Array.map createField;
                     Guid = dotnetType.GUID;
-                    Name = dotnetType.Name;
+                    Name = dotnetType.ToString();
                     GenericParameters = 
                                     if dotnetType.IsGenericParameter then 
                                         dotnetType.GetGenericParameterConstraints() 
@@ -114,6 +120,12 @@ let scanAst (scanType : TypeSpec -> TypeSpecScanResult) : Declaration list -> Ty
                                  | DeclarationWithInitialization _ -> []))
                 @ scanConstructor
         List.map scanDeclaration
+
+let scanType (typeSpec : TypeSpec) typesDictionary =
+        match typeSpec with
+        | CustomTypeSpec(qualifiers, t) -> InvalidTypeSpec(CustomTypeSpec(qualifiers, t))
+        | _ -> ValidTypeSpec
+
 
 // let getBuiltInType =
 //         function 
