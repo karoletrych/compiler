@@ -122,4 +122,39 @@ let tests =
                            
                                (VariableDeclaration(FullDeclaration
                                     (Identifier("f2"), Double, (LiteralExpression(FloatLiteral 3.141231))))) 
-                            ]) ] "" ]
+                            ]) ] "" 
+          testCase "array declaration with assignment" 
+          <| fun _ -> 
+              let source = @" fun main
+                        {
+                            var arr1 = [1;2;3;4.0;5.2;""six""; new System::Object()];
+                            var arr2 = [[1;2];[1;""asd""]];
+                        }"
+              Expect.equal (parse source) 
+                   [FunctionDeclaration
+               (Identifier "main", [], [], None,
+                [VariableDeclaration
+                   (DeclarationWithInitialization
+                      (Identifier "arr1",
+                       ListInitializerExpression
+                         [LiteralExpression (IntLiteral 1); LiteralExpression (IntLiteral 2);
+                          LiteralExpression (IntLiteral 3);
+                          LiteralExpression (FloatLiteral 4.0);
+                          LiteralExpression (FloatLiteral 5.2);
+                          LiteralExpression (StringLiteral "six");
+                          NewExpression
+                            (CustomTypeSpec
+                               ([Identifier "System"],CustomType (Identifier "Object",[])),
+                             [])]));
+                 VariableDeclaration
+                   (DeclarationWithInitialization
+                      (Identifier "arr2",
+                       ListInitializerExpression
+                         [ListInitializerExpression
+                            [LiteralExpression (IntLiteral 1);
+                             LiteralExpression (IntLiteral 2)];
+                          ListInitializerExpression
+                            [LiteralExpression (IntLiteral 1);
+                             LiteralExpression (StringLiteral "asd")]]))])]  ""
+                    
+]

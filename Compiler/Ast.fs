@@ -95,6 +95,7 @@ and Expression =
   | NewExpression of TypeSpec * Arguments
   | MemberExpression of MemberFunctionCall
   | StaticMemberExpression of TypeSpec * FunctionCall
+  | ListInitializerExpression of Expression list
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 

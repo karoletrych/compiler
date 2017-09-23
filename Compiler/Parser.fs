@@ -44,6 +44,8 @@ module Char =
     let rightAngleBracket = skipChar '>' .>> spaces
     let comma = skipChar ',' .>> spaces
     let equals = skipChar '=' .>> spaces
+    let leftSquareBracket = skipChar '[' .>> spaces
+    let rightSquareBracket = skipChar ']' .>> spaces
 
 module Keyword =
     let nonAlphanumericWs = nextCharSatisfiesNot (isAsciiLetter) >>. spaces
@@ -156,9 +158,9 @@ module Expression =
         let pIntLiteral = (pint32 .>> notFollowedBy (pstring ".")) .>> spaces |>> IntLiteral
         let pBoolParser = (pstring "true" >>% BoolLiteral true) <|> (pstring "false" >>% BoolLiteral false)
         let pLiteralExpression = choice [pBoolParser; attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
+        
 
     let pParenthesizedExpression = between Char.leftParen Char.rightParen pExpression
-
     let pIdentifierExpression = 
         pIdentifier 
             |>> fun id -> IdentifierExpression(id)
@@ -191,7 +193,14 @@ module Expression =
      Types.pCustomType .>>. ((Char.colonDot >>. pFunctionCall) |>> FunctionCall)
      |>> StaticMemberExpression
 
+    let pListInitializerExpression =
+             between 
+                 Char.leftSquareBracket
+                 Char.rightSquareBracket 
+                 (sepBy pExpression Char.semicolon) |>> ListInitializerExpression
+
     opp.TermParser <- choice [
+        pListInitializerExpression;
         attempt pStaticMemberExpression;
         pNewExpression;
         Literal.pLiteralExpression;
