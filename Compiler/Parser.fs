@@ -74,13 +74,13 @@ let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>()
 
 module Types =
     let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
-    let pNonGenericTypeSpec = pIdentifier |>> SimpleTypeSpec
+    let pNonGenericTypeSpec = pIdentifier 
     let pGenericArguments =  between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
     let pGenericType =
          pNonGenericTypeSpec 
              .>>. pGenericArguments
-             |>> (GenericCustomTypeSpec)
-    let pNonGenericType = pNonGenericTypeSpec |>> (SimpleCustomTypeSpec)
+             |>> (CustomType)
+    let pNonGenericType = pNonGenericTypeSpec |>> fun t -> (CustomType(t, []))
 
     let convertToFullyQualifiedType =
         let rec qualifiers acc types =
@@ -88,10 +88,10 @@ module Types =
             | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
             | head :: tail -> 
                 match head with
-                | GenericCustomTypeSpec (gcts, t)
-                    -> fail "No generic type is allowed as namespace qualifier"
-                | SimpleCustomTypeSpec(SimpleTypeSpec(identifier))
+                | CustomType(identifier, [])
                     -> qualifiers (identifier::acc) tail 
+                | CustomType(gcts, t)
+                    -> fail "No generic type is allowed as namespace qualifier"
             | [] -> fail "Should not happen..."
         qualifiers [] 
 

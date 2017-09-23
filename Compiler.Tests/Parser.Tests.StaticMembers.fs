@@ -18,7 +18,7 @@ let tests =
                     [StaticFunctionCallStatement
                        (CustomTypeSpec
                           ([Identifier "System"],
-                           SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Console"))),
+                           CustomType((Identifier "Console"),[])),
                         FunctionCall (Identifier "WriteLine",[],[]))])] ""
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
@@ -33,8 +33,8 @@ let tests =
                        StaticMemberExpression
                          (CustomTypeSpec
                             ([Identifier "System"],
-                             SimpleCustomTypeSpec
-                               (SimpleTypeSpec(Identifier "Console"))),
+                             CustomType
+                               ((Identifier "Console"),[])),
                           FunctionCall (Identifier "ReadLine",[],[]))))])] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
@@ -49,8 +49,8 @@ let tests =
                                           (Identifier "s",
                                            CustomTypeSpec
                                              ([Identifier "System"],
-                                              SimpleCustomTypeSpec
-                                                (SimpleTypeSpec(Identifier "Object")))))])] ""
+                                              CustomType
+                                                ((Identifier "Object"),[]))))])] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
@@ -61,12 +61,12 @@ let tests =
                 [(Identifier "o",
                   CustomTypeSpec
                     ([Identifier "System"],
-                     SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Object"))))],
+                     CustomType ((Identifier "Object"),[])))],
                 None,
                 [StaticFunctionCallStatement
                    (CustomTypeSpec
                       ([Identifier "System"],
-                       SimpleCustomTypeSpec (SimpleTypeSpec(Identifier "Console"))),
+                       CustomType ((Identifier "Console"),[])),
                     FunctionCall
                       (Identifier "WriteLine",[],[IdentifierExpression (Identifier "o")]))])]""
         ]

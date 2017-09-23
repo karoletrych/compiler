@@ -20,7 +20,6 @@ and Type =
       ImplementedInterfaces : TypeName array
       Methods : Method array
       Fields : Field array }
-
 and TypeName = string
 
 and Method = 

@@ -7,7 +7,7 @@ and Declaration =
   | ClassDeclaration of ClassDeclaration
 
 and ClassDeclaration = {
-  Type : SimpleTypeSpec;
+  Type : Identifier;
   GenericTypeParameters : GenericTypeParameter list;
   BaseTypes : (Identifier list * CustomType) list;
   ValueDeclarations : ValueFieldDeclaration list;
@@ -35,12 +35,26 @@ and TypeSpec =
   | String
   | Void
   | CustomTypeSpec of Identifier list * CustomType
+  override ts.ToString() =
+   let idString (Identifier a) = a
+   let rec serializeTypeSpec ts = 
+     match ts with 
+     | CustomTypeSpec (ns, CustomType(id, generics)) ->
+      (ns |> List.map (fun id -> idString id  + ".") |> String.concat "") 
+      + (idString id)
+      + if List.isEmpty generics
+        then ""
+        else "`" + (List.length generics).ToString() + "[" + (generics |> List.map serializeTypeSpec |> String.concat ",") + "]"
+     | Bool -> "System.Bool"
+     | Char -> "System.Char"
+     | Int -> "System.Int32"
+     | Float -> "System.Single"
+     | Double -> "System.Double"
+     | String -> "System.String"
+     | Void -> failwith "generic can't be void"
+   serializeTypeSpec ts
 
-and CustomType = 
-| SimpleCustomTypeSpec of SimpleTypeSpec
-| GenericCustomTypeSpec of SimpleTypeSpec * TypeSpec list
-
-and SimpleTypeSpec = SimpleTypeSpec of Identifier
+and CustomType = CustomType of Identifier * TypeSpec list
 
 and Identifier = Identifier of string
 

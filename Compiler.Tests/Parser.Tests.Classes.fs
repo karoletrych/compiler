@@ -14,7 +14,7 @@ let tests =
         }
         "
       Expect.equal (parse source) 
-          [ClassDeclaration {Type = SimpleTypeSpec(Identifier "A");
+          [ClassDeclaration {Type = (Identifier "A");
                    GenericTypeParameters = [];
                    BaseTypes = [];
                    ValueDeclarations = [];
@@ -32,15 +32,15 @@ let tests =
         "
       Expect.equal (parse source) 
         [ClassDeclaration
-           {Type = SimpleTypeSpec(Identifier "A");
+           {Type = (Identifier "A");
             GenericTypeParameters = [];
             BaseTypes = [];
             ValueDeclarations =
              [(Identifier "a",
                Some
                  (CustomTypeSpec
-                    ([], SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A")))),
-               (Some (NewExpression (CustomTypeSpec([], SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A"))),[]))))];
+                    ([], CustomType((Identifier "A"),[]))),
+               (Some (NewExpression (CustomTypeSpec([], CustomType((Identifier "A"),[])),[]))))];
             FieldDeclarations =
              [FullDeclaration (Identifier "i",Int,LiteralExpression (IntLiteral 3));
               FullDeclaration (Identifier "f",Float,LiteralExpression (IntLiteral 3))];
@@ -77,7 +77,7 @@ let tests =
         "
       Expect.equal (parse source) 
           [ClassDeclaration
-       {Type = SimpleTypeSpec(Identifier "A");
+       {Type = (Identifier "A");
         GenericTypeParameters = [];
         BaseTypes = [];
         ValueDeclarations = [];
@@ -93,7 +93,7 @@ let tests =
           (Identifier "getI",[], [], None,
            [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
      ClassDeclaration
-         {Type = SimpleTypeSpec(Identifier "B");
+         {Type = (Identifier "B");
           GenericTypeParameters = [];
           BaseTypes = [];
           ValueDeclarations = [];
@@ -104,7 +104,7 @@ let tests =
              [ValueDeclaration
                 (Identifier "a", None,
                  NewExpression
-                   (CustomTypeSpec([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "A"))),[]));
+                   (CustomTypeSpec([],CustomType ((Identifier "A"),[])),[]));
               MemberFunctionCallStatement
                 (MemberFunctionCall
                    (IdentifierExpression (Identifier "a"),
@@ -131,7 +131,7 @@ let tests =
       let source = "class A<T>{}"
       Expect.equal (parse source) 
           [ClassDeclaration
-         {Type = SimpleTypeSpec(Identifier "A");
+         {Type = (Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes = [];
           ValueDeclarations = [];
@@ -142,7 +142,7 @@ let tests =
       let source = "class A<T, V>{}"
       Expect.equal (parse source) 
           [ClassDeclaration
-         {Type = SimpleTypeSpec(Identifier "A");
+         {Type = (Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T"); GenericTypeParameter (Identifier "V")];
           BaseTypes = [];
           ValueDeclarations = [];
@@ -174,7 +174,7 @@ let tests =
     }"
       Expect.equal (parse source) 
            [ClassDeclaration
-         {Type = SimpleTypeSpec(Identifier "B");
+         {Type = (Identifier "B");
           GenericTypeParameters =
            [GenericTypeParameter (Identifier "T");
             GenericTypeParameter (Identifier "V")];
@@ -183,12 +183,12 @@ let tests =
            [(Identifier "_tValue",
              Some
                (CustomTypeSpec
-                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")))),
+                  ([],CustomType ((Identifier "T"),[]))),
              None);
             (Identifier "_vValue",
              Some
                (CustomTypeSpec
-                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V")))),
+                  ([],CustomType ((Identifier "V"),[]))),
              None)];
           FieldDeclarations = [];
           Constructor =
@@ -196,10 +196,10 @@ let tests =
              {Parameters =
                [(Identifier "tValue",
                  CustomTypeSpec
-                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
+                   ([],CustomType ((Identifier "T"),[])));
                 (Identifier "vValue",
                  CustomTypeSpec
-                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V"))))];
+                   ([],CustomType ((Identifier "V"),[])))];
               BaseClassConstructorCall = [];
               Statements =
                [AssignmentStatement
@@ -210,19 +210,19 @@ let tests =
                    IdentifierExpression (Identifier "vValue"))];};
           FunctionDeclarations = [];};
        ClassDeclaration
-         {Type = SimpleTypeSpec(Identifier "A");
+         {Type = (Identifier "A");
           GenericTypeParameters = [GenericTypeParameter (Identifier "T")];
           BaseTypes =
-           [([],GenericCustomTypeSpec
-                 (SimpleTypeSpec(Identifier "B"),
+           [([],CustomType
+                 ((Identifier "B"),
                   [CustomTypeSpec
-                     ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")));
+                     ([],CustomType ((Identifier "T"),[]));
                    Int]))];
           ValueDeclarations =
            [(Identifier "_tValue",
              Some
                (CustomTypeSpec
-                  ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T")))),
+                  ([],CustomType ((Identifier "T"),[]))),
              None); (Identifier "_number", Some Int, None)];
           FieldDeclarations = [];
           Constructor =
@@ -230,7 +230,7 @@ let tests =
              {Parameters =
                [(Identifier "tValue",
                  CustomTypeSpec
-                   ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
+                   ([],CustomType ((Identifier "T"),[])));
                 (Identifier "number", Int)];
               BaseClassConstructorCall =
                [IdentifierExpression (Identifier "tValue");
@@ -258,13 +258,13 @@ let tests =
          GenericTypeParameter (Identifier "U")],
         [(Identifier "t",
           CustomTypeSpec
-            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "T"))));
+            ([],CustomType ((Identifier "T"),[])));
          (Identifier "v",
           CustomTypeSpec
-            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "V"))));
+            ([],CustomType ((Identifier "V"),[])));
          (Identifier "u",
           CustomTypeSpec
-            ([],SimpleCustomTypeSpec (SimpleTypeSpec (Identifier "U"))))], None,
+            ([],CustomType ((Identifier "U"),[])))], None,
         [ReturnStatement
            (Some
               (BinaryExpression
