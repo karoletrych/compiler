@@ -5,6 +5,7 @@ open Compiler.Ast
 open Compiler.Parser
 open Compiler.TypeResolving
 open Compiler.TypeResolving.TypesScanner
+open Compiler.Result
 
 
 [<Tests>]
@@ -15,11 +16,13 @@ let tests =
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
             |> parse 
             |> scanTypes
-        Expect.equal scanResult [[ValidTypeSpec]] ""
+        Expect.equal scanResult [[Success ((),[])]]  ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
             |> parse
             |> scanTypes
-        Expect.equal scanResult [[InvalidTypeSpec(CustomTypeSpec ([Identifier "Sys"],CustomType (Identifier "Cons",[])))]]  ""
+        Expect.equal scanResult [[Failure
+                                    [CannotResolveType
+                                       (CustomTypeSpec ([Identifier "Sys"],CustomType (Identifier "Cons",[])))]]] ""
     ]

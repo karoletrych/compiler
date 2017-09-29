@@ -59,6 +59,15 @@ module ExternalTypes =
                 |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
                 |> Map.ofList
 
+        // let getBuiltInType =
+        //         function 
+        //         | Ast.IntLiteral(_) -> createBasicType "int"
+        //         | Ast.FloatLiteral(_) -> createBasicType "float"
+        //         | Ast.StringLiteral(_) -> createBasicType "string"
+        //         | Ast.BoolLiteral(_) -> createBasicType "bool"
+
+        // ExternalTypes.mscorlibTypes;;
+
 module TypesScanner = 
         let scanAst scanType =
                 let get = List.choose id 
@@ -146,12 +155,3 @@ module TypesScanner =
 
 let scanTypes = TypesScanner.scanAst (TypesScanner.scanType ExternalTypes.mscorlibTypes)
 
-
-        // let getBuiltInType =
-        //         function 
-        //         | Ast.IntLiteral(_) -> createBasicType "int"
-        //         | Ast.FloatLiteral(_) -> createBasicType "float"
-        //         | Ast.StringLiteral(_) -> createBasicType "string"
-        //         | Ast.BoolLiteral(_) -> createBasicType "bool"
-
-        // ExternalTypes.mscorlibTypes;;
