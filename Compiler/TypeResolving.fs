@@ -3,12 +3,14 @@ module Compiler.TypeResolving
 #endif
 
 #if INTERACTIVE
-#load @"Ast.fs"
-#load @"Types.fs"
+#load "Ast.fs"
+#load "Types.fs"
+#load "Result.fs"
 #endif
 
 open Compiler.Types
 open Compiler.Ast
+open Compiler.Result
 open System
 open System.Reflection
 
@@ -58,17 +60,13 @@ module ExternalTypes =
                 |> Map.ofList
 
 module TypesScanner = 
-        type TypeSpecScanResult =
-        | ValidTypeSpec
-        | InvalidTypeSpec of TypeSpec
-
-        let scanAst (scanType : TypeSpec -> TypeSpecScanResult) : Declaration list -> TypeSpecScanResult list list =
+        let scanAst scanType =
                 let get = List.choose id 
                 let scanExpression expression = 
                         match expression with
                         | NewExpression(t, args) -> [scanType t]
                         | _ -> []
-                let rec scanStatement (statement : Statement) : TypeSpecScanResult list = 
+                let rec scanStatement (statement : Statement) = 
                         match statement with
                         | FunctionCallStatement(FunctionCall(id, types, args))
                                 -> types |> List.map scanType
@@ -109,7 +107,7 @@ module TypesScanner =
                                       Constructor = constructor;
                                       FunctionDeclarations = methods})
                   ->
-                   let scanConstructor : TypeSpecScanResult list = 
+                   let scanConstructor = 
                            match constructor with
                            | None -> []
                            | Some c ->
@@ -132,8 +130,8 @@ module TypesScanner =
                 match typeSpec with
                 | CustomTypeSpec (ns, CustomType(id, []))  ->
                         if typesDictionary.ContainsKey (typeSpec.ToString()) 
-                        then ValidTypeSpec
-                        else InvalidTypeSpec(typeSpec)
+                        then succeedUnit
+                        else fail (CannotResolveType typeSpec)
                 | CustomTypeSpec (ns, CustomType(id, generics))  ->
                         let noGenericsTypeName = (CustomTypeSpec (ns, (CustomType(id, [])))).ToString()
                         let typeWithNumberOfGenerics = (noGenericsTypeName + "`" + (List.length generics).ToString() )
@@ -141,11 +139,10 @@ module TypesScanner =
                                  |> Map.tryPick (fun key v -> if key.StartsWith(typeWithNumberOfGenerics) then Some v else None ) with
                         | Some v ->
                                 if (generics |> List.map ((fun g -> g.ToString()) >> typesDictionary.ContainsKey)) |> List.forall ((=) true)
-                                then ValidTypeSpec
-                                else InvalidTypeSpec(typeSpec)
-                        | None -> InvalidTypeSpec(typeSpec)
-                | _ -> ValidTypeSpec
-
+                                then succeedUnit
+                                else fail (CannotResolveType typeSpec)
+                        | None -> fail (CannotResolveType typeSpec)
+                | _ -> succeedUnit
 
 let scanTypes = TypesScanner.scanAst (TypesScanner.scanType ExternalTypes.mscorlibTypes)
 

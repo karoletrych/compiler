@@ -1,12 +1,5 @@
 module Compiler.Result
 
-//TODO:
-type Location = {
-    Module : string;
-    Line : uint32;
-    Column : uint32;
-}
-
 type Failure<'T> = 
 | CannotResolveType of 'T
 
