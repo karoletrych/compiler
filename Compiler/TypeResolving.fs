@@ -64,6 +64,10 @@ module TypesScanner =
 
         let scanAst (scanType : TypeSpec -> TypeSpecScanResult) : Declaration list -> TypeSpecScanResult list list =
                 let get = List.choose id 
+                let scanExpression expression = 
+                        match expression with
+                        | NewExpression(t, args) -> [scanType t]
+                        | _ -> []
                 let rec scanStatement (statement : Statement) : TypeSpecScanResult list = 
                         match statement with
                         | FunctionCallStatement(FunctionCall(id, types, args))
@@ -79,6 +83,11 @@ module TypesScanner =
                                    | DeclarationWithInitialization _ -> []
                         | CompoundStatement(cs)
                                 -> cs |> List.collect scanStatement
+                        | ReturnStatement e -> 
+                                match e with 
+                                | Some e -> scanExpression e
+                                | None -> []
+                        | AssignmentStatement (e1,e2) -> scanExpression e1 @ scanExpression e2
 
                 let rec scanDeclaration = function
                 | FunctionDeclaration(
