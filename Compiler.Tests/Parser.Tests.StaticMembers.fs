@@ -14,20 +14,20 @@ let tests =
                             System::Console:.WriteLine();
                         }"
               Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-                   (Identifier "main", [], [], None,
-                    [StaticFunctionCallStatement
+                   { Name = Identifier "main";GenericParameters = []; Parameters =  []; ReturnType = None;
+                    Body = [StaticFunctionCallStatement
                        (CustomTypeSpec
                           ([Identifier "System"],
                            CustomType((Identifier "Console"),[])),
-                        FunctionCall (Identifier "WriteLine",[],[]))])] ""
+                        FunctionCall (Identifier "WriteLine",[],[]))]}] ""
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
                         {
                             var s = System::Console:.ReadLine();
                         }"
               Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-               (Identifier "main", [], [], None,
-                [VariableDeclaration
+               {Name = Identifier "main";GenericParameters = []; Parameters = []; ReturnType =  None;
+                Body = [VariableDeclaration
                    (DeclarationWithInitialization
                       (Identifier "s",
                        StaticMemberExpression
@@ -35,7 +35,7 @@ let tests =
                             ([Identifier "System"],
                              CustomType
                                ((Identifier "Console"),[])),
-                          FunctionCall (Identifier "ReadLine",[],[]))))])] ""
+                          FunctionCall (Identifier "ReadLine",[],[]))))]}] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
                         {
@@ -43,30 +43,35 @@ let tests =
                         }"
               Expect.equal (Compiler.Parser.parse source) 
                                 [FunctionDeclaration
-                                   (Identifier "main", [], [], None,
-                                    [VariableDeclaration
+                                   {
+                                    Name = Identifier "main"; GenericParameters = []; Parameters = []; ReturnType = None;
+                                    Body = [VariableDeclaration
                                        (DeclarationWithType
                                           (Identifier "s",
                                            CustomTypeSpec
                                              ([Identifier "System"],
                                               CustomType
-                                                ((Identifier "Object"),[]))))])] ""
+                                                ((Identifier "Object"),[]))))]}] ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
                             System::Console:.WriteLine(o);
                         }"
               Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-               (Identifier "main", [],
-                [(Identifier "o",
-                  CustomTypeSpec
-                    ([Identifier "System"],
-                     CustomType ((Identifier "Object"),[])))],
-                None,
-                [StaticFunctionCallStatement
-                   (CustomTypeSpec
+               {
+                 Name = Identifier "main";
+                 GenericParameters = [];
+                 ReturnType = None;
+                 Body = [StaticFunctionCallStatement
+                     (CustomTypeSpec
+                        ([Identifier "System"],
+                         CustomType ((Identifier "Console"),[])),
+                      FunctionCall
+                        (Identifier "WriteLine",[],[IdentifierExpression (Identifier "o")]))]
+                 Parameters = 
+                  [(Identifier "o",
+                    CustomTypeSpec
                       ([Identifier "System"],
-                       CustomType ((Identifier "Console"),[])),
-                    FunctionCall
-                      (Identifier "WriteLine",[],[IdentifierExpression (Identifier "o")]))])]""
+                       CustomType ((Identifier "Object"),[])))];
+                        }]""
         ]

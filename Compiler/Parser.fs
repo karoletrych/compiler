@@ -289,12 +289,21 @@ module Function =
                 Char.rightBrace
                 (many Statement.pStatement)
 
-        tuple5 
+        pipe5 
             (Keyword.pFun >>. pIdentifier)
             (opt pGenericParameters >>= emptyListIfNone)
             parametersList 
             returnType
             body 
+            (fun a b c d e 
+                -> {
+                    Name = a;
+                    GenericParameters = b;
+                    Parameters = c;
+                    ReturnType = d;
+                    Body = e
+                }
+            )
 
 
 module Class =
@@ -325,7 +334,7 @@ module Class =
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
 
-    let pClass : Parser<ClassDeclaration, unit> =
+    let pClass : Parser<Class, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
             (opt Function.pGenericParameters >>= emptyListIfNone)

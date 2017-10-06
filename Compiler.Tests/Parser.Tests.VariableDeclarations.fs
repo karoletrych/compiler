@@ -22,9 +22,9 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [ ValueDeclaration
-                               (Identifier("x"), Some Int, ((LiteralExpression(IntLiteral(4))) )) ]) ] ""
+                        {Name = Identifier("main"); GenericParameters = [];Parameters = []; ReturnType = None;
+                         Body = [ ValueDeclaration
+                                   (Identifier("x"), Some Int, ((LiteralExpression(IntLiteral(4))) )) ]} ] ""
           testCase "implicit type value declaration" <| fun _ -> 
               let source = " fun main
                         {
@@ -40,8 +40,8 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [( (ValueDeclaration(Identifier("x"), None, LiteralExpression(IntLiteral(4))) )) ]) ] ""
+                        {Name = Identifier("main"); GenericParameters = []; Parameters = [];ReturnType = None;
+                         Body = [( (ValueDeclaration(Identifier("x"), None, LiteralExpression(IntLiteral(4))) )) ]} ] ""
           
           testCase "explicit type variable declaration" 
           <| fun _ -> 
@@ -51,8 +51,8 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [ (VariableDeclaration(DeclarationWithType( Identifier("x"), Int))) ]) ] ""
+                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
+                         Body = [ (VariableDeclaration(DeclarationWithType( Identifier("x"), Int))) ]} ] ""
           
           testCase "explicit type variable declaration with assignment" 
           <| fun _ -> 
@@ -62,10 +62,10 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [ 
-                               (VariableDeclaration(
-                                   FullDeclaration(Identifier("x"), Int, ((LiteralExpression(IntLiteral(4))))))) ]) ] 
+                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
+                         Body = [ 
+                                   (VariableDeclaration(
+                                       FullDeclaration(Identifier("x"), Int, ((LiteralExpression(IntLiteral(4))))))) ]} ] 
                   ""
           
           testCase "implicit type variable declaration" 
@@ -84,9 +84,9 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [ 
-                               (VariableDeclaration(DeclarationWithInitialization(Identifier("x"), (LiteralExpression(IntLiteral(4)))))) ]) ] ""
+                        {Name = Identifier("main");GenericParameters = [];Parameters=  []; ReturnType = None;
+                         Body =[ 
+                               (VariableDeclaration(DeclarationWithInitialization(Identifier("x"), (LiteralExpression(IntLiteral(4)))))) ]} ] ""
           
           testCase "multiple variable declarations" 
           <| fun _ -> 
@@ -101,28 +101,28 @@ let tests =
                         }"
               Expect.equal (parse source) 
                   [ FunctionDeclaration
-                        (Identifier("main"),[], [], None, 
-                         [ 
-                               (VariableDeclaration(FullDeclaration(Identifier("y"), Int, (LiteralExpression(IntLiteral 4)))))
-                           
-                           
-                               (VariableDeclaration(DeclarationWithInitialization(Identifier("a"), (LiteralExpression(IntLiteral 4)))))
-                           
-                           
-                               (ValueDeclaration
-                                    (Identifier("s1"), None, LiteralExpression(StringLiteral "im a string variable")))
-                           
-                           
-                               (VariableDeclaration 
-                               (FullDeclaration(Identifier("s2"), String, (LiteralExpression(StringLiteral "another string")))))
-                           
-                           
-                               (ValueDeclaration(Identifier("f1"), Some Float, LiteralExpression(FloatLiteral 3.14)))
-                           
-                           
-                               (VariableDeclaration(FullDeclaration
-                                    (Identifier("f2"), Double, (LiteralExpression(FloatLiteral 3.141231))))) 
-                            ]) ] "" 
+                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
+                         Body = [ 
+                                   (VariableDeclaration(FullDeclaration(Identifier("y"), Int, (LiteralExpression(IntLiteral 4)))))
+                               
+                               
+                                   (VariableDeclaration(DeclarationWithInitialization(Identifier("a"), (LiteralExpression(IntLiteral 4)))))
+                               
+                               
+                                   (ValueDeclaration
+                                        (Identifier("s1"), None, LiteralExpression(StringLiteral "im a string variable")))
+                               
+                               
+                                   (VariableDeclaration 
+                                   (FullDeclaration(Identifier("s2"), String, (LiteralExpression(StringLiteral "another string")))))
+                               
+                               
+                                   (ValueDeclaration(Identifier("f1"), Some Float, LiteralExpression(FloatLiteral 3.14)))
+                               
+                               
+                                   (VariableDeclaration(FullDeclaration
+                                        (Identifier("f2"), Double, (LiteralExpression(FloatLiteral 3.141231))))) 
+                            ]} ] "" 
           testCase "array declaration with assignment" 
           <| fun _ -> 
               let source = @" fun main
@@ -132,29 +132,29 @@ let tests =
                         }"
               Expect.equal (parse source) 
                    [FunctionDeclaration
-               (Identifier "main", [], [], None,
-                [VariableDeclaration
-                   (DeclarationWithInitialization
-                      (Identifier "arr1",
-                       ListInitializerExpression
-                         [LiteralExpression (IntLiteral 1); LiteralExpression (IntLiteral 2);
-                          LiteralExpression (IntLiteral 3);
-                          LiteralExpression (FloatLiteral 4.0);
-                          LiteralExpression (FloatLiteral 5.2);
-                          LiteralExpression (StringLiteral "six");
-                          NewExpression
-                            (CustomTypeSpec
-                               ([Identifier "System"],CustomType (Identifier "Object",[])),
-                             [])]));
-                 VariableDeclaration
-                   (DeclarationWithInitialization
-                      (Identifier "arr2",
-                       ListInitializerExpression
-                         [ListInitializerExpression
-                            [LiteralExpression (IntLiteral 1);
-                             LiteralExpression (IntLiteral 2)];
-                          ListInitializerExpression
-                            [LiteralExpression (IntLiteral 1);
-                             LiteralExpression (StringLiteral "asd")]]))])]  ""
+               {Name = Identifier "main"; GenericParameters =  []; Parameters = []; ReturnType = None;
+                Body = [VariableDeclaration
+                       (DeclarationWithInitialization
+                          (Identifier "arr1",
+                           ListInitializerExpression
+                             [LiteralExpression (IntLiteral 1); LiteralExpression (IntLiteral 2);
+                              LiteralExpression (IntLiteral 3);
+                              LiteralExpression (FloatLiteral 4.0);
+                              LiteralExpression (FloatLiteral 5.2);
+                              LiteralExpression (StringLiteral "six");
+                              NewExpression
+                                (CustomTypeSpec
+                                   ([Identifier "System"],CustomType (Identifier "Object",[])),
+                                 [])]));
+                     VariableDeclaration
+                       (DeclarationWithInitialization
+                          (Identifier "arr2",
+                           ListInitializerExpression
+                             [ListInitializerExpression
+                                [LiteralExpression (IntLiteral 1);
+                                 LiteralExpression (IntLiteral 2)];
+                              ListInitializerExpression
+                                [LiteralExpression (IntLiteral 1);
+                                 LiteralExpression (StringLiteral "asd")]]))]}]  ""
                     
 ]

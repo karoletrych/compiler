@@ -84,14 +84,22 @@ let tests =
         FieldDeclarations = [DeclarationWithType (Identifier "i",Int)];
         Constructor = None;
         FunctionDeclarations =
-         [(Identifier "increment",[], [], None,
+         [{Name = Identifier "increment";
+          GenericParameters = [];
+          Parameters =  [];
+          ReturnType = None;
+          Body = 
            [AssignmentStatement
               (IdentifierExpression (Identifier "i"),
                BinaryExpression
                  (IdentifierExpression (Identifier "i"),Add,
-                  LiteralExpression (IntLiteral 1)))]);
-          (Identifier "getI",[], [], None,
-           [ReturnStatement (Some (IdentifierExpression (Identifier "i")))])];};
+                  LiteralExpression (IntLiteral 1)))]};
+          {Name=Identifier "getI";
+GenericParameters=[];
+Parameters= [];
+ReturnType= None;
+Body=
+           [ReturnStatement (Some (IdentifierExpression (Identifier "i")))]}];};
      ClassDeclaration
          {Type = (Identifier "B");
           GenericTypeParameters = [];
@@ -100,7 +108,8 @@ let tests =
           FieldDeclarations = [];
           Constructor = None;
           FunctionDeclarations =
-           [(Identifier "useClassA",[], [], None,
+           [{Name = Identifier "useClassA"; GenericParameters = []; Parameters = []; ReturnType = None;
+             Body = 
              [ValueDeclaration
                 (Identifier "a", None,
                  NewExpression
@@ -125,7 +134,7 @@ let tests =
                           FunctionCallExpression (FunctionCall (Identifier "getI", [], [])))),Equal,
                     LiteralExpression (IntLiteral 3)),
                  ReturnStatement (Some (LiteralExpression (BoolLiteral true))),None);
-              ReturnStatement (Some (LiteralExpression (BoolLiteral false)))])];}]""
+              ReturnStatement (Some (LiteralExpression (BoolLiteral false)))]}];}]""
     
     testCase "generic class" <| fun _ ->
       let source = "class A<T>{}"
@@ -252,27 +261,42 @@ let tests =
         "
       Expect.equal (parse source) 
           [FunctionDeclaration
-       (Identifier "add",
-        [GenericTypeParameter (Identifier "T");
+       {Name = Identifier "add";
+        GenericParameters = [GenericTypeParameter (Identifier "T");
          GenericTypeParameter (Identifier "V");
-         GenericTypeParameter (Identifier "U")],
-        [(Identifier "t",
-          CustomTypeSpec
-            ([],CustomType ((Identifier "T"),[])));
-         (Identifier "v",
-          CustomTypeSpec
-            ([],CustomType ((Identifier "V"),[])));
-         (Identifier "u",
-          CustomTypeSpec
-            ([],CustomType ((Identifier "U"),[])))], None,
-        [ReturnStatement
-           (Some
-              (BinaryExpression
-                 (BinaryExpression
-                    (IdentifierExpression (Identifier "t"),Add,
-                     IdentifierExpression (Identifier "v")),Add,
-                  IdentifierExpression (Identifier "u"))))])] 
-                  ""
+         GenericTypeParameter (Identifier "U")];
+        Parameters = [(Identifier "t",
+                          CustomTypeSpec
+                            ([],CustomType ((Identifier "T"),[])));
+                       (Identifier "v",
+                        CustomTypeSpec
+                          ([],CustomType ((Identifier "V"),[])));
+                       (Identifier "u",
+                        CustomTypeSpec
+                          ([],CustomType ((Identifier "U"),[])))]; ReturnType =  None;
+                      Body = [ReturnStatement
+                         (Some
+                            (BinaryExpression
+                               (BinaryExpression
+                                  (IdentifierExpression (Identifier "t"),Add,
+                                   IdentifierExpression (Identifier "v")),Add,
+                                IdentifierExpression (Identifier "u"))))]}] 
+                    ""
+    ]
 
 
-  ]
+
+
+open System.Text.RegularExpressions
+let regex = Regex(Regex.Escape(","));
+let names = ["Name" ;
+  "GenericParameters" ;
+  "Parameters" ;
+  "ReturnType" ;
+  "FunctionBody" ]
+@"(Identifier ""getI"",[], [], None, [ReturnStatement (Some (IdentifierExpression (Identifier ""i"")))])"
+|> fun x -> "{" + x.Substring(1, (x.Length-2)) + "}"
+|> fun x -> x.Insert(1, names.[0] + "=")
+|> fun x -> names |> List.fold (fun state str -> regex.Replace(state, ";" + str + "=", 1)) x
+|> printfn "%s"
+

@@ -3,17 +3,17 @@ module Compiler.Ast
 type Program = Declaration list
 
 and Declaration = 
-  | FunctionDeclaration of FunctionDeclaration
-  | ClassDeclaration of ClassDeclaration
+  | FunctionDeclaration of Function
+  | ClassDeclaration of Class
 
-and ClassDeclaration = {
+and Class = {
   Type : Identifier;
   GenericTypeParameters : GenericTypeParameter list;
   BaseTypes : (Identifier list * CustomType) list;
   ValueDeclarations : ValueFieldDeclaration list;
   FieldDeclarations : VariableDeclaration list;
   Constructor : Constructor option;
-  FunctionDeclarations : FunctionDeclaration list;
+  FunctionDeclarations : Function list;
 }
 
 and Constructor = {
@@ -24,7 +24,13 @@ and Constructor = {
 
 and GenericTypeParameter = GenericTypeParameter of Identifier
 
-and FunctionDeclaration = Identifier * GenericTypeParameter list * Parameter list * TypeSpec option * CompoundStatement
+and Function = { 
+  Name : Identifier;
+  GenericParameters : GenericTypeParameter list;
+  Parameters : Parameter list;
+  ReturnType : TypeSpec option;
+  Body : CompoundStatement 
+}
 
 and TypeSpec = 
   | Bool

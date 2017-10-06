@@ -19,22 +19,24 @@ let tests =
         "
       Expect.equal (parse source) 
           [FunctionDeclaration
-               (Identifier("factorial"),[], [(Identifier("n"), Int)], None,
-                [IfStatement
-                   (BinaryExpression
-                      (IdentifierExpression(Identifier("n")),Equal,
-                       LiteralExpression (IntLiteral 0)),
-                    ReturnStatement (Some (LiteralExpression (IntLiteral 1))),
-                    Some
-                      (ReturnStatement
-                         (Some
-                            (BinaryExpression
-                               (IdentifierExpression (Identifier("n")),Multiply,
-                                FunctionCallExpression
-                                  (FunctionCall (Identifier("factorial"), [],
-                                     [BinaryExpression
-                                        (IdentifierExpression (Identifier("n")), Subtract,
-                                         LiteralExpression (IntLiteral 1))])))))))])] ""
+               {Name = Identifier("factorial"); GenericParameters = []; Parameters = [(Identifier("n"), Int)]; ReturnType = None;
+                Body = 
+                [
+                IfStatement
+                 (BinaryExpression
+                    (IdentifierExpression(Identifier("n")),Equal,
+                     LiteralExpression (IntLiteral 0)),
+                  ReturnStatement (Some (LiteralExpression (IntLiteral 1))),
+                  Some
+                    (ReturnStatement
+                       (Some
+                          (BinaryExpression
+                             (IdentifierExpression (Identifier("n")),Multiply,
+                              FunctionCallExpression
+                                (FunctionCall (Identifier("factorial"), [],
+                                   [BinaryExpression
+                                      (IdentifierExpression (Identifier("n")), Subtract,
+                                       LiteralExpression (IntLiteral 1))])))))))]}] ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
         fun main
@@ -43,9 +45,12 @@ let tests =
         }
         "
       Expect.equal (parse source) [FunctionDeclaration
-       (Identifier("main"),[], [], None,
-        [AssignmentStatement
-           (IdentifierExpression( Identifier("a")),
+       {Name = Identifier("main"); GenericParameters = [];Parameters = []; ReturnType = None;
+        Body =
+        [
+          AssignmentStatement
+           (
+           IdentifierExpression( Identifier("a")),
             AssignmentExpression
               (IdentifierExpression(Identifier("n")),
                AssignmentExpression
@@ -54,6 +59,6 @@ let tests =
                     (FunctionCall
                     (Identifier("foo"),[],
                      [LiteralExpression (IntLiteral 123);
-                      LiteralExpression (IntLiteral 5)])))))])]  ""
+                      LiteralExpression (IntLiteral 5)])))))]}]  ""
   ]
   

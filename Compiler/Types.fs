@@ -3,10 +3,10 @@ module Compiler.Types
 open Compiler.Ast
 open System.Reflection
 
-type Assembly =
+type Module = 
     {
-        FullName : string;
-        ExportedTypes : Type list;
+        Types : Type list;
+        Methods : Method list;
     }
 
 and Type = 
@@ -20,6 +20,7 @@ and Type =
       ImplementedInterfaces : TypeName array
       Methods : Method array
       Fields : Field array }
+
 and TypeName = string
 
 and Method = 
