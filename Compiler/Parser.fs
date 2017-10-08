@@ -26,10 +26,14 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
-let emptyListIfNone = 
+let toList = 
                     function
                     | Some (args) -> preturn args
                     | None -> preturn [] 
+
+
+let emptyListIfNone2 x = 
+                    Option.toList x |> preturn
 
 module Char =
     let leftBrace = skipChar '{' .>> spaces
@@ -58,6 +62,8 @@ module Keyword =
     let pClass = skipString "class" .>> nonAlphanumericWs
     let pConstructor = skipString "construct" .>> nonAlphanumericWs
     let pNew = skipString "new" .>> nonAlphanumericWs
+    let pImplements = skipString "implements" .>> nonAlphanumericWs
+    let pExtends = skipString "extends" .>> nonAlphanumericWs
     let keywords = [ 
         "fun";
         "return";
@@ -130,7 +136,6 @@ pIdentifierImpl := identifier .>> spaces
      && not (Types.builtInTypesParsersDict.Keys.Contains(id))
     then preturn id 
     else fail ("Identifier cannot be a keyword: " + id))
-    |>> Identifier
 
 module Expression = 
     let opp = new OperatorPrecedenceParser<Expression,_,_>()
@@ -139,7 +144,7 @@ module Expression =
     let pFunctionCall = 
         tuple3
             pIdentifier
-            ((opt Types.pGenericArguments) >>= emptyListIfNone)
+            ((opt Types.pGenericArguments) >>= toList)
             (between Char.leftParen Char.rightParen pArgumentList)
 
     let pFunctionCallExpression = 
@@ -291,7 +296,7 @@ module Function =
 
         pipe5 
             (Keyword.pFun >>. pIdentifier)
-            (opt pGenericParameters >>= emptyListIfNone)
+            (opt pGenericParameters >>= toList)
             parametersList 
             returnType
             body 
@@ -309,15 +314,15 @@ module Function =
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pInheritanceDeclaration = 
-        opt (Char.colon >>. sepBy1 Types.pQualifiedType Char.comma) 
-            >>= emptyListIfNone
+        opt (Keyword.pExtends >>. Types.pQualifiedType ) .>>.
+        (opt (Keyword.pImplements >>. sepBy1 Types.pQualifiedType Char.comma) >>= toList)
     
     let pClassBody = 
         let pConstructor =
             let pBaseCall =
                 opt (Char.colon >>. (between Char.leftParen Char.rightParen 
                         (sepBy1 Expression.pExpression Char.comma))) 
-                    >>= emptyListIfNone
+                    >>= toList
             pipe3 
                 (Keyword.pConstructor >>. Function.parametersList)
                 pBaseCall
@@ -326,30 +331,29 @@ module Class =
         let readonlyFieldDeclaration = 
             tuple3
                 (Keyword.pVal >>. pIdentifier)
-                (opt (Char.colon >>. Types.pTypeSpec))
+                (Char.colon >>. Types.pTypeSpec)
                 (opt (Char.equals >>. Expression.pExpression))
-        tuple4
+        tuple3
             (many readonlyFieldDeclaration)
-            (many Statement.pLocalVariableDeclarationStatement)
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
 
     let pClass : Parser<Class, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
-            (opt Function.pGenericParameters >>= emptyListIfNone)
-            (opt pInheritanceDeclaration >>= emptyListIfNone)
+            (opt Function.pGenericParameters >>= toList)
+            pInheritanceDeclaration
             (between Char.leftBrace Char.rightBrace pClassBody)
             (fun name genericParameters inheritanceDeclaration body ->
-            let values, variables, constructor, functions = body
+            let properties, constructor, functions = body
             {
-                Type = name;
+                Name = name;
                 GenericTypeParameters = genericParameters;
-                BaseTypes = inheritanceDeclaration;
-                FieldDeclarations = variables;
-                ValueDeclarations = values;
+                BaseClass = fst inheritanceDeclaration;
+                Properties = properties;
                 Constructor = constructor;
                 FunctionDeclarations = functions;
+                ImplementedInterfaces = snd inheritanceDeclaration;
             })
 
 let pDeclaration = 
@@ -359,14 +363,13 @@ let pDeclaration =
         ]
 let pProgram = spaces >>. many pDeclaration
 
-let parseProgram program =
-    //TODO: consider using runParserOnString or sth else
-    run pProgram program
+let parseProgram =
+    removeComments >> run pProgram
 
-let parse (sourceCode : string) : Program = 
-    sourceCode 
-    |> removeComments
-    |> parseProgram 
-    |> function
-        | Success(result, _, _) -> result
-        | Failure(message, error, state) -> failwith ((message, error, state).ToString())
+let parse = 
+    parseProgram 
+    >>
+    function
+    | Success(result, _, _) -> Result.Ok result
+    | Failure(message, error, state) -> Result.Error ((message, error, state).ToString())
+

@@ -24,13 +24,13 @@ module ExternalTypes =
             }
         let createMethod (dotnetMethod : MethodInfo) =
             {
-                Parameters = dotnetMethod.GetParameters() |> Array.map createParameter;
-                ReturnType = uniqueName dotnetMethod.ReturnType;
+                Parameters = dotnetMethod.GetParameters() |> Array.toList|> List.map createParameter;
+                ReturnType = Some (uniqueName dotnetMethod.ReturnType);
                 MethodName = dotnetMethod.Name
             }
         let createConstructor (dotnetConstructor : ConstructorInfo) = 
             {
-                Parameters = dotnetConstructor.GetParameters() |> Array.map createParameter;
+                Parameters = dotnetConstructor.GetParameters() |> Array.toList|> List.map createParameter;
             }
         let createField (dotnetField : Reflection.FieldInfo) =
             dotnetField.Name, uniqueName dotnetField.FieldType
@@ -39,54 +39,62 @@ module ExternalTypes =
             BaseType = if dotnetType.BaseType <> null then 
                            Some (uniqueName dotnetType.BaseType)
                        else None;
-            DeclaredConstructors = dotnetType.GetConstructors() |> Array.map createConstructor;
-            Fields = dotnetType.GetFields() |> Array.map createField;
+            DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
+            Fields = dotnetType.GetFields() |> Array.toList|> List.map createField;
             Guid = dotnetType.GUID;
             Name = dotnetType.ToString();
             GenericParameters = 
                 if dotnetType.IsGenericParameter then 
                     dotnetType.GetGenericParameterConstraints() 
-                    |> Array.map uniqueName 
-                else [||]
-            ImplementedInterfaces = dotnetType.GetInterfaces() |> (Array.map uniqueName);
-            Methods = dotnetType.GetMethods() |> Array.map createMethod
+                    |> Array.toList |> List.map (fun x->x.ToString())
+                else []
+            ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map uniqueName;
+            Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod
         }
 
-        let createUserDeclaredType declaration =
-            let createMethod (method : Function) = 
+    let createUserDeclaredType ast =
+        let typeName (t: TypeSpec) :TypeName = "DUPA.888"
+        let createMethodDeclaration (method : Function) = 
+            {
+                Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = typeName t; ParameterName = id});
+                ReturnType = method.ReturnType |> Option.map typeName
+                MethodName = method.Name
+            }
+        let createClassDeclaration (declaredType : Class) =
+            let createParameter astParameter = 
                 {
-                    Parameters = dotnetMethod.GetParameters() |> Array.map createParameter;
-                    ReturnType = uniqueName dotnetMethod.ReturnType;
-                    MethodName = dotnetMethod.Name
+                    ParameterName = fst astParameter 
+                    Type = snd astParameter |> typeName;
                 }
-            let createClassDeclaration (classDeclaration : Class) =
+            let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
                 {
-                    AssemblyName = "default"
-                    BaseType = if dotnetType.BaseType <> null then 
-                                   Some (uniqueName dotnetType.BaseType)
-                               else None;
-                    DeclaredConstructors = dotnetType.GetConstructors() |> Array.map createConstructor;
-                    Fields = dotnetType.GetFields() |> Array.map createField;
-                    Guid = dotnetType.GUID;
-                    Name = dotnetType.ToString();
-                    GenericParameters = 
-                        if dotnetType.IsGenericParameter 
-                        then dotnetType.GetGenericParameterConstraints() 
-                             |> Array.map uniqueName 
-                        else [||]
-                    ImplementedInterfaces = dotnetType.GetInterfaces() |> (Array.map uniqueName);
-                    Methods = dotnetType.GetMethods() |> Array.map createMethod
+                    Parameters = astCtor.Parameters |> List.map createParameter;
                 }
-            function 
-            | FunctionDeclaration -> createMethodDeclaration 
-            | ClassDeclaration -> createClassDeclaration
+            {
+                AssemblyName = "default"
+                BaseType = declaredType.BaseClass |> Option.map (CustomTypeSpec >> typeName)
+                DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
+                Fields = declaredType.Properties 
+                         |> List.map (fun property -> 
+                             let name, t, _ = property
+                             (name, typeName t))
+                Guid = Guid.NewGuid();
+                Name = declaredType.Name;
+                GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
+                ImplementedInterfaces = declaredType.ImplementedInterfaces |> List.map (CustomTypeSpec >> typeName);
+                Methods = declaredType.FunctionDeclarations |> List.map createMethodDeclaration
+            }
+        ast |> List.choose (fun declaration ->
+                match declaration with
+                | ClassDeclaration c -> Some c
+                | _ -> None)
 
-        let mscorlibTypes =
-            let mscorlib = Assembly.GetAssembly(typeof<obj>)
-            mscorlib.GetTypes()
-            |> List.ofArray
-            |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
-            |> Map.ofList
+    let mscorlibTypes =
+        let mscorlib = Assembly.GetAssembly(typeof<obj>)
+        mscorlib.GetTypes()
+        |> List.ofArray
+        |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
+        |> Map.ofList
 
 
         // let getBuiltInType =
@@ -127,23 +135,22 @@ module TypesScanner =
                     | AssignmentStatement (e1,e2) -> scanExpression e1 @ scanExpression e2
 
             let rec scanDeclaration = function
-            | FunctionDeclaration(
-                                    identifier,
-                                    genericParameters,
-                                    parameters,
-                                    returnType,
-                                    cs)
+            | FunctionDeclaration({
+                                    Name = identifier;
+                                    GenericParameters = genericParameters;
+                                    Parameters = parameters;
+                                    ReturnType = returnType;
+                                    Body = cs})
               -> ((get [returnType]) 
                  @ (parameters |> List.map snd)
               |> List.map scanType)
                  @ (cs |> List.collect scanStatement)
             | ClassDeclaration
                 ({
-                    Type = name;
+                    Name = name;
                     GenericTypeParameters = typeParameters;
-                    BaseTypes = baseTypes;
-                    ValueDeclarations = values;
-                    FieldDeclarations = variables;
+                    ImplementedInterfaces = baseTypes;
+                    Properties = properties;
                     Constructor = constructor;
                     FunctionDeclarations = methods})
               ->
@@ -155,14 +162,7 @@ module TypesScanner =
                        (parameters |> List.map (snd >> scanType)) @ (stmts |> List.collect scanStatement)
 
                (baseTypes |> List.map (CustomTypeSpec >> scanType))
-                    @ (values |> List.collect (fun (i,t,e) -> get [t] |> List.map scanType))
-                    @ (variables |> List.collect
-                        (function
-                         | DeclarationWithType (i,t) -> [scanType t]
-                         | FullDeclaration (i,t,e) -> [scanType t]
-                         | DeclarationWithInitialization _ -> []
-                        )
-                      )
+                    @ (properties |> List.collect (fun (i,t,e) -> [t] |> List.map scanType))
                     @ scanConstructor
             List.map scanDeclaration
 

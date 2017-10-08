@@ -12,7 +12,7 @@ let tests =
                         {
                             val x : int;
                         }"
-              Expect.throws (fun () -> parse source |> ignore) "value must be assigned"
+              Expect.isError (parse source) "value must be assigned"
           
           testCase "explicit type value declaration with assignment" 
           <| fun _ -> 
@@ -20,17 +20,13 @@ let tests =
                         {
                             val x : int = 4;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main"); GenericParameters = [];Parameters = []; ReturnType = None;
-                         Body = [ ValueDeclaration
-                                   (Identifier("x"), Some Int, ((LiteralExpression(IntLiteral(4))) )) ]} ] ""
+              Expect.isOk (parse source) ""
           testCase "implicit type value declaration" <| fun _ -> 
               let source = " fun main
                         {
                             val x;
                         }"
-              Expect.throws (fun () -> parse source |> ignore) "value must be assigned"
+              Expect.isError (parse source) "value must be assigned"
           
           testCase "implicit type value declaration with assignment" 
           <| fun _ -> 
@@ -38,10 +34,7 @@ let tests =
                         {
                             val x = 4;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main"); GenericParameters = []; Parameters = [];ReturnType = None;
-                         Body = [( (ValueDeclaration(Identifier("x"), None, LiteralExpression(IntLiteral(4))) )) ]} ] ""
+              Expect.isOk (parse source) ""
           
           testCase "explicit type variable declaration" 
           <| fun _ -> 
@@ -49,10 +42,7 @@ let tests =
                         {
                             var x : int;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
-                         Body = [ (VariableDeclaration(DeclarationWithType( Identifier("x"), Int))) ]} ] ""
+              Expect.isOk (parse source) ""
           
           testCase "explicit type variable declaration with assignment" 
           <| fun _ -> 
@@ -60,13 +50,7 @@ let tests =
                         {
                             var x : int = 4;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
-                         Body = [ 
-                                   (VariableDeclaration(
-                                       FullDeclaration(Identifier("x"), Int, ((LiteralExpression(IntLiteral(4))))))) ]} ] 
-                  ""
+              Expect.isOk (parse source) ""
           
           testCase "implicit type variable declaration" 
           <| fun _ -> 
@@ -74,7 +58,7 @@ let tests =
                         {
                             var x;
                         }"
-              Expect.throws (fun () -> (parse source) |> ignore) "illegal"
+              Expect.isError (parse source) "illegal"
           
           testCase "implicit type variable declaration with assignment" 
           <| fun _ -> 
@@ -82,11 +66,7 @@ let tests =
                         {
                             var x = 4;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main");GenericParameters = [];Parameters=  []; ReturnType = None;
-                         Body =[ 
-                               (VariableDeclaration(DeclarationWithInitialization(Identifier("x"), (LiteralExpression(IntLiteral(4)))))) ]} ] ""
+              Expect.isOk (parse source) ""
           
           testCase "multiple variable declarations" 
           <| fun _ -> 
@@ -99,30 +79,7 @@ let tests =
                             val f1 : float = 3.14;
                             var f2 : double = 3.141231;
                         }"
-              Expect.equal (parse source) 
-                  [ FunctionDeclaration
-                        {Name = Identifier("main"); GenericParameters = []; Parameters = []; ReturnType = None;
-                         Body = [ 
-                                   (VariableDeclaration(FullDeclaration(Identifier("y"), Int, (LiteralExpression(IntLiteral 4)))))
-                               
-                               
-                                   (VariableDeclaration(DeclarationWithInitialization(Identifier("a"), (LiteralExpression(IntLiteral 4)))))
-                               
-                               
-                                   (ValueDeclaration
-                                        (Identifier("s1"), None, LiteralExpression(StringLiteral "im a string variable")))
-                               
-                               
-                                   (VariableDeclaration 
-                                   (FullDeclaration(Identifier("s2"), String, (LiteralExpression(StringLiteral "another string")))))
-                               
-                               
-                                   (ValueDeclaration(Identifier("f1"), Some Float, LiteralExpression(FloatLiteral 3.14)))
-                               
-                               
-                                   (VariableDeclaration(FullDeclaration
-                                        (Identifier("f2"), Double, (LiteralExpression(FloatLiteral 3.141231))))) 
-                            ]} ] "" 
+              Expect.isOk (parse source) ""
           testCase "array declaration with assignment" 
           <| fun _ -> 
               let source = @" fun main
@@ -130,31 +87,5 @@ let tests =
                             var arr1 = [1;2;3;4.0;5.2;""six""; new System::Object()];
                             var arr2 = [[1;2];[1;""asd""]];
                         }"
-              Expect.equal (parse source) 
-                   [FunctionDeclaration
-               {Name = Identifier "main"; GenericParameters =  []; Parameters = []; ReturnType = None;
-                Body = [VariableDeclaration
-                       (DeclarationWithInitialization
-                          (Identifier "arr1",
-                           ListInitializerExpression
-                             [LiteralExpression (IntLiteral 1); LiteralExpression (IntLiteral 2);
-                              LiteralExpression (IntLiteral 3);
-                              LiteralExpression (FloatLiteral 4.0);
-                              LiteralExpression (FloatLiteral 5.2);
-                              LiteralExpression (StringLiteral "six");
-                              NewExpression
-                                (CustomTypeSpec
-                                   ([Identifier "System"],CustomType (Identifier "Object",[])),
-                                 [])]));
-                     VariableDeclaration
-                       (DeclarationWithInitialization
-                          (Identifier "arr2",
-                           ListInitializerExpression
-                             [ListInitializerExpression
-                                [LiteralExpression (IntLiteral 1);
-                                 LiteralExpression (IntLiteral 2)];
-                              ListInitializerExpression
-                                [LiteralExpression (IntLiteral 1);
-                                 LiteralExpression (StringLiteral "asd")]]))]}]  ""
-                    
+              Expect.isOk (parse source) ""
 ]

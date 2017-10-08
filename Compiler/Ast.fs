@@ -6,15 +6,19 @@ and Declaration =
   | FunctionDeclaration of Function
   | ClassDeclaration of Class
 
+and DottedTypeName = Identifier list * CustomType
+
 and Class = {
-  Type : Identifier;
+  Name : Identifier;
   GenericTypeParameters : GenericTypeParameter list;
-  BaseTypes : (Identifier list * CustomType) list;
-  ValueDeclarations : ValueFieldDeclaration list;
-  FieldDeclarations : VariableDeclaration list;
+  ImplementedInterfaces : DottedTypeName list;
+  Properties : PropertyDeclaration list;
   Constructor : Constructor option;
   FunctionDeclarations : Function list;
+  BaseClass : DottedTypeName option
 }
+and PropertyDeclaration =
+  Identifier * TypeSpec * Expression option 
 
 and Constructor = {
     Parameters : Parameter list;
@@ -40,14 +44,13 @@ and TypeSpec =
   | Double
   | String
   | Void
-  | CustomTypeSpec of Identifier list * CustomType
+  | CustomTypeSpec of DottedTypeName
   override ts.ToString() =
-   let idString (Identifier a) = a
    let rec serializeTypeSpec ts = 
      match ts with 
      | CustomTypeSpec (ns, CustomType(id, generics)) ->
-      (ns |> List.map (fun id -> idString id  + ".") |> String.concat "") 
-      + (idString id)
+      (ns |> List.map (fun id -> id  + ".") |> String.concat "") 
+      + id
       + if List.isEmpty generics
         then ""
         else "`" + (List.length generics).ToString() + "[" + (generics |> List.map serializeTypeSpec |> String.concat ",") + "]"
@@ -62,7 +65,7 @@ and TypeSpec =
 
 and CustomType = CustomType of Identifier * TypeSpec list
 
-and Identifier = Identifier of string
+and Identifier = string
 
 and Parameter = Identifier * TypeSpec
 
@@ -82,8 +85,6 @@ and Statement =
 
 and ValueDeclaration =
   Identifier * TypeSpec option * Expression
-and ValueFieldDeclaration =
-  Identifier * TypeSpec option * Expression option // can be assigned in constructor
 and VariableDeclaration =
   | DeclarationWithInitialization of Identifier * Expression
   | DeclarationWithType of Identifier * TypeSpec

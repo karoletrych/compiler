@@ -14,15 +14,17 @@ let tests =
     testCase "resolving valid System.Console.WriteLine call" <| fun _ ->
         let scanResult = 
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
-            |> parse 
-            |> scanTypes
+            |> parse
+            |> function
+               | Ok x -> scanTypes x
         Expect.equal scanResult [[Success ((),[])]]  ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
             |> parse
-            |> scanTypes
+            |> function
+               | Ok x -> scanTypes x
         Expect.equal scanResult [[Failure
                                     [CannotResolveType
-                                       (CustomTypeSpec ([Identifier "Sys"],CustomType (Identifier "Cons",[])))]]] ""
+                                       (CustomTypeSpec (["Sys"],CustomType ("Cons",[])))]]] ""
     ]

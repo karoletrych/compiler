@@ -13,65 +13,23 @@ let tests =
                         {
                             System::Console:.WriteLine();
                         }"
-              Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-                   { Name = Identifier "main";GenericParameters = []; Parameters =  []; ReturnType = None;
-                    Body = [StaticFunctionCallStatement
-                       (CustomTypeSpec
-                          ([Identifier "System"],
-                           CustomType((Identifier "Console"),[])),
-                        FunctionCall (Identifier "WriteLine",[],[]))]}] ""
+              Expect.isOk (parse source) "" 
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
                         {
                             var s = System::Console:.ReadLine();
                         }"
-              Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-               {Name = Identifier "main";GenericParameters = []; Parameters = []; ReturnType =  None;
-                Body = [VariableDeclaration
-                   (DeclarationWithInitialization
-                      (Identifier "s",
-                       StaticMemberExpression
-                         (CustomTypeSpec
-                            ([Identifier "System"],
-                             CustomType
-                               ((Identifier "Console"),[])),
-                          FunctionCall (Identifier "ReadLine",[],[]))))]}] ""
+              Expect.isOk (parse source) "" 
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
                         {
                             var s : System::Object;
                         }"
-              Expect.equal (Compiler.Parser.parse source) 
-                                [FunctionDeclaration
-                                   {
-                                    Name = Identifier "main"; GenericParameters = []; Parameters = []; ReturnType = None;
-                                    Body = [VariableDeclaration
-                                       (DeclarationWithType
-                                          (Identifier "s",
-                                           CustomTypeSpec
-                                             ([Identifier "System"],
-                                              CustomType
-                                                ((Identifier "Object"),[]))))]}] ""
+              Expect.isOk (parse source) ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
                             System::Console:.WriteLine(o);
                         }"
-              Expect.equal (Compiler.Parser.parse source) [FunctionDeclaration
-               {
-                 Name = Identifier "main";
-                 GenericParameters = [];
-                 ReturnType = None;
-                 Body = [StaticFunctionCallStatement
-                     (CustomTypeSpec
-                        ([Identifier "System"],
-                         CustomType ((Identifier "Console"),[])),
-                      FunctionCall
-                        (Identifier "WriteLine",[],[IdentifierExpression (Identifier "o")]))]
-                 Parameters = 
-                  [(Identifier "o",
-                    CustomTypeSpec
-                      ([Identifier "System"],
-                       CustomType ((Identifier "Object"),[])))];
-                        }]""
+              Expect.isOk (parse source) ""
         ]

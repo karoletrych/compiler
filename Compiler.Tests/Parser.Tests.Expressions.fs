@@ -17,26 +17,7 @@ let tests =
                 return n * factorial(n-1);
         }
         "
-      Expect.equal (parse source) 
-          [FunctionDeclaration
-               {Name = Identifier("factorial"); GenericParameters = []; Parameters = [(Identifier("n"), Int)]; ReturnType = None;
-                Body = 
-                [
-                IfStatement
-                 (BinaryExpression
-                    (IdentifierExpression(Identifier("n")),Equal,
-                     LiteralExpression (IntLiteral 0)),
-                  ReturnStatement (Some (LiteralExpression (IntLiteral 1))),
-                  Some
-                    (ReturnStatement
-                       (Some
-                          (BinaryExpression
-                             (IdentifierExpression (Identifier("n")),Multiply,
-                              FunctionCallExpression
-                                (FunctionCall (Identifier("factorial"), [],
-                                   [BinaryExpression
-                                      (IdentifierExpression (Identifier("n")), Subtract,
-                                       LiteralExpression (IntLiteral 1))])))))))]}] ""
+      Expect.isOk (parse source) ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
         fun main
@@ -44,21 +25,6 @@ let tests =
           a = n = x = foo(123, 5);
         }
         "
-      Expect.equal (parse source) [FunctionDeclaration
-       {Name = Identifier("main"); GenericParameters = [];Parameters = []; ReturnType = None;
-        Body =
-        [
-          AssignmentStatement
-           (
-           IdentifierExpression( Identifier("a")),
-            AssignmentExpression
-              (IdentifierExpression(Identifier("n")),
-               AssignmentExpression
-                 (IdentifierExpression(Identifier("x")),
-                  FunctionCallExpression
-                    (FunctionCall
-                    (Identifier("foo"),[],
-                     [LiteralExpression (IntLiteral 123);
-                      LiteralExpression (IntLiteral 5)])))))]}]  ""
+      Expect.isOk (parse source) ""
   ]
   

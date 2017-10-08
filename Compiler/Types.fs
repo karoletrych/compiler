@@ -13,23 +13,24 @@ and Type =
     {
       AssemblyName : string
       BaseType : TypeName option
-      DeclaredConstructors : Constructor array
+      DeclaredConstructors : Constructor list
       Name : string
       Guid : System.Guid
-      GenericParameters : TypeName array
-      ImplementedInterfaces : TypeName array
-      Methods : Method array
-      Fields : Field array }
+      GenericParameters : TypeName list
+      ImplementedInterfaces : TypeName list
+      Methods : Method list
+      Fields : Field list }
+      member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
 
 and TypeName = string
 
 and Method = 
     { 
         MethodName : string    
-        Parameters : Parameter array
-        ReturnType : TypeName }
+        Parameters : Parameter list
+        ReturnType : TypeName option}
 and Constructor = 
-    { Parameters : Parameter array}
+    { Parameters : Parameter list}
 and Parameter = { Type : TypeName; ParameterName : string}
 and Field = string * TypeName
 
