@@ -6,7 +6,7 @@ open System.Reflection
 type Module = 
     {
         Types : Type list;
-        Methods : Method list;
+        Functions : Function list;
     }
 
 and Type = 
@@ -18,15 +18,15 @@ and Type =
       Guid : System.Guid
       GenericParameters : TypeName list
       ImplementedInterfaces : TypeName list
-      Methods : Method list
+      Methods : Function list
       Fields : Field list }
       member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
 
 and TypeName = string
 
-and Method = 
+and Function = 
     { 
-        MethodName : string    
+        FunctionName : string    
         Parameters : Parameter list
         ReturnType : TypeName option}
 and Constructor = 

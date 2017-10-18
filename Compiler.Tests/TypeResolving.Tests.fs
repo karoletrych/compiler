@@ -17,6 +17,7 @@ let tests =
             |> parse
             |> function
                | Ok x -> scanTypes x
+               | _ -> failwith "error in test"
         Expect.equal scanResult [[Success ((),[])]]  ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
@@ -24,6 +25,7 @@ let tests =
             |> parse
             |> function
                | Ok x -> scanTypes x
+               | _ -> failwith "error in test"
         Expect.equal scanResult [[Failure
                                     [CannotResolveType
                                        (CustomTypeSpec (["Sys"],CustomType ("Cons",[])))]]] ""

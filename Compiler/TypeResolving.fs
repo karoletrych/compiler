@@ -26,7 +26,7 @@ module ExternalTypes =
             {
                 Parameters = dotnetMethod.GetParameters() |> Array.toList|> List.map createParameter;
                 ReturnType = Some (uniqueName dotnetMethod.ReturnType);
-                MethodName = dotnetMethod.Name
+                FunctionName = dotnetMethod.Name
             }
         let createConstructor (dotnetConstructor : ConstructorInfo) = 
             {
@@ -52,13 +52,13 @@ module ExternalTypes =
             Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod
         }
 
-    let createUserDeclaredType ast =
-        let typeName (t: TypeSpec) :TypeName = "DUPA.888"
-        let createMethodDeclaration (method : Function) = 
+    let createUserDeclaredModule ast =
+        let typeName (t: TypeSpec) : TypeName = "DUPA.888"
+        let createFunctionDeclaration (method : Function) = 
             {
                 Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = typeName t; ParameterName = id});
                 ReturnType = method.ReturnType |> Option.map typeName
-                MethodName = method.Name
+                FunctionName = method.Name
             }
         let createClassDeclaration (declaredType : Class) =
             let createParameter astParameter = 
@@ -82,12 +82,29 @@ module ExternalTypes =
                 Name = declaredType.Name;
                 GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
                 ImplementedInterfaces = declaredType.ImplementedInterfaces |> List.map (CustomTypeSpec >> typeName);
-                Methods = declaredType.FunctionDeclarations |> List.map createMethodDeclaration
+                Methods = declaredType.FunctionDeclarations |> List.map createFunctionDeclaration
             }
-        ast |> List.choose (fun declaration ->
-                match declaration with
-                | ClassDeclaration c -> Some c
-                | _ -> None)
+        let functions = List.choose (fun elem ->
+            match elem with
+            | FunctionDeclaration f  -> Some f
+            | _ -> None) 
+        let classes = List.choose (fun elem ->
+            match elem with
+            | ClassDeclaration c  -> Some c
+            | _ -> None) 
+        {
+            Functions = ast |> functions |> List.map createFunctionDeclaration;
+            Classes = ast |> classes |> List.map createClassDeclaration;
+        }
+
+                // Types = ast |> List.choose (fun declaration ->
+                //     match declaration with
+                //     | ClassDeclaration c -> c |> createClassDeclaration |> Some
+                //     | _ -> None)
+                // Methods = ast |> List.choose (fun declaration ->
+                //     match declaration with
+                //     | FunctionDeclaration c -> c |> createClassDeclaration |> Some
+                //     | _ -> None)
 
     let mscorlibTypes =
         let mscorlib = Assembly.GetAssembly(typeof<obj>)
