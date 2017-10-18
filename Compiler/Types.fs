@@ -5,7 +5,7 @@ open System.Reflection
 
 type Module = 
     {
-        Types : Type list;
+        Classes : Type list;
         Functions : Function list;
     }
 

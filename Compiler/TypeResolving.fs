@@ -52,6 +52,13 @@ module ExternalTypes =
             Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod
         }
 
+    let mscorlibTypes =
+        let mscorlib = Assembly.GetAssembly(typeof<obj>)
+        mscorlib.GetTypes()
+        |> List.ofArray
+        |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
+        |> Map.ofList
+
     let createUserDeclaredModule ast =
         let typeName (t: TypeSpec) : TypeName = "DUPA.888"
         let createFunctionDeclaration (method : Function) = 
@@ -97,31 +104,6 @@ module ExternalTypes =
             Classes = ast |> classes |> List.map createClassDeclaration;
         }
 
-                // Types = ast |> List.choose (fun declaration ->
-                //     match declaration with
-                //     | ClassDeclaration c -> c |> createClassDeclaration |> Some
-                //     | _ -> None)
-                // Methods = ast |> List.choose (fun declaration ->
-                //     match declaration with
-                //     | FunctionDeclaration c -> c |> createClassDeclaration |> Some
-                //     | _ -> None)
-
-    let mscorlibTypes =
-        let mscorlib = Assembly.GetAssembly(typeof<obj>)
-        mscorlib.GetTypes()
-        |> List.ofArray
-        |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
-        |> Map.ofList
-
-
-        // let getBuiltInType =
-        //         function 
-        //         | Ast.IntLiteral(_) -> createBasicType "int"
-        //         | Ast.FloatLiteral(_) -> createBasicType "float"
-        //         | Ast.StringLiteral(_) -> createBasicType "string"
-        //         | Ast.BoolLiteral(_) -> createBasicType "bool"
-
-        // ExternalTypes.mscorlibTypes;;
 
 module TypesScanner = 
     let scanAst scanType =
