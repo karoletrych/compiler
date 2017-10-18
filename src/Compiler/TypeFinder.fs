@@ -51,14 +51,9 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Compiler.Types.Typ
         Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod
     }
 
-let mscorlibTypes =
-    let mscorlib = Assembly.GetAssembly(typeof<obj>)
-    mscorlib.GetTypes()
-    |> List.ofArray
-    |> List.map (createTypeFromDotNetType >> (fun t -> (t.Name, t)))
-    |> Map.ofList
 
-let createUserDeclaredModule ast =
+
+let createUserDeclaredModule ast name =
     let typeName (t: TypeSpec) : TypeName = "DUPA.888"
     let createFunctionDeclaration (method : Ast.Function) = 
         {
@@ -101,4 +96,42 @@ let createUserDeclaredModule ast =
     {
         Functions = ast |> functions |> List.map createFunctionDeclaration;
         Classes = ast |> classes |> List.map createClassDeclaration;
+        Name = name
     }
+
+// TODO: differentiate between instance and static functions
+let createModuleType name functions =
+    {
+            AssemblyName = "default"
+            BaseType = None;
+            DeclaredConstructors = []
+            Fields = []
+            Guid = Guid.NewGuid();
+            Name = name
+            GenericParameters = [];
+            ImplementedInterfaces = []
+            Methods = functions
+    }
+
+let withNames = List.map (fun c -> (c.Name, c))
+let userDeclaredTypes (modules : Tuple<string, Declaration list> list) =
+    let userDeclaredModules =
+        modules 
+        |> List.map (fun m -> createUserDeclaredModule (snd m) (fst m)) 
+    let userTypes = 
+        userDeclaredModules 
+        |> List.collect (fun m -> (m.Classes |> withNames))
+    let userDeclaredModuleTypes = 
+        userDeclaredModules
+        |> List.map (fun m -> createModuleType m.Name m.Functions)
+        |> withNames
+    List.append userTypes userDeclaredModuleTypes
+    
+let mscorlibTypes = 
+        Assembly.GetAssembly(typeof<obj>).GetTypes()
+        |> List.ofArray
+        |> List.map (createTypeFromDotNetType)
+        |> withNames
+
+let types (modules : Tuple<string, Declaration list> list) =
+    List.append mscorlibTypes (userDeclaredTypes modules)

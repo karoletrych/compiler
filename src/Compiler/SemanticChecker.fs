@@ -95,5 +95,5 @@ module TypeChecker =
                     | None -> fail (CannotResolveType typeSpec)
             | _ -> succeedUnit
 
-let scanTypes = TypeChecker.scanAst (TypeChecker.scanType TypeFinder.mscorlibTypes)
+let scanTypes = TypeChecker.scanAst (TypeChecker.scanType TypeFinder.types)
 

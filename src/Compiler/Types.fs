@@ -5,6 +5,7 @@ open System.Reflection
 
 type Module = 
     {
+        Name : string;
         Classes : Type list;
         Functions : Function list;
     }
