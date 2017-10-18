@@ -1,50 +1,79 @@
-// include Fake libs
+// --------------------------------------------------------------------------------------
+// FAKE build script
+// --------------------------------------------------------------------------------------
+
 #r "./packages/FAKE/tools/FakeLib.dll"
 
 open Fake
+open System
 
-// Directories
+// --------------------------------------------------------------------------------------
+// Build variables
+// --------------------------------------------------------------------------------------
+
 let buildDir  = "./build/"
-let deployDir = "./deploy/"
+let appReferences = !! "/**/*.fsproj"
+let dotnetcliVersion = "2.0.2"
+let mutable dotnetExePath = "dotnet"
 
+// --------------------------------------------------------------------------------------
+// Helpers
+// --------------------------------------------------------------------------------------
 
-// Filesets
-let appReferences  =
-    !! "/**/*.csproj"
-    ++ "/**/*.fsproj"
+let run' timeout cmd args dir =
+    if execProcess (fun info ->
+        info.FileName <- cmd
+        if not (String.IsNullOrWhiteSpace dir) then
+            info.WorkingDirectory <- dir
+        info.Arguments <- args
+    ) timeout |> not then
+        failwithf "Error while running '%s' with args: %s" cmd args
 
-// version info
-let version = "0.1"  // or retrieve from CI server
+let run = run' System.TimeSpan.MaxValue
 
+let runDotnet workingDir args =
+    let result =
+        ExecProcess (fun info ->
+            info.FileName <- dotnetExePath
+            info.WorkingDirectory <- workingDir
+            info.Arguments <- args) TimeSpan.MaxValue
+    if result <> 0 then failwithf "dotnet %s failed" args
+
+// --------------------------------------------------------------------------------------
 // Targets
+// --------------------------------------------------------------------------------------
+
 Target "Clean" (fun _ ->
-    CleanDirs [buildDir; deployDir]
+    CleanDirs [buildDir]
+)
+
+Target "InstallDotNetCLI" (fun _ ->
+    dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
+)
+
+Target "Restore" (fun _ ->
+    appReferences
+    |> Seq.iter (fun p ->
+        let dir = System.IO.Path.GetDirectoryName p
+        runDotnet dir "restore"
+    )
 )
 
 Target "Build" (fun _ ->
-    // compile all projects below src/app/
-    MSBuildDebug buildDir "Build" appReferences
-    |> Log "AppBuild-Output: "
+    appReferences
+    |> Seq.iter (fun p ->
+        let dir = System.IO.Path.GetDirectoryName p
+        runDotnet dir "build"
+    )
 )
 
-Target "Deploy" (fun _ ->
-    !! (buildDir + "/**/*.*")
-    -- "*.zip"
-    |> Zip buildDir (deployDir + "ApplicationName." + version + ".zip")
-)
-
-Target "Test" (fun _ ->
-    ["build/Compiler.Tests.exe", ""]
-    |> ProcessTestRunner.RunConsoleTests id
-)
-
+// --------------------------------------------------------------------------------------
 // Build order
+// --------------------------------------------------------------------------------------
+
 "Clean"
+  ==> "InstallDotNetCLI"
+  ==> "Restore"
   ==> "Build"
-  ==> "Deploy"
 
-"Build"
-    ==> "Test"
-
-// start build
 RunTargetOrDefault "Build"

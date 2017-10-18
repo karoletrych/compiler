@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net461</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Compiler\Compiler.fsproj">
+      <Name>Compiler.fsproj</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Parser.Tests.Classes.fs" />
+    <Compile Include="Parser.Tests.Expressions.fs" />
+    <Compile Include="Parser.Tests.FunctionCalls.fs" />
+    <Compile Include="Parser.Tests.StaticMembers.fs" />
+    <Compile Include="Parser.Tests.VariableDeclarations.fs" />
+    <Compile Include="TypeInference.Tests.fs" />
+    <Compile Include="TypeResolving.Tests.fs" />
+    <Compile Include="Main.fs" />
+    <None Include="App.config" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
