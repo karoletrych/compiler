@@ -3,7 +3,6 @@ module Compiler.TypeResolving.Tests
 open Expecto
 open Compiler.Ast
 open Compiler.Parser
-open Compiler.TypeFinder
 open Compiler.SemanticChecker
 open Compiler.Result
 

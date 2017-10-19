@@ -16,7 +16,6 @@ and Type =
       BaseType : TypeName option
       DeclaredConstructors : Constructor list
       Name : string
-      Guid : System.Guid
       GenericParameters : TypeName list
       ImplementedInterfaces : TypeName list
       Methods : Function list

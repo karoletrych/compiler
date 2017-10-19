@@ -116,6 +116,7 @@ module Types =
             ("double", stringReturn "double" Double);
             ("string", stringReturn "string" String);
             ("void", stringReturn "void" Void);
+            ("obj", stringReturn "obj" Object);
         ]
     pTypeSpecImpl := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
 

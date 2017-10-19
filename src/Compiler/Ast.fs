@@ -44,6 +44,7 @@ and TypeSpec =
   | Double
   | String
   | Void
+  | Object
   | CustomTypeSpec of DottedTypeName
   override ts.ToString() =
    let rec serializeTypeSpec ts = 
@@ -60,6 +61,7 @@ and TypeSpec =
      | Float -> "System.Single"
      | Double -> "System.Double"
      | String -> "System.String"
+     | Object -> "System.Object"
      | Void -> failwith "generic can't be void"
    serializeTypeSpec ts
 

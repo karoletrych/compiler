@@ -13,7 +13,6 @@ open Compiler.Ast
 open Compiler.TypeFinder
 open Compiler.Result
 open System
-open System.Reflection
 
 module TypeChecker = 
     let scanAst scanType =
@@ -76,7 +75,7 @@ module TypeChecker =
             List.map scanDeclaration
 
     let scanType 
-            (typesDictionary : Map<string, Compiler.Types.Type>)
+            (typesDictionary : Map<string, Types.Type>)
             (typeSpec : TypeSpec) =
             match typeSpec with
             | CustomTypeSpec (ns, CustomType(id, []))  ->
@@ -95,5 +94,9 @@ module TypeChecker =
                     | None -> fail (CannotResolveType typeSpec)
             | _ -> succeedUnit
 
-let scanTypes = TypeChecker.scanAst (TypeChecker.scanType TypeFinder.types)
+
+let scanTypes = TypeChecker.scanAst (TypeChecker.scanType mscorlibTypes)
+
+let scanModule modul =
+    TypeChecker.scanAst (TypeChecker.scanType (allKnownTypes (fst modul) (snd modul)))
 

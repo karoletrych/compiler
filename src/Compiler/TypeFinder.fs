@@ -12,9 +12,8 @@ open System
 open System.Reflection
 open Compiler.Ast
 open Compiler.Types
-open Compiler.Result
 
-let rec createTypeFromDotNetType (dotnetType : System.Type) : Compiler.Types.Type = 
+let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
     let uniqueName (t : System.Type) = t.ToString()
     let createParameter (dotnetParameter : ParameterInfo) = 
         {
@@ -40,7 +39,6 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Compiler.Types.Typ
                    else None;
         DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
         Fields = dotnetType.GetFields() |> Array.toList|> List.map createField;
-        Guid = dotnetType.GUID;
         Name = dotnetType.ToString();
         GenericParameters = 
             if dotnetType.IsGenericParameter then 
@@ -53,8 +51,8 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Compiler.Types.Typ
 
 
 
-let createUserDeclaredModule ast name =
-    let typeName (t: TypeSpec) : TypeName = "DUPA.888"
+let createUserDeclaredModule ast moduleName =
+    let typeName (t: TypeSpec) : TypeName = t.ToString()
     let createFunctionDeclaration (method : Ast.Function) = 
         {
             Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = typeName t; ParameterName = id});
@@ -73,14 +71,16 @@ let createUserDeclaredModule ast name =
             }
         {
             AssemblyName = "default"
-            BaseType = declaredType.BaseClass |> Option.map (CustomTypeSpec >> typeName)
+            BaseType = (match declaredType.BaseClass with
+                        | Some t -> t |> CustomTypeSpec 
+                        | None -> Object)
+                        |> typeName |> Some
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun property -> 
                          let name, t, _ = property
                          (name, typeName t))
-            Guid = Guid.NewGuid();
-            Name = declaredType.Name;
+            Name = moduleName + "." + declaredType.Name;
             GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
             ImplementedInterfaces = declaredType.ImplementedInterfaces |> List.map (CustomTypeSpec >> typeName);
             Methods = declaredType.FunctionDeclarations |> List.map createFunctionDeclaration
@@ -96,7 +96,7 @@ let createUserDeclaredModule ast name =
     {
         Functions = ast |> functions |> List.map createFunctionDeclaration;
         Classes = ast |> classes |> List.map createClassDeclaration;
-        Name = name
+        Name = moduleName
     }
 
 // TODO: differentiate between instance and static functions
@@ -106,7 +106,6 @@ let createModuleType name functions =
             BaseType = None;
             DeclaredConstructors = []
             Fields = []
-            Guid = Guid.NewGuid();
             Name = name
             GenericParameters = [];
             ImplementedInterfaces = []
@@ -114,24 +113,23 @@ let createModuleType name functions =
     }
 
 let withNames = List.map (fun c -> (c.Name, c))
-let userDeclaredTypes (modules : Tuple<string, Declaration list> list) =
-    let userDeclaredModules =
-        modules 
-        |> List.map (fun m -> createUserDeclaredModule (snd m) (fst m)) 
+let userDeclaredTypes (modulName : string) declarations  =
+    let userDeclaredModule =
+        createUserDeclaredModule declarations modulName
     let userTypes = 
-        userDeclaredModules 
-        |> List.collect (fun m -> (m.Classes |> withNames))
-    let userDeclaredModuleTypes = 
-        userDeclaredModules
-        |> List.map (fun m -> createModuleType m.Name m.Functions)
-        |> withNames
-    List.append userTypes userDeclaredModuleTypes
+        userDeclaredModule.Classes |> withNames
+    let userDeclaredModuleType = 
+        (modulName, createModuleType userDeclaredModule.Name userDeclaredModule.Functions)
+    userDeclaredModuleType :: userTypes 
+    |> Map.ofList
     
 let mscorlibTypes = 
         Assembly.GetAssembly(typeof<obj>).GetTypes()
         |> List.ofArray
         |> List.map (createTypeFromDotNetType)
         |> withNames
+        |> Map.ofList
 
-let types (modules : Tuple<string, Declaration list> list) =
-    List.append mscorlibTypes (userDeclaredTypes modules)
+let allKnownTypes modulName declarationList =
+    let userTypes = (userDeclaredTypes modulName declarationList)  
+    Map.fold (fun acc key value -> Map.add key value acc) mscorlibTypes userTypes
