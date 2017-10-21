@@ -33,7 +33,7 @@ and Function = {
   GenericParameters : GenericTypeParameter list;
   Parameters : Parameter list;
   ReturnType : TypeSpec option;
-  Body : CompoundStatement 
+  Body : Statement list
 }
 
 and TypeSpec = 
@@ -72,17 +72,17 @@ and Identifier = string
 and Parameter = Identifier * TypeSpec
 
 and Statement = 
-  | FunctionCallStatement of FunctionCall
   | AssignmentStatement of Assignment
-  | CompoundStatement of CompoundStatement
+  | BreakStatement
+  | CompositeStatement of Statement list
+  | FunctionCallStatement of FunctionCall
   | IfStatement of Expression * Statement * Statement option
-  | WhileStatement of Expression * Statement
+  | MemberFunctionCallStatement of MemberFunctionCall 
   | ReturnStatement of Expression option
+  | StaticFunctionCallStatement of TypeSpec * FunctionCall
   | VariableDeclaration of VariableDeclaration
   | ValueDeclaration of ValueDeclaration
-  | BreakStatement
-  | MemberFunctionCallStatement of MemberFunctionCall 
-  | StaticFunctionCallStatement of TypeSpec * FunctionCall
+  | WhileStatement of Expression * Statement
 
 
 and ValueDeclaration =
@@ -92,19 +92,23 @@ and VariableDeclaration =
   | DeclarationWithType of Identifier * TypeSpec
   | FullDeclaration of Identifier * TypeSpec * Expression
 
-and CompoundStatement = Statement list
+
+
+and IExpression = interface end
+//TODO: http://theburningmonk.com/2012/03/f-extending-discriminated-unions-using-marker-interfaces/
 
 and Expression = 
   | AssignmentExpression of Assignment
   | BinaryExpression of Expression * BinaryOperator * Expression
-  | UnaryExpression of UnaryOperator * Expression
-  | IdentifierExpression of Identifier
+  | ExpressionWithInferredType of Expression * string 
   | FunctionCallExpression of FunctionCall
-  | LiteralExpression of Literal
-  | NewExpression of TypeSpec * Arguments
-  | MemberExpression of MemberFunctionCall
-  | StaticMemberExpression of TypeSpec * FunctionCall
+  | IdentifierExpression of Identifier
   | ListInitializerExpression of Expression list
+  | LiteralExpression of Literal
+  | MemberExpression of MemberFunctionCall
+  | NewExpression of TypeSpec * Arguments
+  | StaticMemberExpression of TypeSpec * FunctionCall
+  | UnaryExpression of UnaryOperator * Expression
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 

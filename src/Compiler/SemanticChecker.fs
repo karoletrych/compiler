@@ -34,7 +34,7 @@ module TypeChecker =
                            | DeclarationWithType (i,t) -> [scanType t]
                            | FullDeclaration (i,t,e) -> [scanType t]
                            | DeclarationWithInitialization _ -> []
-                    | CompoundStatement(cs)
+                    | CompositeStatement(cs)
                          -> cs |> List.collect scanStatement
                     | ReturnStatement e -> 
                          match e with 

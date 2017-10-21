@@ -38,3 +38,51 @@ module Compiler.TypeInference.Tests
 //         printfn "%A" program
 //         Expect.equal program [] ""
 //     ]
+
+
+
+type T = {
+    Base : T list;
+    Name : string;
+}
+let o = { Base = []; Name = "Object"}
+let str = {Base = [o]; Name = "String"}
+let int = {Base = [o]; Name = "int"}
+let exc = { Base = [o]; Name = "exception"}
+let runtimeException = {
+    Base = [exc]; Name = "RuntimeException"
+    }
+let anotherException = {
+    Base = [exc]; Name = "AnotherException"
+    }
+let iface = {
+    Base = [o]; Name = "Interface"
+    }
+let classA = {
+    Base = [o;iface]; Name = "A"
+    }
+
+let classB = {
+    Base = [o;iface]; Name = "B"
+    }
+
+let allTypes = [
+ o;
+ exc;
+ runtimeException;
+ str;
+ int;
+ anotherException
+ ]
+
+ 
+let program = parse @"
+                fun main 
+                {
+                    val name = 'Karol';
+                    val age = 22;
+                    val weight = 65.1;
+                    val arr = [1;2;3;""string""]
+                }"
+
+program;;
