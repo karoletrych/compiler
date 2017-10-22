@@ -4,6 +4,7 @@ open Compiler.Parser
 open Compiler.Result
 open Compiler.TypeFinder
 open Compiler.TypeInference
+open Compiler.Ast
 
 [<Tests>]
 let tests =
@@ -22,7 +23,31 @@ let tests =
                 return result;
             }"
             
-        Expect.equal inference [] ""
+        Expect.equal inference 
+            [FunctionDeclaration
+               {Name = "addone";
+                GenericParameters = [];
+                Parameters = [("x", Int)];
+                ReturnType = None;
+                Body =
+                 [VariableDeclaration
+                    (DeclarationWithInitialization
+                       ("result",
+                        ExpressionWithInferredType
+                          (BinaryExpression
+                             (IdentifierExpression "x",Plus,LiteralExpression (IntLiteral 1)),
+                           Some "System.Int32")));
+                  VariableDeclaration
+                    (DeclarationWithInitialization
+                       ("result2",
+                        ExpressionWithInferredType
+                          (BinaryExpression
+                             (IdentifierExpression "x",Plus,
+                              LiteralExpression (FloatLiteral 1.0)),None)));
+                  ReturnStatement
+                    (Some
+                       (ExpressionWithInferredType
+                          (IdentifierExpression "result",Some "System.Int32")))];}] ""
     // testCase "recursive type inference fails" <| fun _ ->
     //     let program = parse "
     //             fun factorial (n : int)

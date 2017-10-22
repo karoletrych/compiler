@@ -171,7 +171,7 @@ let inferTypes (knownTypes : Map<string, Type>) (ast : Declaration list) : Decla
             |> List.map (fun p -> (fst p, knownTypes.[(snd p).ToString()]))
             |> Map.ofList
         f.Body
-        |> List.mapFold annotateStatement Map.empty<string, Type>
+        |> List.mapFold annotateStatement declaredVariables
         |> fst
 
     ast 
