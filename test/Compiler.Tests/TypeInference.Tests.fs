@@ -9,7 +9,7 @@ open Compiler.TypeInference
 let tests =
   let infer program =
     parse program
-    |> map ( fun ast -> userDeclaredTypesDefaultModule ast |> (fun types -> inferTypes types ast) )
+    |> map ( fun ast -> allKnownTypes "module" ast |> (fun types -> inferTypes types ast) )
     |> get
     |> fst
   testList "TypeInference.Tests" [

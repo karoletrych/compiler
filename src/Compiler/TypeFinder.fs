@@ -123,7 +123,6 @@ let userDeclaredTypes (modulName : string) declarations  =
     userDeclaredModuleType :: userTypes 
     |> Map.ofList
 
-let userDeclaredTypesDefaultModule = userDeclaredTypes "DEFAULT"
     
 let mscorlibTypes = 
         Assembly.GetAssembly(typeof<obj>).GetTypes()
