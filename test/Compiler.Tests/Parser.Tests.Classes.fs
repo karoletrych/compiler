@@ -1,7 +1,7 @@
 module Compiler.Parser.Tests.Classes
 
 open Expecto
-open Compiler.Ast
+open Compiler.Tests.ResultTestHelper
 open Compiler.Parser
 
 [<Tests>]
@@ -13,7 +13,7 @@ let tests =
         {
         }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "class with fields" <| fun _ ->
       let source = "
         class A
@@ -23,7 +23,7 @@ let tests =
             var f : float = 3
         }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "class with functions" <| fun _ ->
       let source = "
         class A
@@ -53,14 +53,14 @@ let tests =
             }
         }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     
     testCase "generic class" <| fun _ ->
       let source = "class A<T>{}"
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "generic class with 2 type parameters" <| fun _ ->
       let source = "class A<T, V>{}"
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "generic class with inheritance and base constructor call" <| fun _ ->
       let source = "class B<T, V>
                     {
@@ -84,7 +84,7 @@ let tests =
                             _number = number;
                         }
                     }"
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "class extending class and implementing interfaces" <| fun _ ->
       let source = "class B<T, V>
     {
@@ -108,7 +108,7 @@ let tests =
             _number = number;
         }
     }"
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "generic function declaration" <| fun _ ->
       let source = "
           fun add<T,V,U> (t : T) (v : V) (u : U)
@@ -116,6 +116,6 @@ let tests =
             return t+v+u;
           }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     ]
 

@@ -1,8 +1,8 @@
 module Compiler.Parser.Tests.FunctionCalls
 
 open Expecto
-open Compiler.Ast
 open Compiler.Parser
+open Compiler.Tests.ResultTestHelper
 
 [<Tests>]
 let tests =
@@ -11,7 +11,7 @@ let tests =
       let source = @"
         fun main{print (""hello world!"");}
         "
-      Expect.isOk (parse source)  "print function call"
+      isOk (parse source)  "print function call"
     testCase "hello world with spaces" <| fun _ ->
       let source = @"
         fun main
@@ -21,7 +21,7 @@ let tests =
         }
 
         "
-      Expect.isOk (parse source) "print function call"                    
+      isOk (parse source) "print function call"                    
     testCase "function calls" <| fun _ ->
       let source = @"
         fun print (arg1 : string)
@@ -34,7 +34,7 @@ let tests =
           print (""hello world!"");
         }
         "
-      Expect.isOk (parse source)  "print function call"                    
+      isOk (parse source)  "print function call"                    
     testCase "function calls with explicit types" <| fun _ ->
       let source = @"
         fun internalPrint (arg1 : string) (arg2: int) : void
@@ -56,11 +56,11 @@ let tests =
         }
 
         "
-      Expect.isOk (parse source)  "print function call"               
+      isOk (parse source)  "print function call"               
     testCase "generic function call" <| fun _ ->
       let source = @"
           fun main{print<int,int,TMyType<int,float>>(""hello world!"");}
           "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
    ]
         

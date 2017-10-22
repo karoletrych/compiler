@@ -1,5 +1,6 @@
 module Compiler.Parser.Tests.StaticMembers
 
+open Compiler.Tests.ResultTestHelper
 open Compiler.Ast
 open Compiler.Parser
 open Expecto
@@ -13,7 +14,7 @@ let tests =
                         {
                             System::Console:.WriteLine();
                         }"
-              Expect.isOk (parse source) "" 
+              isOk (parse source) "" 
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
                         {

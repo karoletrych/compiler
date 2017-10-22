@@ -3,8 +3,8 @@ module Compiler.TypeResolving.Tests
 open Expecto
 open Compiler.Ast
 open Compiler.Parser
-open Compiler.SemanticChecker
 open Compiler.Result
+open Compiler.SemanticChecker
 
 
 [<Tests>]
@@ -15,7 +15,7 @@ let tests =
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
             |> parse
             |> function
-               | Ok x -> scanTypes x
+               | Success (x,_) -> scanTypes x
                | _ -> failwith "error in test"
         Expect.equal scanResult [[Success ((),[])]]  ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
@@ -23,7 +23,7 @@ let tests =
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
             |> parse
             |> function
-               | Ok x -> scanTypes x
+               | Success (x,_) -> scanTypes x
                | _ -> failwith "error in test"
         Expect.equal scanResult [[Failure
                                     [CannotResolveType

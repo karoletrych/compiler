@@ -1,7 +1,7 @@
 module Compiler.Parser.Tests.Expressions
 
 open Expecto
-open Compiler.Ast
+open Compiler.Tests.ResultTestHelper
 open Compiler.Parser
 
 [<Tests>]
@@ -17,7 +17,7 @@ let tests =
                 return n * factorial(n-1);
         }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
         fun main
@@ -25,6 +25,6 @@ let tests =
           a = n = x = foo(123, 5);
         }
         "
-      Expect.isOk (parse source) ""
+      isOk (parse source) ""
   ]
   

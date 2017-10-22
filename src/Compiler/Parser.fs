@@ -98,7 +98,7 @@ module Types =
                 match head with
                 | CustomType(identifier, [])
                     -> qualifiers (identifier::acc) tail 
-                | CustomType(gcts, t)
+                | CustomType _
                     -> fail "No generic type is allowed as namespace qualifier"
             | [] -> fail "Should not happen..."
         qualifiers [] 
@@ -127,7 +127,7 @@ let identifier =
     IdentifierOptions(
         isAsciiIdStart = isAsciiIdStart,
         isAsciiIdContinue = isAsciiIdContinue,
-        normalization = System.Text.NormalizationForm.FormKC,
+        normalization = Text.NormalizationForm.FormKC,
         normalizeBeforeValidation = true,
         allowAllNonAsciiCharsInPreCheck = true))
 
@@ -239,10 +239,10 @@ module Statement =
             variableDeclaration >>=
                 (fun (varName, t, expr)
                     -> match (varName, t, expr) with
-                       | (name, Some t, Some expr) -> preturn (FullDeclaration(varName, t, expr))
-                       | (name, Some t, None) -> preturn (DeclarationWithType(varName, t))
-                       | (name, None, Some expr) -> preturn (DeclarationWithInitialization(varName, expr))
-                       | (name, None, None) -> fail "Implicitly typed variable must be initialized")
+                       | (name, Some t, Some expr) -> preturn (FullDeclaration(name, t, expr))
+                       | (name, Some t, None) -> preturn (DeclarationWithType(name, t))
+                       | (name, None, Some expr) -> preturn (DeclarationWithInitialization(name, expr))
+                       | (_, None, None) -> fail "Implicitly typed variable must be initialized")
         )  
     let pLocalValueDeclarationStatement = 
         tuple3
@@ -367,10 +367,12 @@ let pProgram = spaces >>. many pDeclaration
 let parseProgram =
     removeComments >> run pProgram
 
+
+open Compiler.Result
 let parse = 
     parseProgram 
     >>
     function
-    | Success(result, _, _) -> Result.Ok result
-    | Failure(message, error, state) -> Result.Error ((message, error, state).ToString())
+    | ParserResult.Success(result, _, _) -> succeed result 
+    | ParserResult.Failure(message, error, state) -> failure (ParsingError ((message, error, state).ToString()))
 

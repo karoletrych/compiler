@@ -81,7 +81,7 @@ module TypeChecker =
             | CustomTypeSpec (ns, CustomType(id, []))  ->
                     if typesDictionary.ContainsKey (typeSpec.ToString()) 
                     then succeedUnit
-                    else fail (CannotResolveType typeSpec)
+                    else failure (CannotResolveType typeSpec)
             | CustomTypeSpec (ns, CustomType(id, generics))  ->
                     let noGenericsTypeName = (CustomTypeSpec (ns, (CustomType(id, [])))).ToString()
                     let typeWithNumberOfGenerics = (noGenericsTypeName + "`" + (List.length generics).ToString() ) //TODO: get rid of this shit
@@ -90,8 +90,8 @@ module TypeChecker =
                     | Some v ->
                         if (generics |> List.map ((fun g -> g.ToString()) >> typesDictionary.ContainsKey)) |> List.forall ((=) true)
                         then succeedUnit
-                        else fail (CannotResolveType typeSpec)
-                    | None -> fail (CannotResolveType typeSpec)
+                        else failure (CannotResolveType typeSpec)
+                    | None -> failure (CannotResolveType typeSpec)
             | _ -> succeedUnit
 
 
