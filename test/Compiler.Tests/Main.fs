@@ -1,4 +1,4 @@
-module Compiler.Tests
+module Compiler.Tests.Runner
 
 open Expecto
 

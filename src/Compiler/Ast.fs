@@ -36,6 +36,7 @@ and Function = {
   Body : Statement list
 }
 
+//TODO: split into BuiltInType and CustomTypeSpec
 and TypeSpec = 
   | Bool
   | Char
@@ -100,7 +101,7 @@ and IExpression = interface end
 and Expression = 
   | AssignmentExpression of Assignment
   | BinaryExpression of Expression * BinaryOperator * Expression
-  | ExpressionWithInferredType of Expression * string 
+  | ExpressionWithInferredType of Expression * string option
   | FunctionCallExpression of FunctionCall
   | IdentifierExpression of Identifier
   | ListInitializerExpression of Expression list
@@ -120,18 +121,18 @@ and Arguments = Expression list
 
 and BinaryOperator = 
   | ConditionalOr
+  | ConditionalAnd
   | Equal
   | NotEqual
   | LessEqual
   | Less
   | GreaterEqual
   | Greater
-  | ConditionalAnd
-  | Add
-  | Subtract
-  | Multiply
-  | Divide
-  | Modulus
+  | Plus
+  | Minus
+  | Multiplication
+  | Division
+  | Remainder
 
 and UnaryOperator = 
   | LogicalNegate

@@ -1,19 +1,28 @@
 module Compiler.TypeInference.Tests
 open Expecto
 open Compiler.Parser
+open Compiler.Result
+open Compiler.TypeFinder
+open Compiler.TypeInference
 
 [<Tests>]
 let tests =
+  let infer program =
+    parse program
+    |> map ( fun ast -> userDeclaredTypesDefaultModule ast |> (fun types -> inferTypes types ast) )
+    |> get
+    |> fst
   testList "TypeInference.Tests" [
-    testCase "type inference works" <| fun _ ->
-        let program = parse "
-                fun addone (x : int)
-                {
-                    var result = x+1;
-                    var result2 = x+1.0;     //won't work
-                    return result;
-                }"
-        Expect.equal program [] ""
+    testCase "type inference" <| fun _ ->
+        let inference = infer "
+            fun addone (x : int)
+            {
+                var result = x+1;
+                var result2 = x+1.0;     //won't work
+                return result;
+            }"
+            
+        Expect.equal inference [] ""
     // testCase "recursive type inference fails" <| fun _ ->
     //     let program = parse "
     //             fun factorial (n : int)

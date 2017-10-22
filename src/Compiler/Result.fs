@@ -4,13 +4,17 @@ type Failure<'T> =
 | ParsingError of 'T
 | CannotResolveType of 'T
 
-type Result<'TSuccess, 'TError> = 
+type CompilationResult<'TSuccess, 'TError> = 
 | Success of 'TSuccess * Failure<'TError> list
 | Failure of Failure<'TError> list
 
 let succeed x = Success (x, []) 
 let failure error = Failure [error]
 let succeedUnit = Success ((), []) 
+
+let get = function
+    | Success (x,errors) -> (x,errors)
+    | Failure errors -> failwith "get called on Failure" 
 
 let either fSuccess fFailure = function
     | Success (x,errors) -> fSuccess (x,errors) 

@@ -122,6 +122,8 @@ let userDeclaredTypes (modulName : string) declarations  =
         (modulName, createModuleType userDeclaredModule.Name userDeclaredModule.Functions)
     userDeclaredModuleType :: userTypes 
     |> Map.ofList
+
+let userDeclaredTypesDefaultModule = userDeclaredTypes "DEFAULT"
     
 let mscorlibTypes = 
         Assembly.GetAssembly(typeof<obj>).GetTypes()

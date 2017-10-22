@@ -1,7 +1,6 @@
 module Compiler.Parser.Tests.StaticMembers
 
 open Compiler.Tests.ResultTestHelper
-open Compiler.Ast
 open Compiler.Parser
 open Expecto
 
@@ -20,17 +19,17 @@ let tests =
                         {
                             var s = System::Console:.ReadLine();
                         }"
-              Expect.isOk (parse source) "" 
+              isOk (parse source) "" 
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
                         {
                             var s : System::Object;
                         }"
-              Expect.isOk (parse source) ""
+              isOk (parse source) ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
                             System::Console:.WriteLine(o);
                         }"
-              Expect.isOk (parse source) ""
+              isOk (parse source) ""
         ]

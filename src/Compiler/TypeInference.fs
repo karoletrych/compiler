@@ -3,6 +3,9 @@ module Compiler.TypeInference
 open Compiler.Ast
 open Compiler.Types
 
+let builtInType (types : Map<string, Type>) (t : TypeSpec) =
+    types.[t.ToString()]
+
 let leastUpperBound (knownTypes : Map<string, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
@@ -29,7 +32,7 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
                 )
             edges |> List.maxBy snd
 
-    let longest = longestPath knownTypes.["System.Object"]
+    let longest = longestPath (builtInType knownTypes Object)
 
     types
         |> List.map (fun t -> (t::allAncestors t))
@@ -43,47 +46,56 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
 
 // TODO: split into function composition
 let inferTypes (knownTypes : Map<string, Type>) ast =
-    let lookupPreviouslyDeclaredType identifier declaredVariables : Types.Type =
+    let lookupLocalVariable (declaredVariables : Map<Identifier, Type>) identifier: Types.Type option =
+        Some declaredVariables.[identifier]
+    let lookupDeclaredFunctions identifier : Types.Type option =
         failwith "not implemented" 
-    let lookupDeclaredFunctions identifier : Types.Type =
-        failwith "not implemented" 
-    let lookupMemberFunctions identifier : Types.Type =
+    let lookupMemberFunctions identifier : Types.Type option =
         failwith "not implemented"
-    let inferBinaryExpressionType e1 op e2 = 
-        failwith "not implemented"
+    let inferBinaryExpressionType expr1Type op expr2Type = 
+        let someIfEqual e1 e2 = if e1 = e2 then Some e1 else None
+        match op,expr1Type,expr2Type with
+        | _, None, _ -> None
+        | _, _, None -> None
+        | Plus, Some e1, Some e2 -> someIfEqual e1 e2
+        | Minus, Some e1, Some e2 -> someIfEqual e1 e2
+        | Multiplication, Some e1, Some e2 -> someIfEqual e1 e2
+        | Division, Some e1, Some e2 -> someIfEqual  e1 e2
+        | Remainder, Some e1, Some e2 -> someIfEqual e1 e2
+        | _ -> Some (builtInType knownTypes Bool)
     let lookupStaticFunctionReturnType staticCall =
         failwith "not implemented"
 
     let typeOfLiteral = 
-        function
-        | BoolLiteral _-> knownTypes.["System.Boolean"];
-        | IntLiteral _-> knownTypes.["System.Int32"];
-        | FloatLiteral _-> knownTypes.["System.Single"];
-        | StringLiteral _-> knownTypes.["System.String"];
+        (function
+        | BoolLiteral _-> builtInType knownTypes Bool;
+        | IntLiteral _-> builtInType knownTypes Int;
+        | FloatLiteral _-> builtInType knownTypes Float;
+        | StringLiteral _-> builtInType knownTypes String;)
+        >> Some
 
     let rec inferExpressionType 
         (declaredVariables : Map<Ast.Identifier, Types.Type>) 
         (expression : Ast.Expression) 
-            : Types.Type =
+            : Types.Type option =
         let leastUpperBound = leastUpperBound knownTypes
 
-        let lookupType = lookupPreviouslyDeclaredType declaredVariables
+        let lookupType = lookupLocalVariable declaredVariables
         let inferExpressionType = inferExpressionType declaredVariables
-        let lookupListType =
-                List.map inferExpressionType 
-                >> leastUpperBound
-        // if List.forall (fun (t : Type option) -> t.IsSome) types 
-        // then Some (leastUpperBound (types |> List.map (fun x-> x.Value))) 
-        // else None
+        let lookupListType types =
+            if List.forall (fun (t : Type option) -> t.IsSome) types 
+            then Some (leastUpperBound (types |> List.map (fun x-> x.Value))) 
+            else None
 
         match expression with
         | AssignmentExpression(_, e) -> inferExpressionType e
-        | BinaryExpression(e1, op, e2) -> inferBinaryExpressionType (inferExpressionType e1) op (inferExpressionType e2)
+        | BinaryExpression(e1, op, e2) ->
+            inferBinaryExpressionType (inferExpressionType e1) op (inferExpressionType e2)
         | ExpressionWithInferredType _ -> failwith "TODO:"
         | FunctionCallExpression(fc) -> lookupDeclaredFunctions fc
         | IdentifierExpression(ie) -> lookupType ie 
         | LiteralExpression(le) -> typeOfLiteral le
-        | ListInitializerExpression list -> lookupListType list
+        | ListInitializerExpression list -> lookupListType (list |> List.map inferExpressionType)
         | MemberExpression mfc -> lookupMemberFunctions mfc
         | NewExpression (t, _) -> lookupType (t.ToString())
         | StaticMemberExpression (t, call) -> lookupStaticFunctionReturnType (t,call)
@@ -91,7 +103,7 @@ let inferTypes (knownTypes : Map<string, Type>) ast =
 
     let annotateExpression variables e =
         let exprType = inferExpressionType variables e
-        ExpressionWithInferredType(e, exprType.Name)
+        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Name))
 
 
     let rec annotateStatement 
@@ -122,26 +134,31 @@ let inferTypes (knownTypes : Map<string, Type>) ast =
         | ReturnStatement exprOption ->
             exprOption
             |> Option.map annotateExpression
-            |> ReturnStatement, declaredVariables // TODO: ambiguous. annotateExpression should return Result<T> 
+            |> ReturnStatement, declaredVariables
         | StaticFunctionCallStatement (t,c) ->
             StaticFunctionCallStatement (t,c), declaredVariables
         | ValueDeclaration(id, t, expr) ->
             ValueDeclaration(id, t, annotateExpression expr),
+
             let valueType = 
                         t 
-                        |> Option.map (fun t -> t.ToString())
-                        |> Option.defaultValue (inferExpressionType declaredVariables expr).Name
-                        |> fun x -> knownTypes.[x]
-            declaredVariables |> Map.add id valueType
+                        |> Option.map (fun t -> knownTypes.[t.ToString()])
+                        |> Option.orElse (
+                             (inferExpressionType declaredVariables expr) |> Option.map (fun t -> knownTypes.[t.Name]))
+            match valueType with
+            | Some t -> declaredVariables |> Map.add id t
+            | None -> declaredVariables
         | VariableDeclaration vd ->
             (
             match vd with
             | DeclarationWithInitialization (id, e) ->
                 VariableDeclaration(DeclarationWithInitialization(id, annotateExpression e)),
-                 declaredVariables |> Map.add id (inferExpressionType declaredVariables e)
+                match inferExpressionType declaredVariables e with
+                | Some t -> declaredVariables |> Map.add id t
+                | None -> declaredVariables 
             | DeclarationWithType(id, t) ->
                 VariableDeclaration(DeclarationWithType(id, t)),
-                declaredVariables |> Map.add id knownTypes.[t.ToString()] // TODO: potential exception (?)
+                declaredVariables |> Map.add id knownTypes.[t.ToString()] // TODO: exception (?)
             | FullDeclaration (id, t, e) ->
                 VariableDeclaration(FullDeclaration(id, t, annotateExpression e)),
                 declaredVariables |> Map.add id knownTypes.[t.ToString()] // TODO: ^ 
@@ -167,5 +184,3 @@ let inferTypes (knownTypes : Map<string, Type>) ast =
                     c.FunctionDeclarations |> List.map (fun f -> {f with Body = inferFunction f})
             })
         
-
-    
