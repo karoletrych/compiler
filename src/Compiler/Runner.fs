@@ -1,16 +1,17 @@
 module Compiler.Runner
 
 open System.IO
-
 open Argu
+open Compiler.CompilerResult
 open Compiler.Parser
+open Compiler.TypeFinder
 open Compiler.TypeInference
 
 type Stage =
     | SyntaxCheck
-    | TypeResolving
+    | TypeFinding
     | TypeInference
-    | TypeChecking 
+    | SemanticCheck 
     | IRGeneration
     | CILGeneration
     | Full
@@ -43,13 +44,21 @@ let compile
                          if printSyntax 
                          then printfn "%A" parsed 
                          parsed)
+    let parseFile path = parse (File.ReadAllText path)
 
-    let sourceCode = 
-        sourceFilePaths 
-        |> List.map File.ReadAllText 
-        |> System.String.Concat
     match stage with
-    | SyntaxCheck -> parse sourceCode |> ignore
+    | SyntaxCheck -> sourceFilePaths 
+                        |> List.map parseFile
+                        |> ignore
+    | TypeFinding ->
+                    let buildModule (declarationsResult, name) = 
+                        declarationsResult |> CompilerResult.map (fun decls -> Ast.Module.create name decls)
+                    let modulesResult =
+                        sourceFilePaths 
+                        |> List.zip (sourceFilePaths |> List.map parseFile)
+                        |> List.map buildModule
+                        |> List.reduce (CompilerResult.map2 (+))
+                    ()
     | _ -> printfn "Stage not implemented."
     ()
 

@@ -1,12 +1,13 @@
-module Compiler.Result
+module Compiler.CompilerResult
+open Compiler.Ast
 
-type Failure<'T> = 
-| ParsingError of 'T
-| CannotResolveType of 'T
+type Failure = 
+| ParsingError of string
+| CannotResolveType of TypeSpec
 
-type CompilationResult<'TSuccess, 'TError> = 
-| Success of 'TSuccess * Failure<'TError> list
-| Failure of Failure<'TError> list
+type CompilerResult<'TSuccess> = 
+| Success of 'TSuccess * Failure list
+| Failure of Failure list
 
 let succeed x = Success (x, []) 
 let failure error = Failure [error]
@@ -41,14 +42,15 @@ let map f result =
         Failure errs 
     result |> either fSuccess fFailure 
 
-let addResults r1 r2 = 
+let map2 op r1 r2 = 
      match (r1, r2) with
-     | Success (s1, errors1), Success (s2, errors2) -> Success (s1, errors1 @ errors2)
+     | Success (s1, errors1), Success (s2, errors2) -> Success (op s1 s2, errors1 @ errors2)
      | Failure f1, Success _  -> Failure f1
      | Success _ , Failure f2 -> Failure f2
      | Failure f1, Failure f2 -> Failure (f1 @ f2)
 
+
 let (&&=) v1 v2 = 
-    addResults v1 v2
+    map2 v1 v2
 let (>>=) twoTrackInput switchFunction =
     bind switchFunction twoTrackInput

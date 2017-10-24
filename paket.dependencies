@@ -6,3 +6,4 @@ nuget Expecto
 nuget FAKE
 nuget FParsec
 nuget FSharp.Core
+nuget FSharpx.Collections

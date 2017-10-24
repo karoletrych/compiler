@@ -1,6 +1,6 @@
 module Compiler.Tests.ResultTestHelper
 open Expecto
-open Compiler.Result
+open Compiler.CompilerResult
 
 /// Expects the value to be a Result.Ok value.
 let isOk x message =

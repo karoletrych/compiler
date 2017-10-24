@@ -1,10 +1,11 @@
 module Compiler.TypeFinder.Tests
 
 open Expecto
+open Compiler.Ast
 open Compiler.Parser
 open Compiler.TypeFinder
 open Compiler.Tests.ResultTestHelper
-open Compiler.Result
+open Compiler.CompilerResult
 
 [<Tests>]
 let tests =
@@ -26,29 +27,6 @@ let tests =
                     }
                     " 
                     |> parse
-                    |> map createUserDeclaredModule
+                    |> map Module.createDefault
                 isOk typesResult ""
-
-        testCase "userDeclaredTypes" <| fun _ ->
-                let parserResult = 
-                    @"
-                    fun main 
-                    {
-                    }
-                    fun foo (i:int)
-                    {
-                    }
-                    class C 
-                    {
-                        fun foo
-                        {
-                        }
-                    }
-                    " 
-                    |> parse
-
-                let typeFinderResult = 
-                    parserResult 
-                    |> Compiler.Result.map (fun r -> (userDeclaredTypes "MyModule" r))
-                isError typeFinderResult ""
     ]

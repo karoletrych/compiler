@@ -11,7 +11,7 @@ module Compiler.SemanticChecker
 open Compiler.Types
 open Compiler.Ast
 open Compiler.TypeFinder
-open Compiler.Result
+open Compiler.CompilerResult
 open System
 
 module TypeChecker = 
@@ -97,6 +97,6 @@ module TypeChecker =
 
 let scanTypes = TypeChecker.scanAst (TypeChecker.scanType mscorlibTypes)
 
-let scanModule modul =
-    TypeChecker.scanAst (TypeChecker.scanType (allKnownTypes (fst modul) (snd modul)))
+// let scanModule modul =
+    // TypeChecker.scanAst (TypeChecker.scanType (allKnownTypes (fst modul) (snd modul)))
 

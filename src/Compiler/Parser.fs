@@ -27,13 +27,13 @@ let removeComments input =
             RegexOptions.Multiline)
 
 let toList = 
-                    function
-                    | Some (args) -> preturn args
-                    | None -> preturn [] 
+    function
+    | Some (args) -> preturn args
+    | None -> preturn [] 
 
 
 let emptyListIfNone2 x = 
-                    Option.toList x |> preturn
+    Option.toList x |> preturn
 
 module Char =
     let leftBrace = skipChar '{' .>> spaces
@@ -362,17 +362,15 @@ let pDeclaration =
         (Function.pFunctionDeclaration) |>> FunctionDeclaration;
         Class.pClass |>> ClassDeclaration
         ]
-let pProgram = spaces >>. many pDeclaration
+let pProgram = spaces >>. many pDeclaration 
 
 let parseProgram =
     removeComments >> run pProgram
 
-
-open Compiler.Result
+open Compiler.CompilerResult
 let parse = 
     parseProgram 
     >>
     function
     | ParserResult.Success(result, _, _) -> succeed result 
     | ParserResult.Failure(message, error, state) -> failure (ParsingError ((message, error, state).ToString()))
-

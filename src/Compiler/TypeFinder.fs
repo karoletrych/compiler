@@ -10,6 +10,7 @@ module Compiler.TypeFinder
 
 open System
 open System.Reflection
+open FSharpx.Collections
 open Compiler.Ast
 open Compiler.Types
 
@@ -46,19 +47,13 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
                 |> Array.toList |> List.map (fun x->x.ToString())
             else []
         ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map uniqueName;
-        Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod
+        Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod;
+        NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map uniqueName 
     }
 
-
-
-let createUserDeclaredModule ast moduleName =
+let findTypesInModule (modul : Ast.Module.Module) =
     let typeName (t: TypeSpec) : TypeName = t.ToString()
-    let createFunctionDeclaration (method : Ast.Function) = 
-        {
-            Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = typeName t; ParameterName = id});
-            ReturnType = method.ReturnType |> Option.map typeName
-            FunctionName = method.Name
-        }
+    
     let createClassDeclaration (declaredType : Ast.Class) =
         let createParameter astParameter = 
             {
@@ -70,7 +65,7 @@ let createUserDeclaredModule ast moduleName =
                 Parameters = astCtor.Parameters |> List.map createParameter;
             }
         {
-            AssemblyName = "default"
+            AssemblyName = "CHANGEIT"
             BaseType = (match declaredType.BaseClass with
                         | Some t -> t |> CustomTypeSpec 
                         | None -> Object)
@@ -80,47 +75,20 @@ let createUserDeclaredModule ast moduleName =
                      |> List.map (fun property -> 
                          let name, t, _ = property
                          (name, typeName t))
-            Name = moduleName + "." + declaredType.Name;
+            Name = declaredType.Name;
             GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
             ImplementedInterfaces = declaredType.ImplementedInterfaces |> List.map (CustomTypeSpec >> typeName);
-            Methods = declaredType.FunctionDeclarations |> List.map createFunctionDeclaration
+            Methods = declaredType.FunctionDeclarations |> List.map Function.createFunctionDeclaration;
+            NestedTypes = []
         }
-    let functions = List.choose (fun elem ->
-        match elem with
-        | FunctionDeclaration f  -> Some f
-        | _ -> None) 
-    let classes = List.choose (fun elem ->
-        match elem with
-        | ClassDeclaration c  -> Some c
-        | _ -> None) 
-    {
-        Functions = ast |> functions |> List.map createFunctionDeclaration;
-        Classes = ast |> classes |> List.map createClassDeclaration;
-        Name = moduleName
-    }
-
-// TODO: differentiate between instance and static functions
-let createModuleType name functions =
-    {
-            AssemblyName = "default"
-            BaseType = None;
-            DeclaredConstructors = []
-            Fields = []
-            Name = name
-            GenericParameters = [];
-            ImplementedInterfaces = []
-            Methods = functions
-    }
+    modul.Classes |> List.map createClassDeclaration;
 
 let withNames = List.map (fun c -> (c.Name, c))
-let userDeclaredTypes (modulName : string) declarations  =
-    let userDeclaredModule =
-        createUserDeclaredModule declarations modulName
-    let userTypes = 
-        userDeclaredModule.Classes |> withNames
-    let userDeclaredModuleType = 
-        (modulName, createModuleType userDeclaredModule.Name userDeclaredModule.Functions)
-    userDeclaredModuleType :: userTypes 
+let userDeclaredTypes (modul : Ast.Module.Module)  =
+    let classesFromModule =
+        findTypesInModule modul
+    classesFromModule 
+    |> withNames
     |> Map.ofList
 
     
@@ -131,6 +99,9 @@ let mscorlibTypes =
         |> withNames
         |> Map.ofList
 
-let allKnownTypes modulName declarationList =
-    let userTypes = (userDeclaredTypes modulName declarationList)  
-    Map.fold (fun acc key value -> Map.add key value acc) mscorlibTypes userTypes
+let allKnownTypes (modules : Map<string, Ast.Module.Module>) =
+    let userTypes = modules 
+                    |> Map.fold (fun state name modul ->
+                                     Map.union state (userDeclaredTypes modul)) 
+                        Map.empty<string, Type>
+    Map.union mscorlibTypes userTypes

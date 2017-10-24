@@ -3,14 +3,7 @@ module Compiler.Types
 open Compiler.Ast
 open System.Reflection
 
-type Module = 
-    {
-        Name : string;
-        Classes : Type list;
-        Functions : Function list;
-    }
-
-and Type = 
+type Type = 
     {
       AssemblyName : string
       BaseType : TypeName option
@@ -19,8 +12,12 @@ and Type =
       GenericParameters : TypeName list
       ImplementedInterfaces : TypeName list
       Methods : Function list
-      Fields : Field list }
+      Fields : Field list 
+      NestedTypes : TypeName list
+      }
       member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
+
+
 
 and TypeName = string
 
@@ -34,20 +31,10 @@ and Constructor =
 and Parameter = { Type : TypeName; ParameterName : string}
 and Field = string * TypeName
 
-// let createBasicType name : Type = 
-//     { Name = name
-//       Guid = System.Guid.NewGuid()
-//       GenericParameters = []
-//       ImplementedInterfaces = []
-//       BaseType = None
-//       Methods = []
-//       Fields = [] }
-
-// let createGenericType name typeParams : Type = 
-//     { Name = name
-//       Guid = System.Guid.NewGuid()
-//       GenericParameters = typeParams
-//       ImplementedInterfaces = []
-//       BaseType = None
-//       Methods = []
-//       Fields = [] }
+module Function = 
+    let createFunctionDeclaration (method : Ast.Function) = 
+        {
+            Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = t.ToString(); ParameterName = id});
+            ReturnType = method.ReturnType |> Option.map (fun t -> t.ToString())
+            FunctionName = method.Name
+        }
