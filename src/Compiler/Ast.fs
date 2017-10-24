@@ -145,22 +145,11 @@ and Literal =
 
 module Module =
     type Module = {
-        Declarations : Declaration list
+        Classes : Class list
     } with
     static member (+) (m1 : Module, m2 : Module) =
-          { Declarations = m1.Declarations @ m2.Declarations}
-    member x.Classes =
-        x.Declarations
-        |> List.choose ( fun m ->
-                         match m with
-                         | ClassDeclaration c -> Some c
-                         | _ -> None)
-    member x.Functions =
-        x.Declarations
-        |> List.choose ( fun m ->
-                         match m with
-                         | FunctionDeclaration f -> Some f
-                         | _ -> None)
+          { Classes = m1.Classes @ m2.Classes}
+    
     end
     let create (moduleName : string) declarations =
         let functions = declarations |> List.choose ( fun m ->
@@ -182,8 +171,8 @@ module Module =
             }
         let moduleClasses = classes |> List.map (fun c -> {c with Name = moduleName + "." + c.Name })
         let classes = moduleFunctionsInAStaticClass :: moduleClasses
-        { Declarations = classes |> List.map ClassDeclaration }
+        { Classes = classes }
     let createDefault declarations = create "DEFAULT" declarations 
-    let identity = {Declarations = []}
-    let plus m1 m2 = {Declarations = m1.Declarations @ m2.Declarations}
+    let identity = {Classes = []}
+    let plus m1 m2 = {Classes = m1.Classes @ m2.Classes}
 

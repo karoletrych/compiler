@@ -45,7 +45,7 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
         |> List.last
 
 // TODO: split into function composition
-let inferTypes (knownTypes : Map<string, Type>) (ast : Declaration list) : Declaration list= 
+let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module.Module = 
     let lookupLocalVariable (declaredVariables : Map<Identifier, Type>) identifier: Types.Type option =
         Some declaredVariables.[identifier]
     let lookupDeclaredFunctions identifier : Types.Type option =
@@ -174,14 +174,12 @@ let inferTypes (knownTypes : Map<string, Type>) (ast : Declaration list) : Decla
         |> List.mapFold annotateStatement declaredVariables
         |> fst
 
-    ast 
-    |> List.map (fun decl ->
-    match decl with
-    | FunctionDeclaration f -> FunctionDeclaration {f with Body = inferFunction f}
-    | ClassDeclaration c -> 
-        ClassDeclaration {
+    modul.Classes
+    |> List.map ( fun c -> 
+        {
             c with
                 FunctionDeclarations =
                     c.FunctionDeclarations |> List.map (fun f -> {f with Body = inferFunction f})
             })
+    |> (fun c -> {Classes = c})
         

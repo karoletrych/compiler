@@ -51,7 +51,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
         NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map uniqueName 
     }
 
-let findTypesInModule (modul : Ast.Module.Module) =
+let findTypesInModule (modul : Module.Module) =
     let typeName (t: TypeSpec) : TypeName = t.ToString()
     
     let createClassDeclaration (declaredType : Ast.Class) =
@@ -84,7 +84,7 @@ let findTypesInModule (modul : Ast.Module.Module) =
     modul.Classes |> List.map createClassDeclaration;
 
 let withNames = List.map (fun c -> (c.Name, c))
-let userDeclaredTypes (modul : Ast.Module.Module)  =
+let userDeclaredTypes (modul : Module.Module)  =
     let classesFromModule =
         findTypesInModule modul
     classesFromModule 
@@ -99,9 +99,6 @@ let mscorlibTypes =
         |> withNames
         |> Map.ofList
 
-let allKnownTypes (modules : Map<string, Ast.Module.Module>) =
-    let userTypes = modules 
-                    |> Map.fold (fun state name modul ->
-                                     Map.union state (userDeclaredTypes modul)) 
-                        Map.empty<string, Type>
+let allKnownTypes (modules : Module.Module) =
+    let userTypes = modules |> userDeclaredTypes
     Map.union mscorlibTypes userTypes
