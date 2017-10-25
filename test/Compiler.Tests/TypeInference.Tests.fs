@@ -5,6 +5,7 @@ open Compiler.CompilerResult
 open Compiler.TypeFinder
 open Compiler.TypeInference
 open Compiler.Ast
+open Compiler.Tests.ResultTestHelper
 
 [<Tests>]
 let tests =
@@ -98,40 +99,72 @@ let tests =
                                          [BinaryExpression
                                             (IdentifierExpression "n",Minus,
                                              LiteralExpression (IntLiteral 1))];}),None)))))];}];}] ""
-    // testCase "basic types" <| fun _ ->
-    //     let program = parse @"
-    //             fun main 
-    //             {
-    //                 val name = 'Karol';
-    //                 val age = 22;
-    //                 val weight = 65.1;
-    //                 val arr = [1;2;3;""string""];
-    //             }"
-    //     printfn "%A" program
-    //     Expect.equal program [] ""
-//     testCase "classes" <| fun _ ->
-//         let program = parse @"
-//  class A
-//  {
-//  }
-//  class B extends A
-//  {
-//  }
-//  class C extends A
-//  {
-//  }
+    testCase "basic types" <| fun _ ->
+        let inference = infer @"
+                fun main 
+                {
+                    val name = ""Karol"";
+                    val age = 22;
+                    val weight = 65.1;
+                    val arr = [1;2;3; ""string""; name; age; weight];
+                }"
+        Expect.equal inference.Classes [
+              {Name = "DEFAULT";
+              GenericTypeParameters = [];
+              BaseClass = None;
+              ImplementedInterfaces = [];
+              Properties = [];
+              Constructor = None;
+              FunctionDeclarations =
+               [{Name = "main";
+                 GenericParameters = [];
+                 Parameters = [];
+                 ReturnType = None;
+                 Body =
+                  [ValueDeclaration
+                     ("name", None,
+                      ExpressionWithInferredType
+                        (LiteralExpression (StringLiteral "Karol"),Some "System.String"));
+                   ValueDeclaration
+                     ("age", None,
+                      ExpressionWithInferredType
+                        (LiteralExpression (IntLiteral 22),Some "System.Int32"));
+                   ValueDeclaration
+                     ("weight", None,
+                      ExpressionWithInferredType
+                        (LiteralExpression (FloatLiteral 65.1),Some "System.Single"));
+                   ValueDeclaration
+                     ("arr", None,
+                      ExpressionWithInferredType
+                        (ListInitializerExpression
+                           [LiteralExpression (IntLiteral 1);
+                            LiteralExpression (IntLiteral 2);
+                            LiteralExpression (IntLiteral 3);
+                            LiteralExpression (StringLiteral "string");
+                            IdentifierExpression "name"; IdentifierExpression "age";
+                            IdentifierExpression "weight"],Some "System.Object"))];}];}]  ""
+    testCase "classes" <| fun _ ->
+        let inference = infer @"
+             class A
+             {
+             }
+             class B extends A
+             {
+             }
+             class C extends A
+             {
+             }
 
-//  fun testFunction
-//  {
-//      val types = [
-//       new obj();
-//       new A();
-//       new B();
-//       new C();
-//       ""str"";
-//       42];
-//  }
-//  "
-//         printfn "%A" program
-//         Expect.equal program [] ""
+             fun testFunction
+             {
+                 val types = [
+                  new obj();
+                  new A();
+                  new B();
+                  new C();
+                  ""str"";
+                  42];
+             }
+             "
+        Expect.equal inference.Classes [] ""
 ]

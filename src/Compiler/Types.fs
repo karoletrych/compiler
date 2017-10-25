@@ -5,19 +5,17 @@ open System.Reflection
 
 type Type = 
     {
-      AssemblyName : string
-      BaseType : TypeName option
-      DeclaredConstructors : Constructor list
-      Name : string
-      GenericParameters : TypeName list
-      ImplementedInterfaces : TypeName list
-      Methods : Function list
-      Fields : Field list 
-      NestedTypes : TypeName list
-      }
-      member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
-
-
+        AssemblyName : string
+        BaseType : Type option
+        DeclaredConstructors : Constructor list
+        Name : string
+        GenericParameters : TypeName list
+        ImplementedInterfaces : Type list
+        Methods : Function list
+        Fields : Field list 
+        NestedTypes : TypeName list
+    }
+    member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
 
 and TypeName = string
 
@@ -25,10 +23,11 @@ and Function =
     { 
         FunctionName : string    
         Parameters : Parameter list
-        ReturnType : TypeName option}
+        ReturnType : TypeName option
+    }
 and Constructor = 
-    { Parameters : Parameter list}
-and Parameter = { Type : TypeName; ParameterName : string}
+    { Parameters : Parameter list }
+and Parameter = { Type : TypeName; ParameterName : string }
 and Field = string * TypeName
 
 module Function = 

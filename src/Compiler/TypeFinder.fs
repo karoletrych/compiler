@@ -35,18 +35,19 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
         dotnetField.Name, uniqueName dotnetField.FieldType
     {
         AssemblyName = dotnetType.AssemblyQualifiedName;
-        BaseType = if dotnetType.BaseType <> null then 
-                       Some (uniqueName dotnetType.BaseType)
-                   else None;
+        BaseType = 
+            if dotnetType.BaseType <> null then 
+                Some (createTypeFromDotNetType dotnetType.BaseType)
+            else None;
         DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
         Fields = dotnetType.GetFields() |> Array.toList|> List.map createField;
         Name = dotnetType.ToString();
         GenericParameters = 
             if dotnetType.IsGenericParameter then 
                 dotnetType.GetGenericParameterConstraints() 
-                |> Array.toList |> List.map (fun x->x.ToString())
+                |> Array.toList |> List.map (fun x -> x.ToString())
             else []
-        ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map uniqueName;
+        ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map createTypeFromDotNetType;
         Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod;
         NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map uniqueName 
     }
@@ -65,10 +66,7 @@ let findTypesInModule (modul : Module.Module) =
             }
         {
             AssemblyName = "CHANGEIT"
-            BaseType = (match declaredType.BaseClass with
-                        | Some t -> t |> CustomTypeSpec 
-                        | None -> Object)
-                        |> typeName |> Some
+            BaseType = None //TODO: fix it now
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun property -> 
@@ -76,7 +74,7 @@ let findTypesInModule (modul : Module.Module) =
                          (name, typeName t))
             Name = declaredType.Name;
             GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
-            ImplementedInterfaces = declaredType.ImplementedInterfaces |> List.map (CustomTypeSpec >> typeName);
+            ImplementedInterfaces = []
             Methods = declaredType.FunctionDeclarations |> List.map Function.createFunctionDeclaration;
             NestedTypes = []
         }
