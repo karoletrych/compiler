@@ -114,7 +114,11 @@ and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 
 and Assignment = Expression * Expression
 
-and FunctionCall = FunctionCall of Identifier * TypeSpec list * Arguments
+and FunctionCall = {
+     Name : Identifier;
+     GenericArguments : TypeSpec list;
+     Arguments : Arguments 
+     }
 
 and Arguments = Expression list
 

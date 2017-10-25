@@ -143,14 +143,14 @@ module Expression =
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma
     let pFunctionCall = 
-        tuple3
+        pipe3
             pIdentifier
             ((opt Types.pGenericArguments) >>= toList)
             (between Char.leftParen Char.rightParen pArgumentList)
+            (fun name genericArgs args -> {Name = name; GenericArguments = genericArgs; Arguments = args})
 
     let pFunctionCallExpression = 
         pFunctionCall 
-        |>> FunctionCall 
         |>> FunctionCallExpression
     module Literal =
         let pStringLiteral = 
@@ -196,7 +196,7 @@ module Expression =
     let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
     let pStaticMemberExpression =
-     Types.pCustomType .>>. ((Char.colonDot >>. pFunctionCall) |>> FunctionCall)
+     Types.pCustomType .>>. ((Char.colonDot >>. pFunctionCall) )
      |>> StaticMemberExpression
 
     let pListInitializerExpression =
@@ -225,7 +225,7 @@ module Statement =
                         (opt pElseStatement)
                         (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
 
-    let pFunctionCallStatement = Expression.pFunctionCall |>> FunctionCall |>> FunctionCallStatement
+    let pFunctionCallStatement = Expression.pFunctionCall |>>  FunctionCallStatement
     let pReturnStatement =
         Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
@@ -261,7 +261,7 @@ module Statement =
 
     let pStaticFunctionCallStatement =
      attempt Types.pCustomType .>>.
-     ((Char.colonDot >>. Expression.pFunctionCall) |>> FunctionCall)
+     ((Char.colonDot >>. Expression.pFunctionCall) )
      |>> StaticFunctionCallStatement
 
     pStatementRef := 

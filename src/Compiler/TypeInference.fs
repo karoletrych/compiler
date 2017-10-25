@@ -3,6 +3,7 @@ module Compiler.TypeInference
 open Compiler.Ast
 open Compiler.Types
 
+
 let builtInType (types : Map<string, Type>) (t : TypeSpec) =
     types.[t.ToString()]
 
@@ -48,9 +49,16 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
 let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module.Module = 
     let lookupLocalVariable (declaredVariables : Map<Identifier, Type>) identifier: Types.Type option =
         Some declaredVariables.[identifier]
-    let lookupDeclaredFunctions identifier : Types.Type option =
-        failwith "not implemented" 
+    let lookupDeclaredFunctions (parentClass : Class) identifier : Types.Type option =
+        parentClass.FunctionDeclarations 
+        |> List.tryFind (fun f -> f.Name = identifier) 
+        |> Option.map (fun f -> f.ReturnType)
+        |> Option.bind (fun t -> match t with 
+                                 | Some t -> knownTypes |> Map.tryFind (t.ToString())
+                                 | None -> None)
     let lookupMemberFunctions identifier : Types.Type option =
+        failwith "not implemented"
+    let lookupStaticFunctionReturnType staticCall =
         failwith "not implemented"
     let inferBinaryExpressionType expr1Type op expr2Type = 
         let someIfEqual e1 e2 = if e1 = e2 then Some e1 else None
@@ -63,8 +71,6 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         | Division, Some e1, Some e2 -> someIfEqual  e1 e2
         | Remainder, Some e1, Some e2 -> someIfEqual e1 e2
         | _ -> Some (builtInType knownTypes Bool)
-    let lookupStaticFunctionReturnType staticCall =
-        failwith "not implemented"
 
     let typeOfLiteral = 
         (function
@@ -75,13 +81,14 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         >> Some
 
     let rec inferExpressionType 
+        (c: Ast.Class) 
         (declaredVariables : Map<Ast.Identifier, Types.Type>) 
         (expression : Ast.Expression) 
             : Types.Type option =
         let leastUpperBound = leastUpperBound knownTypes
 
         let lookupType = lookupLocalVariable declaredVariables
-        let inferExpressionType = inferExpressionType declaredVariables
+        let inferExpressionType = inferExpressionType c declaredVariables 
         let lookupListType types =
             if List.forall (fun (t : Type option) -> t.IsSome) types 
             then Some (leastUpperBound (types |> List.map (fun x-> x.Value))) 
@@ -92,7 +99,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         | BinaryExpression(e1, op, e2) ->
             inferBinaryExpressionType (inferExpressionType e1) op (inferExpressionType e2)
         | ExpressionWithInferredType _ -> failwith "TODO:"
-        | FunctionCallExpression(fc) -> lookupDeclaredFunctions fc
+        | FunctionCallExpression(fc) -> lookupDeclaredFunctions c (fc.Name)
         | IdentifierExpression(ie) -> lookupType ie 
         | LiteralExpression(le) -> typeOfLiteral le
         | ListInitializerExpression list -> lookupListType (list |> List.map inferExpressionType)
@@ -101,16 +108,18 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         | StaticMemberExpression (t, call) -> lookupStaticFunctionReturnType (t,call)
         | UnaryExpression(_, e) -> inferExpressionType e
 
-    let annotateExpression variables e =
-        let exprType = inferExpressionType variables e
+    let annotateExpression c variables e =
+        let exprType = inferExpressionType c variables e
         ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Name))
 
-
     let rec annotateStatement 
+        (c: Ast.Class) 
         (declaredVariables : Map<Identifier, Type>) 
         (statement : Ast.Statement)
         : (Statement * Map<Identifier, Type>) = 
-        let annotateExpression = annotateExpression declaredVariables
+        let annotateStatement = annotateStatement c
+        let annotateExpression = annotateExpression c declaredVariables
+        let inferExpressionType = inferExpressionType c declaredVariables
         
         match statement with
         | AssignmentStatement (e1, e2) ->
@@ -144,7 +153,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
                         t 
                         |> Option.map (fun t -> knownTypes.[t.ToString()])
                         |> Option.orElse (
-                             (inferExpressionType declaredVariables expr) |> Option.map (fun t -> knownTypes.[t.Name]))
+                             (inferExpressionType expr) |> Option.map (fun t -> knownTypes.[t.Name]))
             match valueType with
             | Some t -> declaredVariables |> Map.add id t
             | None -> declaredVariables
@@ -153,7 +162,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
             match vd with
             | DeclarationWithInitialization (id, e) ->
                 VariableDeclaration(DeclarationWithInitialization(id, annotateExpression e)),
-                match inferExpressionType declaredVariables e with
+                match inferExpressionType e with
                 | Some t -> declaredVariables |> Map.add id t
                 | None -> declaredVariables 
             | DeclarationWithType(id, t) ->
@@ -165,7 +174,8 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
             )
         | WhileStatement (e,s) -> 
             WhileStatement(annotateExpression e, s), declaredVariables
-    let inferFunction (f: Ast.Function) = 
+    let inferFunction (c : Ast.Class) (f: Ast.Function) = 
+        let annotateStatement = annotateStatement c
         let declaredVariables =
             f.Parameters
             |> List.map (fun p -> (fst p, knownTypes.[(snd p).ToString()]))
@@ -175,11 +185,11 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         |> fst
 
     modul.Classes
-    |> List.map ( fun c -> 
+    |> List.map (fun c -> 
         {
             c with
                 FunctionDeclarations =
-                    c.FunctionDeclarations |> List.map (fun f -> {f with Body = inferFunction f})
-            })
-    |> (fun c -> {Classes = c})
+                    c.FunctionDeclarations |> List.map (fun f -> {f with Body = inferFunction c f})
+        })
+    |> fun c -> {Classes = c}
         

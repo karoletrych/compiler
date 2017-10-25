@@ -23,9 +23,9 @@ module TypeChecker =
                     | _ -> []
             let rec scanStatement (statement : Statement) = 
                     match statement with
-                    | FunctionCallStatement(FunctionCall(id, types, args))
+                    | FunctionCallStatement({Name = _; GenericArguments = types; Arguments = _})
                         -> types |> List.map scanType
-                    | StaticFunctionCallStatement(t, FunctionCall(id,types,args))
+                    | StaticFunctionCallStatement(t, {Name = _; GenericArguments = types; Arguments = _})
                         -> scanType t :: (types |> List.map scanType)
                     | ValueDeclaration(id, typeSpec, expr)
                         -> get [typeSpec] |> List.map scanType

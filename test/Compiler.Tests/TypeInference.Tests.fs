@@ -56,17 +56,48 @@ let tests =
                  (Some
                     (ExpressionWithInferredType
                        (IdentifierExpression "result",Some "System.Int32")))];}];}] ""
-    // testCase "recursive type inference fails" <| fun _ ->
-    //     let program = parse "
-    //             fun factorial (n : int)
-    //             {
-    //                 if n==0
-    //                     return 1;
-    //                 else
-    //                     return n * factorial(n-1);
-    //             }"
-    //     printfn "%A" program
-    //     Expect.equal program [] ""
+    testCase "recursive type inference fails" <| fun _ ->
+        let inference = infer "
+                fun factorial (n : int)
+                {
+                    if n==0
+                        return 1;
+                    else
+                        return n * factorial(n-1);
+                }"
+        Expect.equal inference.Classes 
+            [{Name = "DEFAULT";
+              GenericTypeParameters = [];
+              BaseClass = None;
+              ImplementedInterfaces = [];
+              Properties = [];
+              Constructor = None;
+              FunctionDeclarations =
+               [{Name = "factorial";
+                 GenericParameters = [];
+                 Parameters = [("n", Int)];
+                 ReturnType = None;
+                 Body =
+                  [IfStatement
+                     (BinaryExpression
+                        (IdentifierExpression "n",Equal,LiteralExpression (IntLiteral 0)),
+                      ReturnStatement
+                        (Some
+                           (ExpressionWithInferredType
+                              (LiteralExpression (IntLiteral 1),Some "System.Int32"))),
+                      Some
+                        (ReturnStatement
+                           (Some
+                              (ExpressionWithInferredType
+                                 (BinaryExpression
+                                    (IdentifierExpression "n",Multiplication,
+                                     FunctionCallExpression
+                                       {Name = "factorial";
+                                        GenericArguments = [];
+                                        Arguments =
+                                         [BinaryExpression
+                                            (IdentifierExpression "n",Minus,
+                                             LiteralExpression (IntLiteral 1))];}),None)))))];}];}] ""
     // testCase "basic types" <| fun _ ->
     //     let program = parse @"
     //             fun main 

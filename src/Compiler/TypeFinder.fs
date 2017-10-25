@@ -53,7 +53,6 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
 
 let findTypesInModule (modul : Module.Module) =
     let typeName (t: TypeSpec) : TypeName = t.ToString()
-    
     let createClassDeclaration (declaredType : Ast.Class) =
         let createParameter astParameter = 
             {
@@ -85,12 +84,9 @@ let findTypesInModule (modul : Module.Module) =
 
 let withNames = List.map (fun c -> (c.Name, c))
 let userDeclaredTypes (modul : Module.Module)  =
-    let classesFromModule =
-        findTypesInModule modul
-    classesFromModule 
+    findTypesInModule modul
     |> withNames
     |> Map.ofList
-
     
 let mscorlibTypes = 
         Assembly.GetAssembly(typeof<obj>).GetTypes()
