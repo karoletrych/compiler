@@ -78,7 +78,8 @@ let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
             {
                 Parameters = astCtor.Parameters 
-                |> List.map (fun (name,t) -> {
+                |> List.map (fun (name,t) -> 
+                    {
                      ParameterName = name 
                      Type = fun() -> getType (t.ToString());
                     });
