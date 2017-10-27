@@ -111,7 +111,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
 
     let annotateExpression c variables e =
         let exprType = inferExpressionType c variables e
-        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Name))
+        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Identifier))
 
     let rec annotateStatement 
         (c: Ast.Class) 
@@ -153,7 +153,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
                         t 
                         |> Option.map (fun t -> knownTypes.[t.ToString()])
                         |> Option.orElse (
-                             (inferExpressionType expr) |> Option.map (fun t -> knownTypes.[t.Name]))
+                             (inferExpressionType expr) |> Option.map (fun t -> knownTypes.[t.Identifier]))
             match valueType with
             | Some t -> declaredVariables |> Map.add id t
             | None -> declaredVariables

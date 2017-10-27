@@ -1,39 +1,45 @@
 module Compiler.Types 
 
 open Compiler.Ast
-open System.Reflection
 
+
+[<CustomEquality>]
+[<CustomComparison>]
 type Type = 
     {
         AssemblyName : string
         BaseType : Type option
         DeclaredConstructors : Constructor list
-        Name : string
-        GenericParameters : TypeName list
+        Identifier : string
+        GenericParameters : TypeRef list
+        GenericArguments : TypeRef list
         ImplementedInterfaces : Type list
         Methods : Function list
         Fields : Field list 
-        NestedTypes : TypeName list
+        NestedTypes : Type list
     }
     member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
+    override x.GetHashCode() =
+        hash (x.Identifier)
+    override x.Equals(y) =
+        match y with
+        | :? Type as t -> t.Identifier = x.Identifier
+        | _ -> false
+    interface System.IComparable with
+        member x.CompareTo(y) =
+            match y with
+            | :? Type as t -> System.String.Compare(t.Identifier, x.Identifier)
+            | _ -> 0
 
-and TypeName = string
+and TypeRef = unit -> Type
 
 and Function = 
     { 
         FunctionName : string    
         Parameters : Parameter list
-        ReturnType : TypeName option
+        ReturnType : TypeRef option
     }
 and Constructor = 
     { Parameters : Parameter list }
-and Parameter = { Type : TypeName; ParameterName : string }
-and Field = string * TypeName
-
-module Function = 
-    let createFunctionDeclaration (method : Ast.Function) = 
-        {
-            Parameters = method.Parameters |> List.map (fun (id, t) -> {Type = t.ToString(); ParameterName = id});
-            ReturnType = method.ReturnType |> Option.map (fun t -> t.ToString())
-            FunctionName = method.Name
-        }
+and Parameter = { Type : TypeRef; ParameterName : string }
+and Field = string * TypeRef

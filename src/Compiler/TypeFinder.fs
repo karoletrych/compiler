@@ -15,16 +15,15 @@ open Compiler.Ast
 open Compiler.Types
 
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
-    let uniqueName (t : System.Type) = t.ToString()
     let createParameter (dotnetParameter : ParameterInfo) = 
         {
-            Type = uniqueName dotnetParameter.ParameterType;
+            Type = fun () -> createTypeFromDotNetType dotnetParameter.ParameterType;
             ParameterName = dotnetParameter.Name
         }
     let createMethod (dotnetMethod : MethodInfo) =
         {
             Parameters = dotnetMethod.GetParameters() |> Array.toList|> List.map createParameter;
-            ReturnType = Some (uniqueName dotnetMethod.ReturnType);
+            ReturnType = Some (fun () -> createTypeFromDotNetType dotnetMethod.ReturnType);
             FunctionName = dotnetMethod.Name
         }
     let createConstructor (dotnetConstructor : ConstructorInfo) = 
@@ -32,7 +31,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             Parameters = dotnetConstructor.GetParameters() |> Array.toList|> List.map createParameter;
         }
     let createField (dotnetField : Reflection.FieldInfo) =
-        dotnetField.Name, uniqueName dotnetField.FieldType
+        dotnetField.Name, fun () -> createTypeFromDotNetType dotnetField.FieldType
     {
         AssemblyName = dotnetType.AssemblyQualifiedName;
         BaseType = 
@@ -40,29 +39,49 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
                 Some (createTypeFromDotNetType dotnetType.BaseType)
             else None;
         DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
-        Fields = dotnetType.GetFields() |> Array.toList|> List.map createField;
-        Name = dotnetType.ToString();
+        Fields = dotnetType.GetFields() |> Array.toList |> List.map createField;
+        Identifier = dotnetType.ToString();
         GenericParameters = 
             if dotnetType.IsGenericParameter then 
                 dotnetType.GetGenericParameterConstraints() 
-                |> Array.toList |> List.map (fun x -> x.ToString())
+                |> Array.toList 
+                |> List.map (fun x -> fun () -> createTypeFromDotNetType x)
             else []
+        GenericArguments = []
         ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map createTypeFromDotNetType;
         Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod;
-        NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map uniqueName 
+        NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map createTypeFromDotNetType
     }
 
-let findTypesInModule (modul : Module.Module) =
-    let typeName (t: TypeSpec) : TypeName = t.ToString()
-    let createClassDeclaration (declaredType : Ast.Class) =
-        let createParameter astParameter = 
+let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
+    
+    let rec createTypeFromClassDeclaration (declaredType : Class) =
+        let getType (declaredType : string) = 
+            knownTypes
+            |> List.tryFind (fun t -> t.Identifier = declaredType)
+            |> Option.defaultWith (fun () -> 
+                modul.Classes 
+                |> List.find (fun c -> c.Name = declaredType) 
+                |> createTypeFromClassDeclaration)
+        let createFunctionSignature (method : Ast.Function) = 
             {
-                ParameterName = fst astParameter 
-                Type = snd astParameter |> typeName;
+                Parameters = 
+                    method.Parameters 
+                    |> List.map (fun (id, t) -> 
+                    {
+                        Type = fun() -> getType (t.ToString());
+                        ParameterName = id
+                    });
+                ReturnType = method.ReturnType |> Option.map (fun t -> fun () -> getType (t.ToString()))
+                FunctionName = method.Name
             }
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
             {
-                Parameters = astCtor.Parameters |> List.map createParameter;
+                Parameters = astCtor.Parameters 
+                |> List.map (fun (name,t) -> {
+                     ParameterName = name 
+                     Type = fun() -> getType (t.ToString());
+                    });
             }
         {
             AssemblyName = "CHANGEIT"
@@ -70,21 +89,28 @@ let findTypesInModule (modul : Module.Module) =
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun property -> 
-                         let name, t, _ = property
-                         (name, typeName t))
-            Name = declaredType.Name;
-            GenericParameters = declaredType.GenericTypeParameters |> List.map (fun (GenericTypeParameter(x)) -> x)
+                         let name, t, _ = property 
+                         (name, fun () -> getType (t.ToString())))
+            Identifier = declaredType.Name;
+            GenericParameters = 
+                declaredType.GenericTypeParameters 
+                |> List.map (fun (GenericTypeParameter(x)) ->
+                    fun () -> getType x)
+            GenericArguments = []
             ImplementedInterfaces = []
-            Methods = declaredType.FunctionDeclarations |> List.map Function.createFunctionDeclaration;
+            Methods = declaredType.FunctionDeclarations |> List.map createFunctionSignature;
             NestedTypes = []
         }
-    modul.Classes |> List.map createClassDeclaration;
+    modul.Classes |> List.map createTypeFromClassDeclaration;
 
-let withNames = List.map (fun c -> (c.Name, c))
-let userDeclaredTypes (modul : Module.Module)  =
-    findTypesInModule modul
+let withNames = List.map (fun c -> (c.Identifier, c))
+let userDeclaredTypesWithKnownTypes knownTypes (modul : Module.Module)  =
+    findTypesInModule knownTypes modul
     |> withNames
     |> Map.ofList
+
+let userDeclaredTypes (modul : Module.Module) =
+    userDeclaredTypesWithKnownTypes [] modul
     
 let mscorlibTypes = 
         Assembly.GetAssembly(typeof<obj>).GetTypes()
@@ -92,7 +118,6 @@ let mscorlibTypes =
         |> List.map (createTypeFromDotNetType)
         |> withNames
         |> Map.ofList
-
 let allKnownTypes (modules : Module.Module) =
-    let userTypes = modules |> userDeclaredTypes
+    let userTypes =  userDeclaredTypesWithKnownTypes ((Map.values mscorlibTypes) |> List.ofSeq) modules
     Map.union mscorlibTypes userTypes
