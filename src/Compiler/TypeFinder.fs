@@ -86,7 +86,9 @@ let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
             }
         {
             AssemblyName = "CHANGEIT"
-            BaseType = None //TODO: fix it now
+            BaseType = (match declaredType.BaseClass with
+                       | Some t -> (t.ToString())
+                       | None -> Ast.Object.ToString()) |> getType |> Some;
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun property -> 
