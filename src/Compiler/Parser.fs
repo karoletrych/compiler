@@ -78,7 +78,7 @@ module Keyword =
         "false"
     ]
 
-let pIdentifier, pIdentifierImpl = createParserForwardedToRef<Identifier, _>() 
+let pIdentifier, pIdentifierImpl = createParserForwardedToRef<string, _>() 
 
 module Types =
     let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
@@ -87,8 +87,8 @@ module Types =
     let pGenericType =
          pNonGenericTypeSpec 
              .>>. pGenericArguments
-             |>> (CustomType)
-    let pNonGenericType = pNonGenericTypeSpec |>> fun t -> (CustomType(t, []))
+             |>> (fun (name, types) -> {Name = name; GenericArgs = types})
+    let pNonGenericType = pNonGenericTypeSpec |>> fun t -> ({Name = t; GenericArgs = []})
 
     let convertToFullyQualifiedType =
         let rec qualifiers acc types =
@@ -96,9 +96,9 @@ module Types =
             | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
             | head :: tail -> 
                 match head with
-                | CustomType(identifier, [])
+                | {Name = identifier; GenericArgs = []}
                     -> qualifiers (identifier::acc) tail 
-                | CustomType _
+                | _
                     -> fail "No generic type is allowed as namespace qualifier"
             | [] -> fail "Should not happen..."
         qualifiers [] 
@@ -107,8 +107,8 @@ module Types =
                 sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
                       >>= convertToFullyQualifiedType
     let pCustomType = pQualifiedType |>> CustomTypeSpec
-    let builtInTypesParsersDict =
-        dict [ 
+    let builtInTypesParsers =
+        [ 
             ("bool", stringReturn "bool" Bool);
             ("char", stringReturn "char" Char);
             ("int", stringReturn "int" Int);
@@ -118,7 +118,8 @@ module Types =
             ("void", stringReturn "void" Void);
             ("obj", stringReturn "obj" Object);
         ]
-    pTypeSpecImpl := choice(attempt pCustomType :: (List.ofSeq builtInTypesParsersDict.Values)) .>> spaces
+        |> Map.ofList
+    pTypeSpecImpl := choice(attempt pCustomType :: (builtInTypesParsers |> Map.toList |> List.map (snd >> fun p -> p |>> fun bits -> bits |> BuiltInTypeSpec) )) .>> spaces
 
 let isAsciiIdStart    = fun c -> isAsciiLetter c || c = '_'
 let isAsciiIdContinue = fun c -> isAsciiLetter c || isDigit c || c = '_'
@@ -134,7 +135,7 @@ let identifier =
 pIdentifierImpl := identifier .>> spaces
 >>= (fun id -> 
     if not (List.contains id Keyword.keywords)
-     && not (Types.builtInTypesParsersDict.Keys.Contains(id))
+     && not (Types.builtInTypesParsers |> Map.toSeq |> Seq.map fst |> Seq.contains (id))
     then preturn id 
     else fail ("Identifier cannot be a keyword: " + id))
 
@@ -315,8 +316,8 @@ module Function =
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pInheritanceDeclaration = 
-        opt (Keyword.pExtends >>. Types.pQualifiedType ) .>>.
-        (opt (Keyword.pImplements >>. sepBy1 Types.pQualifiedType Char.comma) >>= toList)
+        opt (Keyword.pExtends >>. Types.pQualifiedType |>> CustomTypeSpec ) .>>.
+        (opt (Keyword.pImplements >>. (sepBy1 Types.pQualifiedType Char.comma |>> List.map CustomTypeSpec) ) >>= toList)
     
     let pClassBody = 
         let pConstructor =

@@ -5,19 +5,18 @@ type Declaration =
 | ClassDeclaration of Class
 
 and Class = {
-    Name : Identifier;
+    Name : string;
     GenericTypeParameters : GenericTypeParameter list;
-    BaseClass : DottedTypeName option
-    ImplementedInterfaces : DottedTypeName list;
+    BaseClass : TypeSpec option
+    ImplementedInterfaces : TypeSpec list;
     Properties : PropertyDeclaration list;
     Constructor : Constructor option;
     FunctionDeclarations : Function list;
 }
 
-and DottedTypeName = Identifier list * CustomType
 
 and PropertyDeclaration =
-  Identifier * TypeSpec * Expression option
+  string * TypeSpec * Expression option
 
 and Constructor = {
     Parameters : Parameter list;
@@ -25,18 +24,23 @@ and Constructor = {
     Statements : Statement list;
 }
 
-and GenericTypeParameter = GenericTypeParameter of Identifier
+and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be TypeSpec example: A<IEnumerable<T>> 
 
 and Function = {
-  Name : Identifier;
+  Name : string;
   GenericParameters : GenericTypeParameter list;
   Parameters : Parameter list;
   ReturnType : TypeSpec option;
   Body : Statement list
 }
 
-//TODO: split into BuiltInType and CustomTypeSpec
+
+
 and TypeSpec =
+| BuiltInTypeSpec of BuiltInTypeSpec
+| CustomTypeSpec of DottedTypeName
+
+and BuiltInTypeSpec = 
 | Bool
 | Char
 | Int
@@ -45,31 +49,16 @@ and TypeSpec =
 | String
 | Void
 | Object
-| CustomTypeSpec of DottedTypeName
-  override ts.ToString() =
-   let rec serializeTypeSpec ts =
-     match ts with
-     | CustomTypeSpec (ns, CustomType(id, generics)) ->
-      (ns |> List.map (fun id -> id  + ".") |> String.concat "")
-      + id
-      + if List.isEmpty generics
-        then ""
-        else "`" + (List.length generics).ToString() + "[" + (generics |> List.map serializeTypeSpec |> String.concat ",") + "]"
-     | Bool -> "System.Bool"
-     | Char -> "System.Char"
-     | Int -> "System.Int32"
-     | Float -> "System.Single"
-     | Double -> "System.Double"
-     | String -> "System.String"
-     | Object -> "System.Object"
-     | Void -> failwith "generic can't be void"
-   serializeTypeSpec ts
 
-and CustomType = CustomType of Identifier * TypeSpec list
+and DottedTypeName = string list * CustomType
 
-and Identifier = string
+and CustomType = { 
+    Name : string 
+    GenericArgs : TypeSpec list
+}
 
-and Parameter = Identifier * TypeSpec
+
+and Parameter = string * TypeSpec
 
 and Statement =
 | AssignmentStatement of Assignment
@@ -86,11 +75,11 @@ and Statement =
 
 
 and ValueDeclaration =
-  Identifier * TypeSpec option * Expression
+  string * TypeSpec option * Expression
 and VariableDeclaration =
-| DeclarationWithInitialization of Identifier * Expression
-| DeclarationWithType of Identifier * TypeSpec
-| FullDeclaration of Identifier * TypeSpec * Expression
+| DeclarationWithInitialization of string * Expression
+| DeclarationWithType of string * TypeSpec
+| FullDeclaration of string * TypeSpec * Expression
 
 
 
@@ -102,7 +91,7 @@ and Expression =
 | BinaryExpression of Expression * BinaryOperator * Expression
 | ExpressionWithInferredType of Expression * string option
 | FunctionCallExpression of FunctionCall
-| IdentifierExpression of Identifier
+| IdentifierExpression of string
 | ListInitializerExpression of Expression list
 | LiteralExpression of Literal
 | MemberExpression of MemberFunctionCall
@@ -115,7 +104,7 @@ and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 and Assignment = Expression * Expression
 
 and FunctionCall = {
-     Name : Identifier;
+     Name : string;
      GenericArguments : TypeSpec list;
      Arguments : Arguments 
      }

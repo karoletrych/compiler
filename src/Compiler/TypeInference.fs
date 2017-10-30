@@ -2,12 +2,13 @@ module Compiler.TypeInference
 
 open Compiler.Ast
 open Compiler.Types
+open Compiler.Identifier
 
 
-let builtInType (types : Map<string, Type>) (t : TypeSpec) =
-    types.[t.ToString()]
+let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
+    types.[t |> Identifier.fromTypeSpec]
 
-let leastUpperBound (knownTypes : Map<string, Type>) types=
+let leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
         | [] -> [] 
@@ -32,7 +33,7 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
                 )
             edges |> List.maxBy snd
 
-    let longest = longestPath (builtInType knownTypes Object)
+    let longest = longestPath (builtInType knownTypes (BuiltInTypeSpec Object))
 
     types
         |> List.map (fun t -> (t::allAncestors t))
@@ -45,23 +46,23 @@ let leastUpperBound (knownTypes : Map<string, Type>) types=
         |> List.last
 
 // TODO: split into function composition
-let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module.Module = 
+let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module.Module) : Module.Module = 
     
 
     let rec inferExpressionType 
         (c: Ast.Class) 
-        (declaredVariables : Map<Ast.Identifier, Types.Type>) 
+        (declaredVariables : Map<string, Types.Type>) 
         (expression : Ast.Expression) 
             : Types.Type option =
 
-        let lookupLocalVariable (declaredVariables : Map<Identifier, Type>) identifier: Types.Type option =
+        let lookupLocalVariable (declaredVariables : Map<string, Type>) identifier: Types.Type option =
             Some declaredVariables.[identifier]
         let lookupDeclaredFunctions (parentClass : Class) identifier : Types.Type option =
             parentClass.FunctionDeclarations 
             |> List.tryFind (fun f -> f.Name = identifier) 
             |> Option.map (fun f -> f.ReturnType)
             |> Option.bind (fun t -> match t with 
-                                     | Some t -> knownTypes.TryFind (t.ToString())
+                                     | Some t -> knownTypes.TryFind (t |> Identifier.fromTypeSpec)
                                      | None -> None)
         let lookupMemberFunctions identifier : Types.Type option =
             failwith "not implemented"
@@ -77,14 +78,14 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
             | Multiplication, Some e1, Some e2 -> someIfEqual e1 e2
             | Division, Some e1, Some e2 -> someIfEqual  e1 e2
             | Remainder, Some e1, Some e2 -> someIfEqual e1 e2
-            | _ -> Some (builtInType knownTypes Bool)
+            | _ -> Some (builtInType knownTypes (BuiltInTypeSpec Bool))
 
         let typeOfLiteral = 
             (function
-            | BoolLiteral _-> builtInType knownTypes Bool;
-            | IntLiteral _-> builtInType knownTypes Int;
-            | FloatLiteral _-> builtInType knownTypes Float;
-            | StringLiteral _-> builtInType knownTypes String;)
+            | BoolLiteral _-> builtInType knownTypes (BuiltInTypeSpec Bool);
+            | IntLiteral _-> builtInType knownTypes (BuiltInTypeSpec Int);
+            | FloatLiteral _-> builtInType knownTypes (BuiltInTypeSpec Float);
+            | StringLiteral _-> builtInType knownTypes (BuiltInTypeSpec String);)
             >> Some
         let leastUpperBound = leastUpperBound knownTypes
 
@@ -105,19 +106,19 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         | LiteralExpression(le) -> typeOfLiteral le
         | ListInitializerExpression list -> lookupListType (list |> List.map inferExpressionType)
         | MemberExpression mfc -> lookupMemberFunctions mfc
-        | NewExpression (t, _) -> knownTypes.TryFind (t.ToString())
+        | NewExpression (t, _) -> knownTypes.TryFind (t |> Identifier.fromTypeSpec)
         | StaticMemberExpression (t, call) -> lookupStaticFunctionReturnType (t,call)
         | UnaryExpression(_, e) -> inferExpressionType e
 
     let annotateExpression c variables e =
         let exprType = inferExpressionType c variables e
-        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Identifier))
+        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Identifier.ToString()))
 
     let rec annotateStatement 
         (c: Ast.Class) 
-        (declaredVariables : Map<Identifier, Type>) 
+        (declaredVariables : Map<string, Type>) 
         (statement : Ast.Statement)
-        : (Statement * Map<Identifier, Type>) = 
+        : (Statement * Map<string, Type>) = 
         let annotateStatement = annotateStatement c
         let annotateExpression = annotateExpression c declaredVariables
         let inferExpressionType = inferExpressionType c declaredVariables
@@ -151,7 +152,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
 
             let valueType = 
                         t 
-                        |> Option.map (fun t -> knownTypes.[t.ToString()])
+                        |> Option.map (fun t -> knownTypes.[t |> Identifier.fromTypeSpec])
                         |> Option.orElse (
                              (inferExpressionType expr) |> Option.map (fun t -> knownTypes.[t.Identifier]))
             match valueType with
@@ -167,10 +168,10 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
                 | None -> declaredVariables 
             | DeclarationWithType(id, t) ->
                 VariableDeclaration(DeclarationWithType(id, t)),
-                declaredVariables |> Map.add id knownTypes.[t.ToString()] // TODO: exception (?)
+                declaredVariables |> Map.add id knownTypes.[t |> Identifier.fromTypeSpec] // TODO: exception (?)
             | FullDeclaration (id, t, e) ->
                 VariableDeclaration(FullDeclaration(id, t, annotateExpression e)),
-                declaredVariables |> Map.add id knownTypes.[t.ToString()] // TODO: ^ 
+                declaredVariables |> Map.add id knownTypes.[t |> Identifier.fromTypeSpec] // TODO: ^ 
             )
         | WhileStatement (e,s) -> 
             WhileStatement(annotateExpression e, s), declaredVariables
@@ -178,7 +179,7 @@ let inferTypes (knownTypes : Map<string, Type>) (modul : Module.Module) : Module
         let annotateStatement = annotateStatement c
         let declaredVariables =
             f.Parameters
-            |> List.map (fun p -> (fst p, knownTypes.[(snd p).ToString()]))
+            |> List.map (fun p -> (fst p, knownTypes.[(snd p) |> Identifier.fromTypeSpec]))
             |> Map.ofList
         f.Body
         |> List.mapFold annotateStatement declaredVariables

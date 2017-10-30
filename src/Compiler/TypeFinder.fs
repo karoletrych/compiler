@@ -13,6 +13,7 @@ open System.Reflection
 open FSharpx.Collections
 open Compiler.Ast
 open Compiler.Types
+open Compiler.Identifier
 
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
     let createParameter (dotnetParameter : ParameterInfo) = 
@@ -40,7 +41,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             else None;
         DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
         Fields = dotnetType.GetFields() |> Array.toList |> List.map createField;
-        Identifier = dotnetType.ToString();
+        Identifier = Identifier.fromDotNet dotnetType
         GenericParameters = 
             if dotnetType.IsGenericParameter then 
                 dotnetType.GetGenericParameterConstraints() 
@@ -56,12 +57,12 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
 let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
     
     let rec createTypeFromClassDeclaration (declaredType : Class) =
-        let getType (declaredType : string) = 
+        let getType (declaredType : TypeIdentifier) = 
             knownTypes
             |> List.tryFind (fun t -> t.Identifier = declaredType)
             |> Option.defaultWith (fun () -> 
                 modul.Classes 
-                |> List.find (fun c -> c.Name = declaredType) 
+                |> List.find (fun c -> (Identifier.fromClassDeclaration c) = declaredType) 
                 |> createTypeFromClassDeclaration)
         let createFunctionSignature (method : Ast.Function) = 
             {
@@ -69,10 +70,10 @@ let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
                     method.Parameters 
                     |> List.map (fun (id, t) -> 
                     {
-                        Type = fun() -> getType (t.ToString());
+                        Type = fun() -> getType (Identifier.fromTypeSpec t);
                         ParameterName = id
                     });
-                ReturnType = method.ReturnType |> Option.map (fun t -> fun () -> getType (t.ToString()))
+                ReturnType = method.ReturnType |> Option.map (fun t -> fun () -> getType (Identifier.fromTypeSpec t))
                 FunctionName = method.Name
             }
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
@@ -81,24 +82,22 @@ let findTypesInModule (knownTypes : Type list) (modul : Module.Module) =
                 |> List.map (fun (name,t) -> 
                     {
                      ParameterName = name 
-                     Type = fun() -> getType (t.ToString());
+                     Type = fun() -> getType (Identifier.fromTypeSpec t);
                     });
             }
         {
             AssemblyName = "CHANGEIT"
             BaseType = (match declaredType.BaseClass with
-                       | Some t -> (t.ToString())
-                       | None -> Ast.Object.ToString()) |> getType |> Some;
+                       | Some t -> Identifier.fromTypeSpec t
+                       | None -> BuiltInTypeSpec Object |> Identifier.fromTypeSpec) 
+                       |> getType |> Some;
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun property -> 
                          let name, t, _ = property 
-                         (name, fun () -> getType (t.ToString())))
-            Identifier = declaredType.Name;
-            GenericParameters = 
-                declaredType.GenericTypeParameters 
-                |> List.map (fun (GenericTypeParameter(x)) ->
-                    fun () -> getType x)
+                         (name, fun () -> t|> Identifier.fromTypeSpec |>  getType))
+            Identifier = Identifier.fromClassDeclaration declaredType;
+            GenericParameters = [] //TODO: fix
             GenericArguments = []
             ImplementedInterfaces = []
             Methods = declaredType.FunctionDeclarations |> List.map createFunctionSignature;

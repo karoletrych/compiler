@@ -12,6 +12,7 @@ open Compiler.Types
 open Compiler.Ast
 open Compiler.TypeFinder
 open Compiler.CompilerResult
+open Compiler.Identifier
 open System
 
 module TypeChecker = 
@@ -19,7 +20,7 @@ module TypeChecker =
             let get = List.choose id 
             let scanExpression expression = 
                     match expression with
-                    | NewExpression(t, args) -> [scanType t]
+                    | NewExpression(t, _) -> [scanType t]
                     | _ -> []
             let rec scanStatement (statement : Statement) = 
                     match statement with
@@ -44,8 +45,6 @@ module TypeChecker =
 
             let rec scanDeclaration = function
             | FunctionDeclaration({
-                                    Name = identifier;
-                                    GenericParameters = genericParameters;
                                     Parameters = parameters;
                                     ReturnType = returnType;
                                     Body = cs})
@@ -69,26 +68,24 @@ module TypeChecker =
                        let { Parameters = parameters; BaseClassConstructorCall = baseCall; Statements = stmts} = c
                        (parameters |> List.map (snd >> scanType)) @ (stmts |> List.collect scanStatement)
 
-               (baseTypes |> List.map (CustomTypeSpec >> scanType))
+               (baseTypes |> List.map scanType)
                     @ (properties |> List.collect (fun (i,t,e) -> [t] |> List.map scanType))
                     @ scanConstructor
             List.map scanDeclaration
 
     let scanType 
-            (typesDictionary : Map<string, Types.Type>)
+            (typesDictionary : Map<TypeIdentifier, Types.Type>)
             (typeSpec : TypeSpec) =
             match typeSpec with
-            | CustomTypeSpec (ns, CustomType(id, []))  ->
-                    if typesDictionary.ContainsKey (typeSpec.ToString()) 
+            | CustomTypeSpec (ns, {Name = id; GenericArgs = []})  ->
+                    if typesDictionary.ContainsKey (typeSpec |> Identifier.fromTypeSpec) 
                     then succeedUnit
                     else failure (CannotResolveType typeSpec)
-            | CustomTypeSpec (ns, CustomType(id, generics))  ->
-                    let noGenericsTypeName = (CustomTypeSpec (ns, (CustomType(id, [])))).ToString()
-                    let typeWithNumberOfGenerics = (noGenericsTypeName + "`" + (List.length generics).ToString() ) //TODO: get rid of this shit
+            | CustomTypeSpec (ns, {Name = id; GenericArgs = generics})  ->
                     match typesDictionary
-                        |> Map.tryPick (fun key v -> if key.StartsWith(typeWithNumberOfGenerics) then Some v else None ) with
+                        |> Map.tryPick (fun key v -> if key.TypeName.Name = [id] && key.GenericArgumentsNumber = generics.Length then Some v else None ) with
                     | Some v ->
-                        if (generics |> List.map ((fun g -> g.ToString()) >> typesDictionary.ContainsKey)) |> List.forall ((=) true)
+                        if (generics |> List.map ((fun g -> g |> Identifier.fromTypeSpec) >> typesDictionary.ContainsKey)) |> List.forall ((=) true)
                         then succeedUnit
                         else failure (CannotResolveType typeSpec)
                     | None -> failure (CannotResolveType typeSpec)

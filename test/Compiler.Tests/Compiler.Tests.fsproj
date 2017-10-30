@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ResultTestHelper.fs" />
+    <Compile Include="Identifier.Tests.fs" />
     <Compile Include="Parser.Tests.Classes.fs" />
     <Compile Include="Parser.Tests.Expressions.fs" />
     <Compile Include="Parser.Tests.FunctionCalls.fs" />

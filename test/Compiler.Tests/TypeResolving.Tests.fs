@@ -27,5 +27,5 @@ let tests =
                | _ -> failwith "error in test"
         Expect.equal scanResult [[Failure
                                     [CannotResolveType
-                                       (CustomTypeSpec (["Sys"],CustomType ("Cons",[])))]]] ""
+                                       (CustomTypeSpec (["Sys"], {Name = "Cons"; GenericArgs = []}))]]] ""
     ]

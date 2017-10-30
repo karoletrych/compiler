@@ -36,7 +36,7 @@ let tests =
           FunctionDeclarations =
            [{Name = "addone";
              GenericParameters = [];
-             Parameters = [("x", Int)];
+             Parameters = [("x", BuiltInTypeSpec Int)];
              ReturnType = None;
              Body =
               [VariableDeclaration
@@ -76,7 +76,7 @@ let tests =
               FunctionDeclarations =
                [{Name = "factorial";
                  GenericParameters = [];
-                 Parameters = [("n", Int)];
+                 Parameters = [("n", BuiltInTypeSpec Int)];
                  ReturnType = None;
                  Body =
                   [IfStatement

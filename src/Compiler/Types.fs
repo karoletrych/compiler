@@ -1,6 +1,7 @@
 module Compiler.Types 
 
 open Compiler.Ast
+open Compiler.Identifier
 
 
 [<CustomEquality>]
@@ -10,7 +11,7 @@ type Type =
         AssemblyName : string
         BaseType : Type option
         DeclaredConstructors : Constructor list
-        Identifier : string
+        Identifier : TypeIdentifier
         GenericParameters : TypeRef list
         GenericArguments : TypeRef list
         ImplementedInterfaces : Type list
@@ -27,8 +28,8 @@ type Type =
         | _ -> false
     interface System.IComparable with
         member x.CompareTo(y) =
-            match y with
-            | :? Type as t -> System.String.Compare(t.Identifier, x.Identifier)
+            match y with // TODO: Type should not need to implement IComparable. Use dicts instead of maps 
+            | :? Type as t -> System.String.Compare(t.Identifier.TypeName.Name |> List.last, x.Identifier.TypeName.Name |> List.last)
             | _ -> 0
 
 and TypeRef = unit -> Type
