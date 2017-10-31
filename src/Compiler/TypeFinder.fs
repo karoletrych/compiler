@@ -114,8 +114,10 @@ let userDeclaredTypesWithKnownTypes knownTypes (modul : Module.Module)  =
 let userDeclaredTypes (modul : Module.Module) =
     userDeclaredTypesWithKnownTypes [] modul
     
+
+//TODO: move to separate module "RetrieveReferencedAssembliesMetadata"
 let mscorlibTypes = 
-        Assembly.GetAssembly(typeof<obj>).GetTypes()
+        Assembly.GetAssembly(typeof<obj>).GetExportedTypes()
         |> List.ofArray
         |> List.map (createTypeFromDotNetType)
         |> withNames

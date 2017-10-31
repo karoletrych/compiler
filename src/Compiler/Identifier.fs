@@ -17,8 +17,8 @@ and TypeIdentifier = {
 with member x.GenericArgumentsNumber = 
         x.TypeName.GenericArguments |> List.length
      override ti.ToString() =
-       (ti.Namespace |> List.map (fun id -> id  + ".") |> String.concat "")
-      + (ti.TypeName.Name |> List.map (fun id -> id  + "+") |> String.concat "")
+       (ti.Namespace |> List.toArray |> (fun strs -> System.String.Join("::", strs)))
+      + (ti.TypeName.Name |> List.toArray |> (fun strs -> System.String.Join("+",  strs)))
       + if List.isEmpty ti.TypeName.GenericArguments
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
