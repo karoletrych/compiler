@@ -136,14 +136,14 @@ and Literal =
 | FloatLiteral of float
 | StringLiteral of string
 
-module Module =
-    type Module = {
+type Module = {
         Classes : Class list
     } with
     static member (+) (m1 : Module, m2 : Module) =
           { Classes = m1.Classes @ m2.Classes}
     
     end
+module Module =
     let create (moduleName : string) declarations =
         let functions = declarations |> List.choose ( fun m ->
                         match m with

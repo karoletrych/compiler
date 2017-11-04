@@ -18,7 +18,7 @@
     <Compile Include="Parser.Tests.VariableDeclarations.fs" />
     <Compile Include="TypeInference.Tests.fs" />
     <Compile Include="TypeResolving.Tests.fs" />
-    <Compile Include="TypeFinder.Tests.fs" />
+    <Compile Include="TypeFinding.Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>

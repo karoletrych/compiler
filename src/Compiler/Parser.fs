@@ -369,9 +369,19 @@ let parseProgram =
     removeComments >> run pProgram
 
 open Compiler.CompilerResult
-let parse = 
+let parseDeclarations = 
     parseProgram 
     >>
     function
-    | ParserResult.Success(result, _, _) -> succeed result 
-    | ParserResult.Failure(message, error, state) -> failure (ParsingError ((message, error, state).ToString()))
+    | ParserResult.Success(result, _, _) -> Result.succeed result 
+    | ParserResult.Failure(message, error, state) -> Result.failure (ParsingError ((message, error, state).ToString()))
+
+let createModule  ((input : (string * string) list)) = 
+    let buildModule (name, declarationsResult) = 
+        declarationsResult 
+        |> Result.map (fun decls -> Module.create name decls)
+    input
+    |> List.map (fun (name,sourceCode) -> (name, parseDeclarations sourceCode))
+    |> List.map buildModule
+    |> List.reduce (Result.map2 (Module.plus))
+    

@@ -1,9 +1,9 @@
-module Compiler.TypeFinder.Tests
+module Compiler.TypeFinding.Tests
 
 open Expecto
 open Compiler.Ast
 open Compiler.Parser
-open Compiler.TypeFinder
+open Compiler.TypeFinding
 open Compiler.Tests.ResultTestHelper
 open Compiler.CompilerResult
 
@@ -26,7 +26,7 @@ let tests =
                         }
                     }
                     " 
-                    |> parse
-                    |> map Module.createDefault
+                    |> parseDeclarations
+                    |> Result.map Module.createDefault
                 isOk typesResult ""
     ]

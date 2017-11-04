@@ -46,7 +46,7 @@ let leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
         |> List.last
 
 // TODO: split into function composition
-let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module.Module) : Module.Module = 
+let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) : Module = 
     
 
     let rec inferExpressionType 

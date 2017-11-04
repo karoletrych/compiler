@@ -4,12 +4,14 @@ open System.IO
 open Argu
 open Compiler.CompilerResult
 open Compiler.Parser
-open Compiler.TypeFinder
+open Compiler.TypeFinding
 open Compiler.TypeInference
+open Compiler.Ast
 
 type Stage =
     | SyntaxCheck
     | TypeFinding
+    | TypeResolving
     | TypeInference
     | SemanticCheck 
     | IRGeneration
@@ -20,8 +22,8 @@ type CLIArguments =
     | [<MainCommand; ExactlyOnce; First>] SourceFiles of path : string list
     | [<Unique>] Output of path : string
     | [<Unique>] Stage of Stage
-    | [<Unique>] PrintSyntax
-    | [<Unique>] PrintInference
+    | [<Unique>] PrintSyntaxTree
+    | [<Unique>] PrintTypeInference
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -29,8 +31,8 @@ with
             | SourceFiles _ -> "source file paths."
             | Output _ -> "output path."
             | Stage _ -> "compilation stage."
-            | PrintSyntax _ -> "print syntax tree."
-            | PrintInference _ -> "print inferred expression types."
+            | PrintSyntaxTree _ -> "print syntax tree."
+            | PrintTypeInference _ -> "print inferred expression types."
 
 let compile 
     (sourceFilePaths : string list)
@@ -39,26 +41,29 @@ let compile
     (printSyntax : bool)
     (printInference : bool) =
     let parse sourceCode = 
-        Parser.parse sourceCode
+        Parser.parseDeclarations sourceCode
                      |> (fun parsed ->   
                          if printSyntax 
                          then printfn "%A" parsed 
                          parsed)
     let parseFile path = parse (File.ReadAllText path)
 
+    let syntaxCheck = 
+        sourceFilePaths 
+        |> List.map parseFile
+    let findTypes = 
+        sourceFilePaths 
+        |> List.zip (sourceFilePaths |> List.map File.ReadAllText)
+        |> Parser.createModule
+        |> Result.bind TypeFinding.allKnownTypes 
+    let resolveTypes = findTypes |> Result.bind 
+    let inferTypes = resolveTypes |> Result.bind inferTypes 
+
     match stage with
-    | SyntaxCheck -> sourceFilePaths 
-                        |> List.map parseFile
-                        |> ignore
-    | TypeFinding ->
-                    let buildModule (declarationsResult, name) = 
-                        declarationsResult |> CompilerResult.map (fun decls -> Ast.Module.create name decls)
-                    let modulesResult =
-                        sourceFilePaths 
-                        |> List.zip (sourceFilePaths |> List.map parseFile)
-                        |> List.map buildModule
-                        |> List.reduce (CompilerResult.map2 (+))
-                    ()
+    | SyntaxCheck -> syntaxCheck |> ignore
+    | TypeFinding -> findTypes |> ignore                    
+    | TypeResolving -> resolveTypes |> ignore
+    | TypeInference -> inferTypes |> ignore
     | _ -> printfn "Stage not implemented."
     ()
 
@@ -71,8 +76,8 @@ let main argv =
             (results.GetResult (<@SourceFiles@>, []))
             (results.GetResult (<@Output@>, "Program.exe"))
             (results.GetResult (<@Stage@>, Full))
-            (results.Contains <@PrintSyntax@>)
-            (results.Contains <@PrintInference@>)
+            (results.Contains <@PrintSyntaxTree@>)
+            (results.Contains <@PrintTypeInference@>)
     with
     | :? ArguParseException as parseException -> (printfn "%s" parseException.Message)
     0

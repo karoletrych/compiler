@@ -2,7 +2,7 @@ module Compiler.TypeInference.Tests
 open Expecto
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeFinder
+open Compiler.TypeFinding
 open Compiler.TypeInference
 open Compiler.Ast
 open Compiler.Tests.ResultTestHelper
@@ -10,10 +10,10 @@ open Compiler.Tests.ResultTestHelper
 [<Tests>]
 let tests =
   let infer program =
-    parse program
-    |> map Module.createDefault
-    |> map ( fun ast -> allKnownTypes ast |> (fun types -> inferTypes types ast) )
-    |> get
+    parseDeclarations program
+    |> Result.map Module.createDefault
+    |> Result.map ( fun ast -> allKnownTypes ast |> (fun types -> inferTypes types ast) )
+    |> Result.get
     |> fst
   testList "TypeInference.Tests" [
     testCase "type inference" <| fun _ ->
@@ -25,7 +25,7 @@ let tests =
                 return result;
             }"
             
-        Expect.equal inference.Classes 
+        Expect.equal inference.Classes
          [{
           Name = "DEFAULT";
           GenericTypeParameters = [];
@@ -66,7 +66,7 @@ let tests =
                     else
                         return n * factorial(n-1);
                 }"
-        Expect.equal inference.Classes 
+        Expect.equal inference.Classes
             [{Name = "DEFAULT";
               GenericTypeParameters = [];
               BaseClass = None;
@@ -109,8 +109,9 @@ let tests =
                     val arr = [1;2;3; ""string""; name; age; weight];
                 }"
         Expect.equal inference.Classes [
-              {Name = "DEFAULT";
-              GenericTypeParameters = [];
+            {
+              Name = "DEFAULT";
+              GenericTypeParameter = [];
               BaseClass = None;
               ImplementedInterfaces = [];
               Properties = [];

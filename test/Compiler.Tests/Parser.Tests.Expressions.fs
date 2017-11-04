@@ -17,7 +17,7 @@ let tests =
                 return n * factorial(n-1);
         }
         "
-      isOk (parse source) ""
+      isOk (parseDeclarations source) ""
     testCase "multiple assignments and function calls in single statement work" <| fun _ ->
       let source = "
         fun main
@@ -25,6 +25,6 @@ let tests =
           a = n = x = foo(123, 5);
         }
         "
-      isOk (parse source) ""
+      isOk (parseDeclarations source) ""
   ]
   
