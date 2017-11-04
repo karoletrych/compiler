@@ -4,7 +4,7 @@ open Expecto
 open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.SemanticChecker
+open Compiler.SemanticCheck
 
 
 [<Tests>]
@@ -13,7 +13,7 @@ let tests =
     testCase "resolving valid System.Console.WriteLine call" <| fun _ ->
         let scanResult = 
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
-            |> parse
+            |> parseDeclarations
             |> function
                | Success (x,_) -> scanTypes x
                | _ -> failwith "error in test"
@@ -21,7 +21,7 @@ let tests =
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
-            |> parse
+            |> parseDeclarations
             |> function
                | Success (x,_) -> scanTypes x
                | _ -> failwith "error in test"
