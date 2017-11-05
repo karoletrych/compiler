@@ -11,7 +11,6 @@ module Compiler.TypeFinding
 open FSharpx.Collections
 open Compiler.Ast
 open Compiler.Types
-open Compiler.Identifier
 open Compiler.ReferencedAssembliesMetadata
 open Compiler.CompilerResult
 
@@ -67,24 +66,16 @@ let findTypesInModule (knownTypes : Type list) (modul : Module) =
     modul.Classes |> List.map createTypeFromClassDeclaration;
 
 let withNames = List.map (fun c -> (c.Identifier, c))
-let userDeclaredTypesWithKnownTypes knownTypes (modul : Module)  =
+let findUserDeclaredTypes knownTypes (modul : Module)  =
     findTypesInModule knownTypes modul
     |> withNames
     |> Map.ofList
 
-let userDeclaredTypes (modul : Module) =
-    userDeclaredTypesWithKnownTypes [] modul
-    
 
 open System
 let allKnownTypes (modul : Module) =
-    let referencedAssemblies = [Reflection.Assembly.GetAssembly(typeof<obj>)]
-    let externalTypes =
-        referencedAssemblies 
-        |> List.fold (fun state assembly  -> Map.union state (typesFromAssembly assembly)) Map.empty //TODO: if there are 2 types with the same TypeIdentifier second one is chosen
-
-    let userTypes =  userDeclaredTypesWithKnownTypes ((Map.values externalTypes) |> List.ofSeq) modul
-
-    Map.union externalTypes userTypes |> Result.succeed
+    let externalTypes = exportedTypes [Reflection.Assembly.GetAssembly(typeof<obj>)] |> Map.values |> List.ofSeq
+    let userTypes = findUserDeclaredTypes externalTypes modul
+    userTypes |> Result.succeed
 
 

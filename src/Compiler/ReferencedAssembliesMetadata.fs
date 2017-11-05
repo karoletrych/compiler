@@ -2,7 +2,7 @@ module Compiler.ReferencedAssembliesMetadata
 open System.Reflection
 open Compiler.Ast
 open Compiler.Types
-open Compiler.Identifier
+open FSharpx.Collections
 
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
     let createParameter (dotnetParameter : ParameterInfo) = 
@@ -42,8 +42,6 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
         Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod;
         NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map createTypeFromDotNetType
     }
-
-
 let withNames = List.map (fun c -> (c.Identifier, c))
 let typesFromAssembly (assembly : Assembly)= 
         assembly.GetExportedTypes()
@@ -51,3 +49,8 @@ let typesFromAssembly (assembly : Assembly)=
         |> List.map (createTypeFromDotNetType)
         |> withNames
         |> Map.ofList
+
+let exportedTypes referencedAssemblies = 
+    //TODO: if there are 2 types with the same TypeIdentifier second one is chosen
+    referencedAssemblies 
+    |> List.fold (fun state assembly  -> Map.union state (typesFromAssembly assembly)) Map.empty 

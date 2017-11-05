@@ -12,7 +12,6 @@ open Compiler.Types
 open Compiler.Ast
 open Compiler.TypeFinding
 open Compiler.CompilerResult
-open Compiler.Identifier
 open System
 
 

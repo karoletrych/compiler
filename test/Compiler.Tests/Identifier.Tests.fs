@@ -1,6 +1,5 @@
 module Compiler.Identifier.Tests
 open Expecto
-open Compiler.Identifier
 open Compiler.Ast
 
 [<Tests>]

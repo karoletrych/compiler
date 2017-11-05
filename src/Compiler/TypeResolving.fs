@@ -1,7 +1,8 @@
 module Compiler.TypeResolving
 open Compiler.Ast
-open Compiler.Identifier
+open Compiler.Types
 open Compiler.CompilerResult
+open Compiler.TypeFinding
 
 
 let transformTypeSpecsInAst scanType =
@@ -80,7 +81,7 @@ let checkIfTypeDeclared
                 | None -> Result.failure (CannotResolveType typeSpec)
         | _ -> Result.succeedUnit
 
-let resolveTypeSpec (ts : TypeSpec) : CompilerResult<TypeIdentifier> = 
+let resolveTypeSpec (knownTypes : Map<TypeIdentifier, Type>) (ts : TypeSpec) : CompilerResult<TypeIdentifier> = 
     ts 
     |> Identifier.fromTypeSpec 
     |> Result.succeed
@@ -91,4 +92,14 @@ let resolveTypeSpecs (ast : Module) =
     |> List.map ClassDeclaration
     |> substituteTypeSpecs
 
-let scanTypes = transformTypeSpecsInAst (checkIfTypeDeclared mscorlibTypes)
+let scanTypes modul knownTypes = transformTypeSpecsInAst (checkIfTypeDeclared knownTypes)
+
+
+open Compiler.Parser
+
+let resolvedAst = 
+[("class A {} 
+class B extends A{}
+", "A")]
+|> createModule
+|> Result.bind findTypesInModule

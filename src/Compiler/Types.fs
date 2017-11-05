@@ -1,7 +1,6 @@
 module Compiler.Types 
 
 open Compiler.Ast
-open Compiler.Identifier
 
 
 [<CustomEquality>]
