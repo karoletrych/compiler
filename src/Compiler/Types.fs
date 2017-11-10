@@ -1,7 +1,5 @@
 module Compiler.Types 
-
-open Compiler.Ast
-
+open Ast
 
 [<CustomEquality>]
 [<CustomComparison>]

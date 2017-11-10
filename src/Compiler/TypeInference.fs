@@ -2,8 +2,9 @@ module Compiler.TypeInference
 
 open Compiler.Ast
 open Compiler.Types
-open Compiler.Identifier
+open CompilerResult
 
+// TODO: consider: type Inferred = Inferred of Expression * TypeIdentifier option
 
 let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
     types.[t |> Identifier.fromTypeSpec]
@@ -46,9 +47,7 @@ let leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
         |> List.last
 
 // TODO: split into function composition
-let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) : Module = 
-    
-
+let inferTypes (modul : Module, knownTypes : Map<TypeIdentifier, Type>) = 
     let rec inferExpressionType 
         (c: Ast.Class) 
         (declaredVariables : Map<string, Types.Type>) 
@@ -100,7 +99,7 @@ let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) : Modul
         | AssignmentExpression(_, e) -> inferExpressionType e
         | BinaryExpression(e1, op, e2) ->
             inferBinaryExpressionType (inferExpressionType e1) op (inferExpressionType e2)
-        | ExpressionWithInferredType _ -> failwith "unexpected expression with inferred type"
+        | InferredTypeExpression _ -> failwith "unexpected expression with inferred type"
         | FunctionCallExpression(fc) -> lookupDeclaredFunctions c (fc.Name)
         | IdentifierExpression(ie) -> lookupIdentifier ie 
         | LiteralExpression(le) -> typeOfLiteral le
@@ -112,7 +111,7 @@ let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) : Modul
 
     let annotateExpression c variables e =
         let exprType = inferExpressionType c variables e
-        ExpressionWithInferredType(e, exprType |> Option.map (fun e -> e.Identifier.ToString()))
+        InferredTypeExpression(e, exprType |> Option.map (fun e -> e.Identifier.ToString()))
 
     let rec annotateStatement 
         (c: Ast.Class) 
@@ -192,5 +191,5 @@ let inferTypes (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) : Modul
                 FunctionDeclarations =
                     c.FunctionDeclarations |> List.map (fun f -> {f with Body = inferFunction c f})
         })
-    |> fun c -> {Classes = c}
+    |> fun c -> Result.succeed {Classes = c}
         

@@ -1,7 +1,8 @@
 module Compiler.ReferencedAssembliesMetadata
+
 open System.Reflection
-open Compiler.Ast
-open Compiler.Types
+open Ast
+open Types
 open FSharpx.Collections
 
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
@@ -50,7 +51,8 @@ let typesFromAssembly (assembly : Assembly)=
         |> withNames
         |> Map.ofList
 
-let exportedTypes referencedAssemblies = 
-    //TODO: if there are 2 types with the same TypeIdentifier second one is chosen
-    referencedAssemblies 
-    |> List.fold (fun state assembly  -> Map.union state (typesFromAssembly assembly)) Map.empty 
+let externalTypes referencedAssemblies = 
+    let types = //TODO: if there are 2 types with the same TypeIdentifier second one is chosen
+        referencedAssemblies 
+        |> List.fold (fun state assembly -> Map.union state (typesFromAssembly assembly)) Map.empty 
+    types

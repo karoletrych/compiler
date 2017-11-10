@@ -3,7 +3,6 @@ module Compiler.TypeFinding.Tests
 open Expecto
 open Compiler.Ast
 open Compiler.Parser
-open Compiler.TypeFinding
 open Compiler.Tests.ResultTestHelper
 open Compiler.CompilerResult
 

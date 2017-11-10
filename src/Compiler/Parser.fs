@@ -331,10 +331,11 @@ module Class =
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
         let readonlyFieldDeclaration = 
-            tuple3
+            pipe3
                 (Keyword.pVal >>. pIdentifier)
                 (Char.colon >>. Types.pTypeSpec)
                 (opt (Char.equals >>. Expression.pExpression))
+                (fun name t initializer -> { Name = name; Type = t; Initializer = initializer})
         tuple3
             (many readonlyFieldDeclaration)
             (opt pConstructor)
@@ -376,7 +377,7 @@ let parseDeclarations =
     | ParserResult.Success(result, _, _) -> Result.succeed result 
     | ParserResult.Failure(message, error, state) -> Result.failure (ParsingError ((message, error, state).ToString()))
 
-let createModule  ((input : (string * string) list)) = 
+let parseModules  ((input : (string * string) list)) = 
     let buildModule (name, declarationsResult) = 
         declarationsResult 
         |> Result.map (fun decls -> Module.create name decls)

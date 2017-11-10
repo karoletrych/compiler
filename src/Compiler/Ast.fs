@@ -14,16 +14,19 @@ and Class = {
     FunctionDeclarations : Function list;
 }
 
-and PropertyDeclaration =
-  string * TypeSpec * Expression option
+and PropertyDeclaration = { 
+  Name : string;
+  Type : TypeSpec;
+  Initializer : Expression option
+}
 
 and Constructor = {
     Parameters : Parameter list;
-    BaseClassConstructorCall : Arguments;
+    BaseClassConstructorCall : Expression list;
     Statements : Statement list;
 }
 
-and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be TypeSpec example: A<IEnumerable<T>> 
+and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be TypeParameter example: A<IEnumerable<T>> 
 
 and Function = {
   Name : string;
@@ -35,7 +38,7 @@ and Function = {
 
 and TypeSpec =
 | BuiltInTypeSpec of BuiltInTypeSpec
-| CustomTypeSpec of DottedTypeName
+| CustomTypeSpec of string list * CustomType
 | TypeIdentifier of TypeIdentifier
 
 and BuiltInTypeSpec = 
@@ -48,7 +51,6 @@ and BuiltInTypeSpec =
 | Void
 | Object
 
-and DottedTypeName = string list * CustomType
 
 and CustomType = { 
     Name : string 
@@ -58,7 +60,7 @@ and CustomType = {
 and Parameter = string * TypeSpec
 
 and Statement =
-| AssignmentStatement of Assignment
+| AssignmentStatement of Expression * Expression
 | BreakStatement
 | CompositeStatement of Statement list
 | FunctionCallStatement of FunctionCall
@@ -79,29 +81,27 @@ and VariableDeclaration =
 | FullDeclaration of string * TypeSpec * Expression
 
 and Expression =
-| AssignmentExpression of Assignment
+| AssignmentExpression of Expression * Expression
 | BinaryExpression of Expression * BinaryOperator * Expression
-| ExpressionWithInferredType of Expression * string option
 | FunctionCallExpression of FunctionCall
 | IdentifierExpression of string
 | ListInitializerExpression of Expression list
 | LiteralExpression of Literal
 | MemberExpression of MemberFunctionCall
-| NewExpression of TypeSpec * Arguments
+| NewExpression of TypeSpec * Expression list
 | StaticMemberExpression of TypeSpec * FunctionCall
 | UnaryExpression of UnaryOperator * Expression
+| InferredTypeExpression of Expression * string option
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 
-and Assignment = Expression * Expression
 
 and FunctionCall = {
      Name : string;
      GenericArguments : TypeSpec list;
-     Arguments : Arguments 
+     Arguments : Expression list
      }
 
-and Arguments = Expression list
 
 and BinaryOperator =
 | ConditionalOr
@@ -152,26 +152,34 @@ with member x.GenericArgumentsNumber =
     
 
 module Identifier = 
+    let rec fromDotNet (t : System.Type) = {
+        Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
+        TypeName = 
+        {
+            Name =  [ (if t.Name.Contains("`") then t.Name.Substring(0, t.Name.LastIndexOf("`")) else t.Name) ]
+            GenericArguments = if t.IsGenericTypeDefinition then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet else []
+        }
+    } 
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
-            | Bool -> {Namespace = ["System"]; TypeName = {Name = ["Bool"]; GenericArguments = []}} 
-            | Char -> {Namespace = ["System"]; TypeName = {Name = ["Char"]; GenericArguments = []}} 
-            | Int -> {Namespace = ["System"]; TypeName = {Name = ["Int32"]; GenericArguments = []}} 
-            | Float -> {Namespace = ["System"]; TypeName = {Name = ["Single"]; GenericArguments = []}} 
-            | Double -> {Namespace = ["System"]; TypeName = {Name = ["Double"]; GenericArguments = []}} 
-            | String -> {Namespace = ["System"]; TypeName = {Name = ["String"]; GenericArguments = []}} 
-            | Void -> {Namespace = ["System"]; TypeName = {Name = ["Void"]; GenericArguments = []}} 
-            | Object  -> {Namespace = ["System"]; TypeName = {Name = ["Object"]; GenericArguments = []}} 
+            | Bool -> fromDotNet typeof<bool>
+            | Char -> fromDotNet typeof<char>
+            | Int -> fromDotNet typeof<int>
+            | Float -> fromDotNet typeof<float>
+            | Double -> fromDotNet typeof<double>
+            | String -> fromDotNet typeof<string>
+            | Void -> fromDotNet typeof<unit>
+            | Object  -> fromDotNet typeof<obj>
         match typeSpec with
         | BuiltInTypeSpec bits -> builtInTypeSpec bits
-        | CustomTypeSpec cts -> 
+        | CustomTypeSpec (ns, cts) -> 
         {
-            Namespace = cts |> fst |> List.rev
+            Namespace = ns |> List.rev
             TypeName = 
             {
-                Name = cts |> snd |> (fun t -> [t.Name]);
-                GenericArguments = cts |> snd |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
+                Name = cts |>  (fun t -> [t.Name]);
+                GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
             }
         } 
     let rec fromClassDeclaration (c : Class) = {
@@ -189,17 +197,7 @@ module Identifier =
             GenericArguments = [] // TODO: fix
         }
     } 
-
-    let rec fromDotNet (t : System.Type) = {
-        Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
-        TypeName = 
-        {
-            Name =  [ (if t.Name.Contains("`") then t.Name.Substring(0, t.Name.LastIndexOf("`")) else t.Name) ]
-            GenericArguments = if t.IsGenericTypeDefinition then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet else []
-        }
-    } 
-
-
+    
 type Module = {
         Classes : Class list
     } with
@@ -217,7 +215,7 @@ module Module =
                         match m with
                         | ClassDeclaration c -> Some c
                         | _ -> None)
-        let moduleFunctionsInAStaticClass = {
+        let moduleClass = {
             GenericTypeParameters = []
             Name = moduleName;
             FunctionDeclarations = functions;
@@ -226,8 +224,10 @@ module Module =
             Properties = [];
             Constructor = None
             }
-        let moduleClasses = classes |> List.map (fun c -> {c with Name = moduleName + "." + c.Name })
-        let classes = moduleFunctionsInAStaticClass :: moduleClasses
+        let internalClasses = 
+            classes 
+            |> List.map (fun c -> {c with Name = moduleName + "::" + c.Name })
+        let classes = moduleClass :: internalClasses
         { Classes = classes }
     let createDefault declarations = create "DEFAULT" declarations 
     let identity = {Classes = []}

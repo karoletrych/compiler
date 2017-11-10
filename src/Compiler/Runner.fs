@@ -1,12 +1,15 @@
 module Compiler.Runner
 
+open System.Reflection
 open System.IO
 open Argu
-open Compiler.CompilerResult
-open Compiler.Parser
+open CompilerResult
+open Parser
+open TypeFinding
+open TypeResolving
+open TypeInference
+open ReferencedAssembliesMetadata
 open Compiler.TypeFinding
-open Compiler.TypeInference
-open Compiler.Ast
 
 type Stage =
     | SyntaxCheck
@@ -40,30 +43,29 @@ let compile
     (stage : Stage)
     (printSyntax : bool)
     (printInference : bool) =
-    let parse sourceCode = 
-        Parser.parseDeclarations sourceCode
-                     |> (fun parsed ->   
-                         if printSyntax 
-                         then printfn "%A" parsed 
-                         parsed)
-    let parseFile path = parse (File.ReadAllText path)
-
-    let syntaxCheck = 
-        sourceFilePaths 
-        |> List.map parseFile
-    let findTypes = 
+    let modulesWithPaths = 
         sourceFilePaths 
         |> List.zip (sourceFilePaths |> List.map File.ReadAllText)
-        |> Parser.createModule
-        |> Result.bind TypeFinding.allKnownTypes 
-    let resolveTypes = findTypes |> Result.bind 
-    let inferTypes = resolveTypes |> Result.bind inferTypes 
-
+    let externalTypes = externalTypes [Assembly.GetAssembly(typeof<obj>)]
+    
     match stage with
-    | SyntaxCheck -> syntaxCheck |> ignore
-    | TypeFinding -> findTypes |> ignore                    
-    | TypeResolving -> resolveTypes |> ignore
-    | TypeInference -> inferTypes |> ignore
+    | SyntaxCheck -> 
+        modulesWithPaths 
+        |> parseModules
+        |> ignore
+    | TypeResolving -> 
+        modulesWithPaths 
+        |> parseModules
+        >>= allKnownTypeIdentifiers externalTypes
+        >>= resolve
+        |> ignore  
+    // | TypeInference ->
+    //     modulesWithPaths 
+    //     |> parseModules
+    //     >>= allKnownTypeIdentifiers externalTypes
+    //     >>= resolve
+    //     >>= inferTypes 
+    //     |> ignore  
     | _ -> printfn "Stage not implemented."
     ()
 
