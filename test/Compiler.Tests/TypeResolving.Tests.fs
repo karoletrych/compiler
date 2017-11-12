@@ -5,7 +5,7 @@ open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
 open Compiler.SemanticCheck
-open Compiler.TypeFinding
+open Compiler.TypeIdentifiersFinding
 open Compiler.ReferencedAssembliesMetadata
 open System.Reflection
 
@@ -15,7 +15,6 @@ let resolve src =
     |> parseModules
     >>= allKnownTypeIdentifiers (externalTypes [Assembly.GetAssembly(typeof<obj>)] )
     >>= resolve
-    |> Result.map fst
 
 [<Tests>]
 let tests =

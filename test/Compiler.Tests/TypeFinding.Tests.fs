@@ -1,16 +1,29 @@
 module Compiler.TypeFinding.Tests
 
 open Expecto
-open Compiler.Ast
 open Compiler.Parser
-open Compiler.Tests.ResultTestHelper
 open Compiler.CompilerResult
+open Compiler.TypeIdentifiersFinding
+open Compiler.TypeResolving
+open Compiler.ReferencedAssembliesMetadata
+open Compiler.TypeFinding
+
+
+let findTypes src = 
+    let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
+    [("test",src)]
+    |> parseModules 
+    >>= allKnownTypeIdentifiers externals
+    >>= resolve
+    >>= allKnownTypes externals
+    |> Result.map snd
+    |> Result.get
 
 [<Tests>]
 let tests =
-    testList "TypeResolving.Tests" [
+    testList "TypeFinding.Tests" [
         testCase "createUserDeclaredModule" <| fun _ ->
-                let typesResult = 
+                let types = 
                     @"
                     fun main 
                     {
@@ -18,14 +31,13 @@ let tests =
                     fun foo (i:int)
                     {
                     }
-                    class C 
+                    class Cub 
                     {
                         fun foo
                         {
                         }
                     }
                     " 
-                    |> parseDeclarations
-                    |> Result.map Module.createDefault
-                isOk typesResult ""
+                    |> findTypes
+                Expect.equal (types |> Map.toList).Length 1533 ""
     ]

@@ -10,7 +10,6 @@ module Compiler.SemanticCheck
 
 open Compiler.Types
 open Compiler.Ast
-open Compiler.TypeFinding
 open Compiler.CompilerResult
 open System
 

@@ -5,7 +5,7 @@ open CompilerResult
 open AstProcessing
 open Ast
 
-let resolveTypeSpec 
+let private resolveTypeSpec 
     (types : List<TypeIdentifier>)
     (currentTypeId) 
     (typeSpec : TypeSpec) =
@@ -23,7 +23,7 @@ let resolveTypeSpec
         | None -> Result.failure (CannotResolveType typeSpec)
 
 
-let resolveExpression resolveType expression =
+let private resolveExpression resolveType expression =
     let assignment (e1,e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(e1, e2)) e1 e2
     let binary (e1, op, e2) = Result.map2 (fun e1 e2 -> BinaryExpression(e1, op, e2)) e1 e2
     let inferredType t = failwith "unexpected"
@@ -62,7 +62,7 @@ let resolveExpression resolveType expression =
         unary 
         expression
 
-let resolveStatement resolveExpression resolveType statement : CompilerResult<Statement> =
+let private resolveStatement resolveExpression resolveType statement : CompilerResult<Statement> =
     let functionCall (id, args, generics) = 
         let args = args |> List.map resolveExpression |> Result.merge
         let generics =  generics |> List.map resolveType |> Result.merge
@@ -98,8 +98,8 @@ let resolveStatement resolveExpression resolveType statement : CompilerResult<St
         breakStatement
         statement
 
-let resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))
-let resolveFunction resolveStatement resolveType func = 
+let private resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))
+let private resolveFunction resolveStatement resolveType func = 
     let parameters = 
         func.Parameters 
         |> List.map (resolveParameters resolveType)
@@ -125,7 +125,7 @@ let resolveFunction resolveStatement resolveType func =
 
 
 
-let resolveClass knownTypes (clas : Class) =
+let private resolveClass knownTypes (clas : Class) =
     let classId = Identifier.fromClassDeclaration clas
     let resolveTypeSpec = resolveTypeSpec knownTypes classId
     let resolveExpression = resolveExpression resolveTypeSpec
@@ -187,4 +187,3 @@ let resolve (modul : Module, knownTypes : List<TypeIdentifier>)=
     |> List.map (resolveClass knownTypes)
     |> Result.merge
     |> Result.map (fun classes -> {Classes = classes})
-    |> Result.map (fun c -> (c, knownTypes))

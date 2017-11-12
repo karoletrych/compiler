@@ -9,7 +9,7 @@ open CompilerResult
 let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
     types.[t |> Identifier.fromTypeSpec]
 
-let leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
+let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
         | [] -> [] 

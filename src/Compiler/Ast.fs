@@ -152,6 +152,7 @@ with member x.GenericArgumentsNumber =
     
 
 module Identifier = 
+
     let rec fromDotNet (t : System.Type) = {
         Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
         TypeName = 
@@ -160,6 +161,8 @@ module Identifier =
             GenericArguments = if t.IsGenericTypeDefinition then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet else []
         }
     } 
+
+    let object = fromDotNet typeof<obj> 
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
@@ -170,7 +173,7 @@ module Identifier =
             | Double -> fromDotNet typeof<double>
             | String -> fromDotNet typeof<string>
             | Void -> fromDotNet typeof<unit>
-            | Object  -> fromDotNet typeof<obj>
+            | Object  -> object
         match typeSpec with
         | BuiltInTypeSpec bits -> builtInTypeSpec bits
         | CustomTypeSpec (ns, cts) -> 

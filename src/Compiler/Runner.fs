@@ -9,7 +9,7 @@ open TypeFinding
 open TypeResolving
 open TypeInference
 open ReferencedAssembliesMetadata
-open Compiler.TypeFinding
+open Compiler.TypeIdentifiersFinding
 
 type Stage =
     | SyntaxCheck
