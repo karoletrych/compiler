@@ -91,7 +91,7 @@ and Expression =
 | NewExpression of TypeSpec * Expression list
 | StaticMemberExpression of TypeSpec * FunctionCall
 | UnaryExpression of UnaryOperator * Expression
-| InferredTypeExpression of Expression * string option
+| InferredTypeExpression of Expression * TypeIdentifier
 
 and MemberFunctionCall = MemberFunctionCall of Expression * Expression
 
@@ -163,15 +163,19 @@ module Identifier =
     } 
 
     let object = fromDotNet typeof<obj> 
+    let bool = fromDotNet typeof<bool> 
+    let int = fromDotNet typeof<int> 
+    let float = fromDotNet typeof<float> 
+    let string = fromDotNet typeof<string> 
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
-            | Bool -> fromDotNet typeof<bool>
+            | Bool -> bool
             | Char -> fromDotNet typeof<char>
-            | Int -> fromDotNet typeof<int>
-            | Float -> fromDotNet typeof<float>
+            | Int -> int
+            | Float -> float
             | Double -> fromDotNet typeof<double>
-            | String -> fromDotNet typeof<string>
+            | String -> string
             | Void -> fromDotNet typeof<unit>
             | Object  -> object
         match typeSpec with
@@ -200,6 +204,9 @@ module Identifier =
             GenericArguments = [] // TODO: fix
         }
     } 
+    let lookupType types (t : TypeSpec) = 
+        let tId = fromTypeSpec t
+        types |> Map.find tId
     
 type Module = {
         Classes : Class list

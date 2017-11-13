@@ -20,7 +20,7 @@ let private resolveTypeSpec
     | None -> 
         match types |> List.tryFind (fun x -> x = id) with
         | Some id -> Result.succeed (TypeIdentifier id)
-        | None -> Result.failure (CannotResolveType typeSpec)
+        | None -> Result.failure (TypeNotFound typeSpec)
 
 
 let private resolveExpression resolveType expression =
@@ -133,7 +133,10 @@ let private resolveClass knownTypes (clas : Class) =
     let resolveFunction = resolveFunction resolveStatement resolveTypeSpec
 
     let baseClass = Result.mapOption resolveTypeSpec clas.BaseClass
-    let interfaces = clas.ImplementedInterfaces |> List.map resolveTypeSpec |> Result.merge
+    let interfaces =
+        clas.ImplementedInterfaces 
+        |> List.map resolveTypeSpec 
+        |> Result.merge
     let properties = clas.Properties 
                      |> List.map (fun p -> 
                             let init = p.Initializer |> Result.mapOption resolveExpression; 

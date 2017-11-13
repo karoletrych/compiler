@@ -3,8 +3,10 @@ open Compiler.Ast
 
 
 type Failure = 
-| ParsingError of string
-| CannotResolveType of TypeSpec
+| SyntaxError of string
+| TypeNotFound of TypeSpec
+| FunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
+| CannotInferType of string
 
 type CompilerResult<'TSuccess> = 
 | Success of 'TSuccess
@@ -74,6 +76,10 @@ module Result =
         match o with
         | Some x -> x |> foo |> bind (Some >> Success)
         | None -> succeed None
+    let orElse value r = 
+        match r with
+        | Success s -> Success s
+        | Failure _ -> Success value
 
     let apply f x = map2 (fun f x -> f x) f x
 

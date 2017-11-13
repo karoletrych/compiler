@@ -51,7 +51,7 @@ let tests =
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
             |> resolve
-        Expect.equal scanResult (Result.failure (CannotResolveType (CustomTypeSpec (["Sys"],{Name = "Cons";
+        Expect.equal scanResult (Result.failure (TypeNotFound (CustomTypeSpec (["Sys"],{Name = "Cons";
                                                      GenericArgs = [];})))) ""
         
     

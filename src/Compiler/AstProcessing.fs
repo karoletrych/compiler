@@ -72,15 +72,17 @@ let rec statementCata
         functionCall (call.Name, call.Arguments , call.GenericArguments)
     | StaticFunctionCallStatement(t, call) ->
         staticFunctionCall (t, (call.Name, call.Arguments, call.GenericArguments))
-    | ValueDeclaration(id, t, e)
-        -> valueDeclaration (id, t, e)
+    | ValueDeclaration(id, t, e) -> 
+        valueDeclaration (id, t, e)
     | VariableDeclaration(vd) -> 
         match vd with
         | DeclarationWithInitialization (id, e) -> declarationWithInitialization (id,e)
         | DeclarationWithType(id, t) -> declarationWithType(id, t)
         | FullDeclaration(id, t, e) -> fullVariableDeclaration(id,t,e)
-    | CompositeStatement(cs)
-         -> cs |> List.map recurse |> composite
+    | CompositeStatement(cs) ->
+        cs |> List.map recurse |> composite
     | ReturnStatement e -> returnStatement e
     | AssignmentStatement(e1, e2) -> assignment (e1, e2)
     | BreakStatement -> breakStatement
+    | IfStatement(e, s, elseS) -> ifStatement
+

@@ -8,21 +8,21 @@ open FSharpx.Collections
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
     let createParameter (dotnetParameter : ParameterInfo) = 
         {
-            Type = fun () -> createTypeFromDotNetType dotnetParameter.ParameterType;
+            Type = Identifier.fromDotNet dotnetParameter.ParameterType;
             ParameterName = dotnetParameter.Name
         }
     let createMethod (dotnetMethod : MethodInfo) =
         {
             Parameters = dotnetMethod.GetParameters() |> Array.toList|> List.map createParameter;
-            ReturnType = Some (fun () -> createTypeFromDotNetType dotnetMethod.ReturnType);
-            FunctionName = dotnetMethod.Name
+            ReturnType = Some (Identifier.fromDotNet dotnetMethod.ReturnType);
+            Name = dotnetMethod.Name
         }
     let createConstructor (dotnetConstructor : ConstructorInfo) = 
         {
             Parameters = dotnetConstructor.GetParameters() |> Array.toList|> List.map createParameter;
         }
     let createField (dotnetField : FieldInfo) =
-        dotnetField.Name, fun () -> createTypeFromDotNetType dotnetField.FieldType
+        dotnetField.Name, Identifier.fromDotNet dotnetField.FieldType
     {
         AssemblyName = dotnetType.AssemblyQualifiedName;
         BaseType = 
@@ -36,7 +36,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             if dotnetType.IsGenericParameter then 
                 dotnetType.GetGenericParameterConstraints() 
                 |> Array.toList 
-                |> List.map (fun x -> fun () -> createTypeFromDotNetType x)
+                |> List.map Identifier.fromDotNet
             else []
         GenericArguments = []
         ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map createTypeFromDotNetType;

@@ -21,10 +21,10 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
                     method.Parameters 
                     |> List.map (fun (id, t) -> 
                     {
-                        Type = fun() -> getType (t);
+                        Type = Identifier.fromTypeSpec t
                         ParameterName = id
                     });
-                ReturnType = method.ReturnType |> Option.map (fun t -> fun () -> getType (t))
+                ReturnType = method.ReturnType |> Option.map Identifier.fromTypeSpec
                 FunctionName = method.Name
             }
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
@@ -33,7 +33,7 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
                 |> List.map (fun (name,t) -> 
                     {
                      ParameterName = name 
-                     Type = fun() -> getType (t);
+                     Type = Identifier.fromTypeSpec t
                     });
             }
         {
@@ -45,7 +45,7 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
                      |> List.map (fun prop -> 
-                         (prop.Name, fun () -> prop.Type|> getType))
+                         (prop.Name, Identifier.fromTypeSpec prop.Type))
             Identifier = Identifier.fromClassDeclaration declaredType;
             GenericParameters = [] //TODO: fix
             GenericArguments = []
