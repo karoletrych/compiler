@@ -78,17 +78,17 @@ let tests =
       ImplementedInterfaces = [];
       Properties = [];
       Constructor = None;
-      FunctionDeclarations = [];}; {Name = "test::A";
+      FunctionDeclarations = [];}; {Name = "test+A";
                                     GenericTypeParameters = [];
                                     BaseClass = None;
                                     ImplementedInterfaces = [];
                                     Properties = [];
                                     Constructor = None;
                                     FunctionDeclarations = [];};
-     {Name = "test::B";
+     {Name = "test+B";
       GenericTypeParameters = [];
-      BaseClass = Some (TypeIdentifier {Namespace = ["test"];
-                                        TypeName = {Name = ["A"];
+      BaseClass = Some (TypeIdentifier {Namespace = [];
+                                        TypeName = {Name = ["A"; "test"];
                                                     GenericArguments = [];};});
       ImplementedInterfaces = [];
       Properties = [];
@@ -100,8 +100,8 @@ let tests =
          ReturnType = None;
          Body =
           [StaticFunctionCallStatement
-             (TypeIdentifier {Namespace = ["test"];
-                              TypeName = {Name = ["A"];
+             (TypeIdentifier {Namespace = [];
+                              TypeName = {Name = ["A"; "test"];
                                           GenericArguments = [];};},
               {Name = "Foo";
                GenericArguments = [];

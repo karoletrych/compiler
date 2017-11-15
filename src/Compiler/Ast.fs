@@ -157,16 +157,30 @@ module Identifier =
         Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
         TypeName = 
         {
-            Name =  [ (if t.Name.Contains("`") then t.Name.Substring(0, t.Name.LastIndexOf("`")) else t.Name) ]
-            GenericArguments = if t.IsGenericTypeDefinition then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet else []
+            Name =  [ (
+                        if t.Name.Contains("`") 
+                        then t.Name.Substring(0, t.Name.LastIndexOf("`"))
+                        else t.Name) ]
+            GenericArguments = 
+                if t.IsGenericTypeDefinition 
+                then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet 
+                else []
         }
     } 
 
     let object = fromDotNet typeof<obj> 
     let bool = fromDotNet typeof<bool> 
     let int = fromDotNet typeof<int> 
-    let float = fromDotNet typeof<float> 
+    let float = fromDotNet typeof<single> 
     let string = fromDotNet typeof<string> 
+    let list t = 
+        let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
+        { objList 
+            with TypeName = 
+                            {
+                            Name = objList.TypeName.Name;
+                            GenericArguments = [t]
+                            }}
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
@@ -198,15 +212,18 @@ module Identifier =
                     |> List.rev
         TypeName = 
         {
-            Name =  [c.Name |> fun c -> c.Split([|"::"|], System.StringSplitOptions.None) 
+            Name =  c.Name |> fun c -> c.Split([|"::"|], System.StringSplitOptions.None) 
                             |> List.ofArray
-                            |> List.last]
+                            |> List.last
+                            |> fun c -> c.Split([|"+"|], System.StringSplitOptions.None)
+                            |> List.ofArray
+                            |> List.rev
             GenericArguments = [] // TODO: fix
         }
     } 
-    let lookupType types (t : TypeSpec) = 
-        let tId = fromTypeSpec t
-        types |> Map.find tId
+    let typeId t = 
+        let (TypeIdentifier ti) = t
+        ti
     
 type Module = {
         Classes : Class list
@@ -236,7 +253,7 @@ module Module =
             }
         let internalClasses = 
             classes 
-            |> List.map (fun c -> {c with Name = moduleName + "::" + c.Name })
+            |> List.map (fun c -> {c with Name = moduleName + "+" + c.Name })
         let classes = moduleClass :: internalClasses
         { Classes = classes }
     let createDefault declarations = create "DEFAULT" declarations 

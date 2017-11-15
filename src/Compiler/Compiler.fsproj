@@ -14,9 +14,10 @@
     <Compile Include="TypeIdentifiersFinding.fs" />
     <Compile Include="TypeResolving.fs" />
     <Compile Include="TypeFinding.fs" />
-    <Compile Include="SemanticCheck.fs" />
     <Compile Include="TypeInference.fs" />
-    <Compile Include="Runner.fs" />
+    <Compile Include="SemanticCheck.fs" />
+    <Compile Include="Main.fs" />
+    <Compile Include="IL.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

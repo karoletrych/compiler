@@ -7,6 +7,7 @@ type Failure =
 | TypeNotFound of TypeSpec
 | FunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
 | CannotInferType of string
+| UndefinedVariable of string
 
 type CompilerResult<'TSuccess> = 
 | Success of 'TSuccess

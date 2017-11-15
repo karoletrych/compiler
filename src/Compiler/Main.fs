@@ -1,4 +1,4 @@
-module Compiler.Runner
+module Compiler.Main
 
 open System.Reflection
 open System.IO

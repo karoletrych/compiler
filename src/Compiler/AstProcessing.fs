@@ -54,6 +54,7 @@ let rec statementCata
     returnStatement
     assignment
     breakStatement
+    ifStatement
     statement = 
     let recurse = 
         statementCata
@@ -67,6 +68,7 @@ let rec statementCata
             returnStatement
             assignment  
             breakStatement
+            ifStatement
     match statement with
     | FunctionCallStatement(call) ->
         functionCall (call.Name, call.Arguments , call.GenericArguments)
@@ -84,5 +86,5 @@ let rec statementCata
     | ReturnStatement e -> returnStatement e
     | AssignmentStatement(e1, e2) -> assignment (e1, e2)
     | BreakStatement -> breakStatement
-    | IfStatement(e, s, elseS) -> ifStatement
+    | IfStatement (e,s,elseS) -> ifStatement (e, recurse s, elseS |> Option.map recurse)
 

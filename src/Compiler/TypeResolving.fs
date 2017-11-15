@@ -1,6 +1,5 @@
 module Compiler.TypeResolving
 
-open Compiler.Types
 open CompilerResult
 open AstProcessing
 open Ast
@@ -15,7 +14,11 @@ let private resolveTypeSpec
         |> List.filter 
             (fun id -> id.Namespace = currentTypeId.Namespace)
         
-    match typesInCurrentNamespace |> List.tryFind (fun x -> x.TypeName = id.TypeName) with
+    match typesInCurrentNamespace 
+        |> List.tryFind 
+            (fun x -> x.TypeName = id.TypeName 
+                    || (x.TypeName.Name.Head = id.TypeName.Name.Head
+                        && x.TypeName.GenericArguments = id.TypeName.GenericArguments)) with
     | Some id -> Result.succeed (TypeIdentifier id)
     | None -> 
         match types |> List.tryFind (fun x -> x = id) with
@@ -85,6 +88,15 @@ let private resolveStatement resolveExpression resolveType statement : CompilerR
     let returnStatement e = (Result.mapOption resolveExpression e) |> Result.map (fun e -> ReturnStatement(e)) 
     let assignment (e1, e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(e1, e2)) 
     let breakStatement = Result.succeed BreakStatement
+    let ifStatement (e,s,(elseS : CompilerResult<Statement> option)) = 
+        match elseS with
+        | Some elseS ->
+            (resolveExpression e, s, elseS)
+            |||>Result.map3 (fun e s elseS -> IfStatement(e, s, Some elseS))
+        | None ->
+            (resolveExpression e, s)
+            ||>Result.map2 (fun e s -> IfStatement(e, s, None))
+    let valueDeclaration (id, t : TypeSpec option, e) = (Result.mapOption resolveType t, resolveExpression e) ||> Result.map2 (fun t e -> ValueDeclaration(id,t,e))
     statementCata
         functionCall
         staticFunctionCall
@@ -96,6 +108,7 @@ let private resolveStatement resolveExpression resolveType statement : CompilerR
         returnStatement
         assignment
         breakStatement
+        ifStatement
         statement
 
 let private resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))
@@ -122,8 +135,6 @@ let private resolveFunction resolveStatement resolveType func =
             Body = b; 
             GenericParameters = []
         })
-
-
 
 let private resolveClass knownTypes (clas : Class) =
     let classId = Identifier.fromClassDeclaration clas

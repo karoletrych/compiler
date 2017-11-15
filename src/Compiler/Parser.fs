@@ -375,7 +375,7 @@ let parseDeclarations =
     >>
     function
     | ParserResult.Success(result, _, _) -> Result.succeed result 
-    | ParserResult.Failure(message, error, state) -> Result.failure (ParsingError ((message, error, state).ToString()))
+    | ParserResult.Failure(message, error, state) -> Result.failure (SyntaxError ((message, error, state).ToString()))
 
 let parseModules  ((input : (string * string) list)) = 
     let buildModule (name, declarationsResult) = 

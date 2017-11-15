@@ -4,11 +4,13 @@ open Compiler.Ast
 open Types
 open CompilerResult
 open AstProcessing
+open System.Drawing
+open FSharpx.Collections.Heap
 
 // TODO: consider: type Inferred = Inferred of Expression * TypeIdentifier option
-
 let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
     types.[t |> Identifier.fromTypeSpec]
+
 
 let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
@@ -68,7 +70,10 @@ let typeOfLiteral =
     | StringLiteral _-> Identifier.string
     ) >> Result.succeed
 
-let private inferExpression leastUpperBound localFunction lookupLocalVariable types expression =
+
+
+
+let private inferExpression leastUpperBound localFunction lookupLocalVariable expression =
     let assignment (t1, _) = t1
     let binary (t1, op, t2) =
         let commonType t1 t2 = 
@@ -91,7 +96,7 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ty
     let functionCall (name, args, generics) = 
         args 
         |> Result.merge 
-        |> Result.bind (fun argTypes -> localFunction (name, argTypes, generics))
+        |> Result.bind (fun argTypes -> localFunction (name, argTypes, generics |> List.map Identifier.typeId))
     let identifier = lookupLocalVariable
     let literal = 
         (
@@ -105,9 +110,10 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ty
         list 
         |> Result.merge 
         |> Result.map leastUpperBound 
+        |> Result.map Identifier.list
     let memberExpression (e1, e2) = failwith "TODO:"
-    let newExpression (t, _) = Identifier.lookupType types t
-    let staticMember (t, (name,args,generics)) = failwith "TODO:"
+    let newExpression (t, _) = Result.succeed (Identifier.typeId t)
+    let staticMember (t, (name, args, generics)) = failwith "TODO:"
 
     let unary (_, t) = t
     expressionCata 
@@ -124,15 +130,22 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ty
         unary 
         expression
 
-let rec private annotateStatement 
-    (inferExpression : (Map<string, TypeIdentifier> -> Expression -> CompilerResult<TypeIdentifier>))
+let private lookupLocalVariable (variables : Map<string, TypeIdentifier>) name = 
+    variables 
+    |> Map.tryFind name
+    |> function 
+       | Some t ->  Result.succeed t
+       | None -> Result.failure (UndefinedVariable name)
+
+let rec private inferStatement 
+    inferExpression
     (currentClass: Types.Type) 
-    (declaredVariables : Map<string, TypeIdentifier>) 
-    (statement : Ast.Statement)
+    declaredVariables
+    statement
     : (CompilerResult<Statement> * Map<string, TypeIdentifier>) = 
-    let annotateStatement = annotateStatement inferExpression currentClass 
-    let recurse = annotateStatement declaredVariables
-    let inferExpression = inferExpression declaredVariables
+    let inferStatement = inferStatement inferExpression currentClass 
+    let recurse = inferStatement declaredVariables
+    let inferExpression = inferExpression (lookupLocalVariable declaredVariables)
     let annotate e =
         inferExpression e
         |> Result.map (fun t -> InferredTypeExpression(e, t))
@@ -140,10 +153,6 @@ let rec private annotateStatement
     let withNewVariable (variableName, variableType) statement = 
         statement, declaredVariables |> Map.add variableName variableType
 
-    let typeId t = 
-        let (TypeIdentifier ti) = t
-        ti
-    
     match statement with
     | AssignmentStatement (e1, e2) ->
         Result.map2 (fun e1 e2 -> AssignmentStatement(e1, e2)) 
@@ -155,7 +164,7 @@ let rec private annotateStatement
         |> withOldVariables
     | CompositeStatement cs ->
         cs
-        |> List.mapFold annotateStatement declaredVariables
+        |> List.mapFold inferStatement declaredVariables
         |> fst
         |> Result.merge
         |> Result.map (CompositeStatement)
@@ -184,7 +193,7 @@ let rec private annotateStatement
         let valueType = 
             if t.IsSome 
             then 
-                Result.succeed (typeId t.Value)
+                Result.succeed (Identifier.typeId t.Value)
             else (inferExpression expr)
         Result.map (fun e -> 
             ValueDeclaration(id, t, e) ) (annotate expr)
@@ -205,12 +214,12 @@ let rec private annotateStatement
         | DeclarationWithType(id, t) ->
             VariableDeclaration(DeclarationWithType(id, t))
             |> Result.succeed
-            |> withNewVariable (id, (typeId t))
+            |> withNewVariable (id, (Identifier.typeId t))
         | FullDeclaration (id, t, e) ->
             Result.map 
                 (fun e -> VariableDeclaration(FullDeclaration(id, t, e)))
                 (annotate e)
-                |> withNewVariable (id, (typeId t))
+                |> withNewVariable (id, (Identifier.typeId t))
     | WhileStatement (e, s) -> 
         Result.map2 
             (fun e s -> WhileStatement(e,s) ) 
@@ -218,26 +227,40 @@ let rec private annotateStatement
             (recurse s |> fst)
             |> withOldVariables
 
+let private leastUpperBoundIdentifier knownTypes ids =
+    ids 
+    |> List.map (fun id -> Map.find id knownTypes)
+    |> leastUpperBound knownTypes
+    |> (fun t -> t.Identifier)
 
-// TODO: split into function composition
+
+let private inferFunction leastUpperBound (currentType : Types.Type) (f: Ast.Function) = 
+    let localFunctionType = localFunctionType currentType
+    let inferExpression = inferExpression leastUpperBound localFunctionType 
+    let inferStatement = inferStatement inferExpression currentType 
+    let functionArguments =
+        f.Parameters
+        |> List.map (fun p -> (fst p, (snd p) |> Identifier.typeId))
+        |> Map.ofList
+    Result.map 
+        (fun body -> {f with Body = body})
+        (f.Body
+            |> List.mapFold inferStatement functionArguments
+            |> fst
+            |> Result.merge
+        )
+
 let inferTypes (modul : Module, knownTypes : Map<TypeIdentifier, Type>) = 
-    let inferFunction (c : Ast.Class) (f: Ast.Function) = 
-        let annotateStatement = annotateStatement c
-        let declaredVariables =
-            f.Parameters
-            |> List.map (fun p -> (fst p, knownTypes.[(snd p) |> Identifier.fromTypeSpec]))
-            |> Map.ofList
-        f.Body
-        |> List.mapFold annotateStatement declaredVariables
-        |> fst
-
     modul.Classes
     |> List.map (fun c -> 
-        {
-            c with
-                FunctionDeclarations =
-                    c.FunctionDeclarations 
-                    |> List.map (fun f -> {f with Body = inferFunction c f})
-        })
-    |> fun c -> Result.succeed {Classes = c}
+            let leastUpperBound = leastUpperBoundIdentifier knownTypes
+            let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find (Identifier.fromClassDeclaration c))
+            Result.map
+                (fun functions -> {c with FunctionDeclarations = functions} )
+                (c.FunctionDeclarations
+                |> List.map inferFunction 
+                |> Result.merge)
+        )
+    |> Result.merge 
+    |> Result.map (fun c -> {Classes = c})
         

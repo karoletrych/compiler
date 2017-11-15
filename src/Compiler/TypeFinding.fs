@@ -21,11 +21,11 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
                     method.Parameters 
                     |> List.map (fun (id, t) -> 
                     {
-                        Type = Identifier.fromTypeSpec t
+                        Type = Identifier.typeId t
                         ParameterName = id
                     });
-                ReturnType = method.ReturnType |> Option.map Identifier.fromTypeSpec
-                FunctionName = method.Name
+                ReturnType = method.ReturnType |> Option.map Identifier.typeId
+                Name = method.Name
             }
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
             {
