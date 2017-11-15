@@ -1,4 +1,4 @@
-module Compiler.Main
+module Compiler.Compiler
 
 open System.Reflection
 open System.IO

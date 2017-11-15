@@ -1,4 +1,4 @@
-module Compiler.IL
+module Compiler.IR
 
 open System
 
