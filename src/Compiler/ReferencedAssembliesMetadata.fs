@@ -24,7 +24,6 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
     let createField (dotnetField : FieldInfo) =
         dotnetField.Name, Identifier.fromDotNet dotnetField.FieldType
     {
-        AssemblyName = dotnetType.AssemblyQualifiedName;
         BaseType = 
             if dotnetType.BaseType <> null then 
                 Some (createTypeFromDotNetType dotnetType.BaseType)

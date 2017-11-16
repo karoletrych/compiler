@@ -355,7 +355,7 @@ module Class =
                 BaseClass = fst inheritanceDeclaration;
                 Properties = properties;
                 Constructor = constructor;
-                FunctionDeclarations = functions;
+                Functions = functions;
                 ImplementedInterfaces = snd inheritanceDeclaration;
             })
 
@@ -384,5 +384,5 @@ let parseModules  ((input : (string * string) list)) =
     input
     |> List.map (fun (name,sourceCode) -> (name, parseDeclarations sourceCode))
     |> List.map buildModule
-    |> List.reduce (Result.map2 (Module.plus))
+    |> Result.merge
     

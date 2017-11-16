@@ -1,32 +1,32 @@
 module Compiler.TypeFinding
-open Compiler.Types
-open Compiler.Ast
-open Compiler.CompilerResult
+open Types
+open Ast
 open FSharpx.Collections
 
-let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) =
+let private createFunctionSignature (method : Function) = 
+    {
+        Parameters = 
+            method.Parameters 
+            |> List.map (fun (id, t) -> 
+            {
+                Type = Identifier.typeId t
+                ParameterName = id
+            });
+        ReturnType = method.ReturnType |> Option.map Identifier.typeId
+        Name = method.Name
+    }
+let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) =
     let rec createTypeFromClassDeclaration (declaredType : Class) =
         let getType (declaredType : TypeSpec) = 
-            let (TypeIdentifier typeId) = declaredType
+            let typeId = Identifier.typeId declaredType    
             knownTypes
             |> Map.tryFind typeId
             |> Option.defaultWith(
-                fun() ->
+                fun () ->
                     modul.Classes 
                     |> List.find (fun c -> (Identifier.fromClassDeclaration c) = typeId) 
                     |> createTypeFromClassDeclaration)
-        let createFunctionSignature (method : Function) = 
-            {
-                Parameters = 
-                    method.Parameters 
-                    |> List.map (fun (id, t) -> 
-                    {
-                        Type = Identifier.typeId t
-                        ParameterName = id
-                    });
-                ReturnType = method.ReturnType |> Option.map Identifier.typeId
-                Name = method.Name
-            }
+        
         let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
             {
                 Parameters = astCtor.Parameters 
@@ -37,7 +37,6 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
                     });
             }
         {
-            AssemblyName = "CHANGEIT"
             BaseType = (match declaredType.BaseClass with
                        | Some t -> t
                        | None -> TypeIdentifier Identifier.object)
@@ -50,12 +49,28 @@ let findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) 
             GenericParameters = [] //TODO: fix
             GenericArguments = []
             ImplementedInterfaces = []
-            Methods = declaredType.FunctionDeclarations |> List.map createFunctionSignature;
+            Methods = declaredType.Functions |> List.map createFunctionSignature;
             NestedTypes = []
         }
-    let withNames = List.map (fun c -> (c.Identifier, c)) >> Map.ofList
-    modul.Classes |> List.map createTypeFromClassDeclaration |> withNames
+    modul.Classes 
+        |> List.map createTypeFromClassDeclaration
 
-let allKnownTypes externalTypes (modul : Module) =
-    let allTypes = findTypesInModule externalTypes modul |> Map.union externalTypes
-    Result.succeed (modul, allTypes)
+let moduleType (modul : Module) = 
+    {
+        BaseType = None
+        DeclaredConstructors = []
+        Fields = []
+        Identifier = Identifier.fromModule modul
+        GenericParameters = [] 
+        GenericArguments = []
+        ImplementedInterfaces = []
+        Methods = modul.Functions |> List.map createFunctionSignature;
+        NestedTypes = []
+    }
+let typesDictionary externalTypes (modules : Module list) =
+    let withNames = List.map (fun c -> (c.Identifier, c)) >> Map.ofList
+
+    modules    
+    |> List.collect (fun m -> (moduleType m) :: findTypesInModule externalTypes m)
+    |> withNames
+    |> Map.union externalTypes

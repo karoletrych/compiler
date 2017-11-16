@@ -3,7 +3,6 @@ open Ast
 
 type Type = 
     {
-        AssemblyName : string
         BaseType : Type option
         DeclaredConstructors : Constructor list
         Identifier : TypeIdentifier

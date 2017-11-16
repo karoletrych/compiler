@@ -4,49 +4,25 @@ open Expecto
 open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.SemanticCheck
 open Compiler.TypeIdentifiersFinding
 open Compiler.ReferencedAssembliesMetadata
 open System.Reflection
 
 
 let resolve src = 
-    [("test",src)]
-    |> parseModules
-    >>= allKnownTypeIdentifiers (externalTypes [Assembly.GetAssembly(typeof<obj>)] )
-    >>= resolve
+    let externals = externalTypes [Assembly.GetAssembly(typeof<obj>)]
+    [("test", src)]
+    |> parseModules 
+    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
 
 [<Tests>]
 let tests =
-
   testList "TypeResolving.Tests" [
     testCase "resolving valid System.Console.WriteLine call" <| fun _ ->
         let scanResult = 
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
             |> resolve
-        Expect.equal scanResult (
-            Result.succeed 
-              {Classes =
-    [{Name = "test";
-      GenericTypeParameters = [];
-      BaseClass = None;
-      ImplementedInterfaces = [];
-      Properties = [];
-      Constructor = None;
-      FunctionDeclarations =
-       [{Name = "main";
-         GenericParameters = [];
-         Parameters = [];
-         ReturnType = None;
-         Body =
-          [StaticFunctionCallStatement
-             (TypeIdentifier {Namespace = ["System"];
-                              TypeName = {Name = ["Console"];
-                                          GenericArguments = [];};},
-              {Name = "WriteLine";
-               GenericArguments = [];
-               Arguments = [LiteralExpression (StringLiteral "Hello, world!")];})];}];}];}
-                           ) ""
+        Expect.equal scanResult (Result.succeed []) ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
@@ -71,40 +47,6 @@ let tests =
             
             "
             |> resolve
-        Expect.equal scanResult (Result.succeed {Classes =
-    [{Name = "test";
-      GenericTypeParameters = [];
-      BaseClass = None;
-      ImplementedInterfaces = [];
-      Properties = [];
-      Constructor = None;
-      FunctionDeclarations = [];}; {Name = "test+A";
-                                    GenericTypeParameters = [];
-                                    BaseClass = None;
-                                    ImplementedInterfaces = [];
-                                    Properties = [];
-                                    Constructor = None;
-                                    FunctionDeclarations = [];};
-     {Name = "test+B";
-      GenericTypeParameters = [];
-      BaseClass = Some (TypeIdentifier {Namespace = [];
-                                        TypeName = {Name = ["A"; "test"];
-                                                    GenericArguments = [];};});
-      ImplementedInterfaces = [];
-      Properties = [];
-      Constructor = None;
-      FunctionDeclarations =
-       [{Name = "main";
-         GenericParameters = [];
-         Parameters = [];
-         ReturnType = None;
-         Body =
-          [StaticFunctionCallStatement
-             (TypeIdentifier {Namespace = [];
-                              TypeName = {Name = ["A"; "test"];
-                                          GenericArguments = [];};},
-              {Name = "Foo";
-               GenericArguments = [];
-               Arguments = [];})];}];}];}) ""
+        Expect.equal scanResult (Result.succeed []) ""
 
     ]

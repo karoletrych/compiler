@@ -11,12 +11,10 @@ open Compiler.TypeFinding
 
 let findTypes src = 
     let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
-    [("test",src)]
+    [("test", src)]
     |> parseModules 
-    >>= allKnownTypeIdentifiers externals
-    >>= resolve
-    >>= allKnownTypes externals
-    |> Result.map snd
+    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
+    |> Result.map (typesDictionary externals)
     |> Result.get
 
 [<Tests>]

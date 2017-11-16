@@ -13,7 +13,7 @@ let tests =
             ImplementedInterfaces = [];
             Properties = [];
             Constructor = None;
-            FunctionDeclarations = []}
+            Functions = []}
         let id = Identifier.fromClassDeclaration c
 
         Expect.equal id.TypeName.Name ["A"] ""

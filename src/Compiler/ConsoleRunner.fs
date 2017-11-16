@@ -6,7 +6,7 @@ type CLIArguments =
     | [<MainCommand; ExactlyOnce; First>] SourceFiles of path : string list
     | [<Unique>] Output of path : string
     | [<Unique>] Stage of Stage
-    | [<Unique>] Dll
+    | [<Unique>] Dll of bool
 with
     interface IArgParserTemplate with
         member s.Usage =

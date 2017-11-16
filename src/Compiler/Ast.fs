@@ -1,6 +1,12 @@
 module Compiler.Ast
 
-type Declaration =
+type Module = {
+    Name : string
+    Functions : Function list
+    Classes : Class list
+}
+
+and Declaration =
 | FunctionDeclaration of Function
 | ClassDeclaration of Class
 
@@ -11,7 +17,7 @@ and Class = {
     ImplementedInterfaces : TypeSpec list;
     Properties : PropertyDeclaration list;
     Constructor : Constructor option;
-    FunctionDeclarations : Function list;
+    Functions : Function list;
 }
 
 and PropertyDeclaration = { 
@@ -203,37 +209,49 @@ module Identifier =
                 GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
             }
         } 
-    let rec fromClassDeclaration (c : Class) = {
-        Namespace = c.Name 
-                    |> fun c -> c.Split([|"::"|], System.StringSplitOptions.None) 
+    let rec fromClassDeclaration (c : Class) = 
+        let splittedName = 
+                    c.Name 
+                    |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))
                     |> List.ofArray
-                    |> List.rev
-                    |> List.tail
-                    |> List.rev
-        TypeName = 
         {
-            Name =  c.Name |> fun c -> c.Split([|"::"|], System.StringSplitOptions.None) 
-                            |> List.ofArray
-                            |> List.last
-                            |> fun c -> c.Split([|"+"|], System.StringSplitOptions.None)
-                            |> List.ofArray
-                            |> List.rev
-            GenericArguments = [] // TODO: fix
-        }
-    } 
+            Namespace = splittedName
+                        |> List.rev
+                        |> List.tail
+                        |> List.rev
+            TypeName = 
+            {
+                Name =  splittedName
+                        |> List.last
+                        |> fun c -> c.Split([|"+"|], System.StringSplitOptions.None)
+                        |> List.ofArray
+                        |> List.rev
+                GenericArguments = [] // TODO: fix
+            }
+        } 
+
+
+    let rec fromModule (m : Module) =
+        let splittedName = 
+                m.Name 
+                |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))
+                |> List.ofArray
+        {
+            Namespace = splittedName
+                        |> List.rev
+                        |> List.tail
+                        |> List.rev
+            TypeName = 
+            {
+                Name =  [splittedName |> List.last]
+                GenericArguments = [] 
+            }
+        } 
+
     let typeId t = 
         let (TypeIdentifier ti) = t
         ti
-    
 
-
-type Module = {
-        Classes : Class list
-    } with
-    static member (+) (m1 : Module, m2 : Module) =
-          { Classes = m1.Classes @ m2.Classes}
-    
-    end
 module Module =
     let create (moduleName : string) declarations =
         let functions = declarations |> List.choose ( fun m ->
@@ -244,20 +262,12 @@ module Module =
                         match m with
                         | ClassDeclaration c -> Some c
                         | _ -> None)
-        let moduleClass = {
-            GenericTypeParameters = []
-            Name = moduleName;
-            FunctionDeclarations = functions;
-            BaseClass = None;
-            ImplementedInterfaces = [];
-            Properties = [];
-            Constructor = None
-            }
         let internalClasses = 
             classes 
             |> List.map (fun c -> {c with Name = moduleName + "+" + c.Name })
-        let classes = moduleClass :: internalClasses
-        { Classes = classes }
+        { 
+          Name = moduleName
+          Functions = functions
+          Classes = internalClasses
+        }
     let createDefault declarations = create "DEFAULT" declarations 
-    let identity = {Classes = []}
-    let plus m1 m2 = {Classes = m1.Classes @ m2.Classes}

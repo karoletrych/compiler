@@ -2,14 +2,14 @@ module Compiler.Compiler
 
 open System.Reflection
 open System.IO
-open Argu
 open CompilerResult
 open Parser
-open TypeFinding
 open TypeResolving
 open TypeInference
 open ReferencedAssembliesMetadata
-open Compiler.TypeIdentifiersFinding
+open TypeIdentifiersFinding
+open Compiler.ReferencedAssembliesMetadata
+open TypeFinding
 
 type Stage =
     | SyntaxCheck
@@ -39,15 +39,13 @@ let compile
     | TypeResolving -> 
         modulesWithPaths 
         |> parseModules
-        >>= allKnownTypeIdentifiers externalTypes
-        >>= resolve
+        >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
         |> ignore  
     | TypeInference ->
         modulesWithPaths 
         |> parseModules
-        >>= allKnownTypeIdentifiers externalTypes
-        >>= resolve
-        >>= inferTypes 
+        >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
+        >>= (fun modules -> inferTypes (modules, typesDictionary externalTypes modules))
         |> ignore  
     | _ -> printfn "Stage not implemented."
     ()

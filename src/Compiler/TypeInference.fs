@@ -4,8 +4,6 @@ open Compiler.Ast
 open Types
 open CompilerResult
 open AstProcessing
-open System.Drawing
-open FSharpx.Collections.Heap
 
 // TODO: consider: type Inferred = Inferred of Expression * TypeIdentifier option
 let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
@@ -250,17 +248,29 @@ let private inferFunction leastUpperBound (currentType : Types.Type) (f: Ast.Fun
             |> Result.merge
         )
 
-let inferTypes (modul : Module, knownTypes : Map<TypeIdentifier, Type>) = 
-    modul.Classes
-    |> List.map (fun c -> 
-            let leastUpperBound = leastUpperBoundIdentifier knownTypes
-            let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find (Identifier.fromClassDeclaration c))
-            Result.map
-                (fun functions -> {c with FunctionDeclarations = functions} )
-                (c.FunctionDeclarations
-                |> List.map inferFunction 
-                |> Result.merge)
-        )
-    |> Result.merge 
-    |> Result.map (fun c -> {Classes = c})
-        
+let private inferClass knownTypes c =
+    let leastUpperBound = leastUpperBoundIdentifier knownTypes
+    let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find (Identifier.fromClassDeclaration c))
+    Result.map
+        (fun functions -> {c with Functions = functions} )
+        (c.Functions
+        |> List.map inferFunction 
+        |> Result.merge)
+
+let private inferModule knownTypes (modul : Module) =
+    let leastUpperBound = leastUpperBoundIdentifier knownTypes
+    let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find (Identifier.fromModule modul))
+    Result.map2
+        (fun functions classes -> { modul with Functions = functions; Classes = classes } )
+        (modul.Functions
+        |> List.map inferFunction 
+        |> Result.merge)
+        (modul.Classes
+        |> List.map (inferClass knownTypes)
+        |> Result.merge)
+
+
+let inferTypes (modules : Module list, knownTypes : Map<TypeIdentifier, Type>) = 
+    modules
+    |> List.map (inferModule knownTypes)
+    |> Result.merge

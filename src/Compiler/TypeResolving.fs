@@ -136,13 +136,7 @@ let private resolveFunction resolveStatement resolveType func =
             GenericParameters = []
         })
 
-let private resolveClass knownTypes (clas : Class) =
-    let classId = Identifier.fromClassDeclaration clas
-    let resolveTypeSpec = resolveTypeSpec knownTypes classId
-    let resolveExpression = resolveExpression resolveTypeSpec
-    let resolveStatement = resolveStatement resolveExpression resolveTypeSpec
-    let resolveFunction = resolveFunction resolveStatement resolveTypeSpec
-
+let private resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction (clas : Class) =
     let baseClass = Result.mapOption resolveTypeSpec clas.BaseClass
     let interfaces =
         clas.ImplementedInterfaces 
@@ -180,9 +174,10 @@ let private resolveClass knownTypes (clas : Class) =
                             (parameters, baseClassConstructorCall, statements)
                             |||> Result.map3 (fun p b s -> {Parameters = p; BaseClassConstructorCall = b; Statements = s})
                        )
-    let functionDeclarations = clas.FunctionDeclarations 
-                               |> List.map resolveFunction
-                               |> Result.merge
+    let functionDeclarations = 
+        clas.Functions 
+       |> List.map resolveFunction
+       |> Result.merge
     (fun baseClass interfaces properties constructor functionDeclarations -> 
     {
         Name = clas.Name
@@ -191,13 +186,39 @@ let private resolveClass knownTypes (clas : Class) =
         ImplementedInterfaces = interfaces
         Properties = properties
         Constructor = constructor
-        FunctionDeclarations = functionDeclarations
+        Functions = functionDeclarations
     })
     <!> baseClass <*> interfaces <*> properties <*> constructor <*> functionDeclarations
 
+let private resolveModuleFunction knownTypes modul = 
+    let moduleId = Identifier.fromModule modul
+    let resolveTypeSpec = resolveTypeSpec knownTypes moduleId
+    let resolveExpression = resolveExpression resolveTypeSpec
+    let resolveStatement = resolveStatement resolveExpression resolveTypeSpec
+    resolveFunction resolveStatement resolveTypeSpec
+let private resolveModuleClass knownTypes clas = 
+    let classId = Identifier.fromClassDeclaration clas
+    let resolveTypeSpec = resolveTypeSpec knownTypes classId
+    let resolveExpression = resolveExpression resolveTypeSpec
+    let resolveStatement = resolveStatement resolveExpression resolveTypeSpec
+    let resolveFunction = resolveFunction resolveStatement resolveTypeSpec
+    resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction clas
 
-let resolve (modul : Module, knownTypes : List<TypeIdentifier>)= 
-    modul.Classes
-    |> List.map (resolveClass knownTypes)
+
+let private resolveModule knownTypes modul = 
+    let resolveModuleFunction = resolveModuleFunction knownTypes modul
+    let resolveClass = resolveModuleClass knownTypes
+    
+    Result.map2 
+        (fun functions classes -> {modul with Classes = classes; Functions = functions})
+            (modul.Functions 
+                |> List.map resolveModuleFunction 
+                |> Result.merge)
+            (modul.Classes 
+                |> List.map resolveClass 
+                |> Result.merge)
+
+let resolve (modules : Module list, knownTypes : TypeIdentifier list) : CompilerResult<Module list>= 
+    modules
+    |> List.map (resolveModule knownTypes)
     |> Result.merge
-    |> Result.map (fun classes -> {Classes = classes})

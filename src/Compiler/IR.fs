@@ -2,34 +2,40 @@ module Compiler.IR
 
 open System
 
-type ILClass = 
+type Module = 
     {
-        Fields  : ILVariable list;
-        Methods : ILMethod list;
+        Functions : Method list;
+        Classes : Class list;
     }
 
-and ILMethod =
+and Class = 
+    {
+        Properties  : Variable list;
+        Methods : Method list;
+    }
+
+and Method =
     {
         Name       : string;
         ReturnType : Type;
-        Parameters : ILVariable list;
-        Locals     : ILVariable list;
-        Body       : ILOpCode list;
+        Parameters : Variable list;
+        Locals     : Variable list;
+        Body       : ILInstruction list;
     }
 
-and ILVariable =
+and Variable =
     {
         Type  : Type;
         Name  : string;
     }
 
-and ILLabel = int
+and Label = int
 
-and ILOpCode =
+and ILInstruction =
     | Add
-    | Br of ILLabel
-    | Brfalse of ILLabel
-    | Brtrue of ILLabel
+    | Br of Label
+    | Brfalse of Label
+    | Brtrue of Label
     | Call of string
     | Ceq
     | Cge
@@ -38,14 +44,14 @@ and ILOpCode =
     | Clt
     | Dup
     | Div
-    | Label of ILLabel
+    | Label of Label
     | Ldarg of int16
     | Ldc_I4 of int
     | Ldc_R8 of float
     | Ldelem of Type
     | Ldlen
     | Ldloc of int16
-    | Ldsfld of ILVariable
+    | Ldsfld of Variable
     | Mul
     | Neg
     | Newarr of Type
@@ -55,7 +61,7 @@ and ILOpCode =
     | Starg of int16
     | Stelem of Type
     | Stloc of int16
-    | Stsfld of ILVariable
+    | Stsfld of Variable
     | Sub
 
     override x.ToString() =
