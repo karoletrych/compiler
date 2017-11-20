@@ -326,18 +326,18 @@ module Class =
                 pBaseCall
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
-        let readonlyFieldDeclaration = 
-            pipe3
+        let property = 
+             pipe3
                 (Keyword.pVal >>. pIdentifier)
                 (Char.colon >>. Types.pTypeSpec)
                 (opt (Char.equals >>. Expression.pExpression))
                 (fun name t initializer -> { Name = name; Type = t; Initializer = initializer})
         tuple3
-            (many readonlyFieldDeclaration)
+            (many property)
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
 
-    let pClass : Parser<Class, unit> =
+    let pClass : Parser<Class<Expression>, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
             (opt Function.pGenericParameters >>= toList)

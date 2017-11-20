@@ -1,45 +1,45 @@
 module Compiler.Ast
 
-type Module = {
+type Module<'Expression> = {
     Name : string
-    Functions : Function list
-    Classes : Class list
+    Functions : Function<'Expression> list
+    Classes : Class<'Expression> list
 }
 
-and Declaration =
-| FunctionDeclaration of Function
-| ClassDeclaration of Class
+and Declaration<'Expression> =
+| FunctionDeclaration of Function<'Expression>
+| ClassDeclaration of Class<'Expression>
 
-and Class = {
-    Name : string;
-    GenericTypeParameters : GenericTypeParameter list;
+and Class<'Expression> = {
+    Name : string
+    GenericTypeParameters : GenericTypeParameter list
     BaseClass : TypeSpec option
-    ImplementedInterfaces : TypeSpec list;
-    Properties : Property list;
-    Constructor : Constructor option;
-    Functions : Function list;
+    ImplementedInterfaces : TypeSpec list
+    Properties : Property<'Expression> list
+    Constructor : Constructor<'Expression> option
+    Functions : Function<'Expression> list
 }
 
-and Property = { 
-  Name : string;
-  Type : TypeSpec;
-  Initializer : Expression option
+and Property<'Expression> = { 
+  Type : TypeSpec
+  Name : string
+  Initializer : 'Expression option
 }
 
-and Constructor = {
-    Parameters : Parameter list;
-    BaseClassConstructorCall : Expression list;
-    Statements : Statement list;
+and Constructor<'Expression> = {
+    Parameters : Parameter list
+    BaseClassConstructorCall : 'Expression list
+    Statements : Statement<'Expression> list
 }
 
 and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be TypeParameter example: A<IEnumerable<T>> 
 
-and Function = {
-  Name : string;
-  GenericParameters : GenericTypeParameter list;
-  Parameters : Parameter list;
-  ReturnType : TypeSpec option;
-  Body : Statement list
+and Function<'Expression> = {
+  Name : string
+  GenericParameters : GenericTypeParameter list
+  Parameters : Parameter list
+  ReturnType : TypeSpec option
+  Body : Statement<'Expression> list
 }
 
 and TypeSpec =
@@ -65,47 +65,33 @@ and CustomType = {
 
 and Parameter = string * TypeSpec
 
-and Statement =
-| AssignmentStatement of Expression * Expression
+and Statement<'Expression> =
+| AssignmentStatement of 'Expression * 'Expression
 | BreakStatement
-| CompositeStatement of Statement list
-| FunctionCallStatement of FunctionCall
-| IfStatement of Expression * Statement * Statement option
-| MemberFunctionCallStatement of MemberFunctionCall
-| ReturnStatement of Expression option
-| StaticFunctionCallStatement of TypeSpec * FunctionCall
-| VariableDeclaration of VariableDeclaration
-| ValueDeclaration of ValueDeclaration
-| WhileStatement of Expression * Statement
+| CompositeStatement of Statement<'Expression> list
+| FunctionCallStatement of FunctionCall<'Expression>
+| IfStatement of 'Expression * Statement<'Expression> * Statement<'Expression> option
+| MemberFunctionCallStatement of MemberFunctionCall<'Expression>
+| ReturnStatement of 'Expression option
+| StaticFunctionCallStatement of TypeSpec * FunctionCall<'Expression>
+| VariableDeclaration of VariableDeclaration<'Expression>
+| ValueDeclaration of ValueDeclaration<'Expression>
+| WhileStatement of 'Expression * Statement<'Expression> 
 
-
-and ValueDeclaration =
-  string * TypeSpec option * Expression
-and VariableDeclaration =
-| DeclarationWithInitialization of string * Expression
+and ValueDeclaration<'Expression> =
+  string * TypeSpec option * 'Expression
+and VariableDeclaration<'Expression> =
+| DeclarationWithInitialization of string * 'Expression
 | DeclarationWithType of string * TypeSpec
-| FullDeclaration of string * TypeSpec * Expression
+| FullDeclaration of string * TypeSpec * 'Expression
 
-and Expression =
-| AssignmentExpression of Expression * Expression
-| BinaryExpression of Expression * BinaryOperator * Expression
-| FunctionCallExpression of FunctionCall
-| IdentifierExpression of string
-| ListInitializerExpression of Expression list
-| LiteralExpression of Literal
-| MemberExpression of MemberFunctionCall
-| NewExpression of TypeSpec * Expression list
-| StaticMemberExpression of TypeSpec * FunctionCall
-| UnaryExpression of UnaryOperator * Expression
-| InferredTypeExpression of Expression * TypeIdentifier
-
-and MemberFunctionCall = MemberFunctionCall of Expression * Expression
+and MemberFunctionCall<'Expression> = MemberFunctionCall of 'Expression * 'Expression
 
 
-and FunctionCall = {
+and FunctionCall<'Expression> = {
      Name : string;
      GenericArguments : TypeSpec list;
-     Arguments : Expression list
+     Arguments : 'Expression list
      }
 
 
@@ -158,7 +144,20 @@ with member x.GenericArgumentsNumber =
       + if List.isEmpty ti.TypeName.GenericArguments
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
+
+and Expression =
+| AssignmentExpression of Expression * Expression
+| BinaryExpression of Expression * BinaryOperator * Expression
+| FunctionCallExpression of FunctionCall<Expression>
+| IdentifierExpression of string
+| ListInitializerExpression of Expression list
+| LiteralExpression of Literal
+| MemberExpression of MemberFunctionCall<Expression>
+| NewExpression of TypeSpec * Expression list
+| StaticMemberExpression of TypeSpec * FunctionCall<Expression>
+| UnaryExpression of UnaryOperator * Expression
     
+
 
 module Identifier = 
 
@@ -215,7 +214,7 @@ module Identifier =
                 GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
             }
         } 
-    let rec fromClassDeclaration (c : Class) = 
+    let rec fromClassDeclaration (c : Class<'Expression>) = 
         let splittedName = 
                     c.Name 
                     |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))
@@ -236,7 +235,7 @@ module Identifier =
             }
         } 
 
-    let rec fromModule (m : Module) =
+    let rec fromModule (m : Module<'Expression>) =
         let splittedName = 
                 m.Name 
                 |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))

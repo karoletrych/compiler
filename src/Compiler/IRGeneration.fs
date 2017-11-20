@@ -1,6 +1,7 @@
 module Compiler.IRGeneration
 open IR
 open Ast
+open TypeInference
 
 let private convertIdentifier i =
         // match lookupILVariableScope identifierRef with
@@ -9,8 +10,8 @@ let private convertIdentifier i =
         // | LocalScope(i) -> [ Ldloc i ]
         [Ldloc i]
 
-let rec private convertExpression =
-    function 
+let rec private convertExpression (expr : InferredTypeExpression) =
+    match fst expr with
     | LiteralExpression l -> 
         match l with 
         | BoolLiteral b -> [ (if b then Ldc_I4(1) else Ldc_I4(0)) ]
@@ -26,11 +27,10 @@ let rec private convertExpression =
     | NewExpression(_, _) -> failwith "Not Implemented"
     | StaticMemberExpression(_, _) -> failwith "Not Implemented"
     | UnaryExpression(_, _) -> failwith "Not Implemented"
-    | InferredTypeExpression(_, _) -> failwith "Not Implemented"
 
 let rec private buildFunctionBody statements : ILInstruction list =
-    let generateIL =
-        function
+    let generateIL (s : Statement<InferredTypeExpression>) =
+        match s with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = (Identifier.typeId t)
             (method.Arguments |> List.collect convertExpression)
@@ -43,7 +43,7 @@ let rec private buildFunctionBody statements : ILInstruction list =
 let private locals statements =
     []
 
-let private buildFunction (func : Ast.Function) = {
+let private buildFunction (func : Function<InferredTypeExpression>) = {
     Name = func.Name
     Body = buildFunctionBody func.Body
     ReturnType = Identifier.typeId func.ReturnType.Value
@@ -51,18 +51,18 @@ let private buildFunction (func : Ast.Function) = {
     LocalVariables = locals func.Body
 }
 
-let private buildProperty (prop : Ast.Property) = {
+let private buildProperty (prop : Ast.Property<InferredTypeExpression>) = {
     Name = prop.Name;
     Type = prop.Type |> Identifier.typeId
 }
 
-let private buildClass (c : Ast.Class) : IR.Class = {
+let private buildClass (c : Ast.Class<InferredTypeExpression>) : IR.Class = {
     Identifier = c |> Identifier.fromClassDeclaration
     Methods = c.Functions |> List.map buildFunction
     Properties = c.Properties |> List.map buildProperty
 }
 
-let private buildModule (modul : Ast.Module) : IR.Module = {
+let private buildModule modul : IR.Module = {
         Identifier = modul |> Identifier.fromModule
         Classes = modul.Classes |> List.map buildClass
         Functions = modul.Functions |> List.map buildFunction

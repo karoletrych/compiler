@@ -33,7 +33,6 @@ let rec expressionCata
         | FunctionCallExpression(fc) -> 
             let args = fc.Arguments |> List.map recurse
             functionCall (fc.Name, args, fc.GenericArguments) 
-        | InferredTypeExpression(e,t) -> (recurse e, t) |> inferredType 
         | IdentifierExpression(ie) -> identifier ie 
         | LiteralExpression(le) -> literal le
         | ListInitializerExpression list -> list |> List.map recurse |> listInitializer

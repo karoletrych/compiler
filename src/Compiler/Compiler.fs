@@ -1,7 +1,5 @@
 module Compiler.Compiler
 
-open System.Reflection
-open System.IO
 open CompilerResult
 open Parser
 open TypeResolving

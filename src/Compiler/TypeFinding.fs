@@ -3,7 +3,7 @@ open Types
 open Ast
 open FSharpx.Collections
 
-let private createFunctionSignature (method : Function) = 
+let private createFunctionSignature (method : Function<Expression>) = 
     {
         Parameters = 
             method.Parameters 
@@ -15,8 +15,8 @@ let private createFunctionSignature (method : Function) =
         ReturnType = method.ReturnType |> Option.map Identifier.typeId
         Name = method.Name
     }
-let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : Module) =
-    let rec createTypeFromClassDeclaration (declaredType : Class) =
+let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
+    let rec createTypeFromClassDeclaration declaredType =
         let getType (declaredType : TypeSpec) = 
             let typeId = Identifier.typeId declaredType    
             knownTypes
@@ -27,7 +27,7 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : 
                     |> List.find (fun c -> (Identifier.fromClassDeclaration c) = typeId) 
                     |> createTypeFromClassDeclaration)
         
-        let createConstructor (astCtor : Ast.Constructor) : Types.Constructor = 
+        let createConstructor (astCtor : Constructor<Expression>) = 
             {
                 Parameters = astCtor.Parameters 
                 |> List.map (fun (name,t) -> 
@@ -55,7 +55,7 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) (modul : 
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
 
-let moduleType (modul : Module) = 
+let moduleType modul = 
     {
         BaseType = None
         DeclaredConstructors = []
@@ -67,9 +67,8 @@ let moduleType (modul : Module) =
         Methods = modul.Functions |> List.map createFunctionSignature;
         NestedTypes = []
     }
-let typesDictionary externalTypes (modules : Module list) =
+let typesDictionary externalTypes modules =
     let withNames = List.map (fun c -> (c.Identifier, c)) >> Map.ofList
-
     modules    
     |> List.collect (fun m -> (moduleType m) :: findTypesInModule externalTypes m)
     |> withNames

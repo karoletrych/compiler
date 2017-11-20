@@ -65,7 +65,7 @@ let private resolveExpression resolveType expression =
         unary 
         expression
 
-let private resolveStatement resolveExpression resolveType statement : CompilerResult<Statement> =
+let private resolveStatement resolveExpression resolveType statement =
     let functionCall (id, args, generics) = 
         let args = args |> List.map resolveExpression |> Result.merge
         let generics =  generics |> List.map resolveType |> Result.merge
@@ -88,7 +88,7 @@ let private resolveStatement resolveExpression resolveType statement : CompilerR
     let returnStatement e = (Result.mapOption resolveExpression e) |> Result.map (fun e -> ReturnStatement(e)) 
     let assignment (e1, e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(e1, e2)) 
     let breakStatement = Result.succeed BreakStatement
-    let ifStatement (e,s,(elseS : CompilerResult<Statement> option)) = 
+    let ifStatement (e,s,elseS) = 
         match elseS with
         | Some elseS ->
             (resolveExpression e, s, elseS)
@@ -136,7 +136,7 @@ let private resolveFunction resolveStatement resolveType func =
             GenericParameters = []
         })
 
-let private resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction (clas : Class) =
+let private resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction clas =
     let baseClass = Result.mapOption resolveTypeSpec clas.BaseClass
     let interfaces =
         clas.ImplementedInterfaces 
@@ -218,7 +218,7 @@ let private resolveModule knownTypes modul =
                 |> List.map resolveClass 
                 |> Result.merge)
 
-let resolve (modules : Module list, knownTypes : TypeIdentifier list) : CompilerResult<Module list>= 
+let resolve (modules : Module<Expression> list, knownTypes : TypeIdentifier list) =
     modules
     |> List.map (resolveModule knownTypes)
     |> Result.merge
