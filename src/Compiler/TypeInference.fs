@@ -58,7 +58,19 @@ let private localFunctionType (currentType : Type) (name, args, generics) : Comp
     | Some f -> match f.ReturnType with
                 | Some ret -> Result.succeed ret
                 | None -> failwith "TODO: "
-    | None -> Result.failure (FunctionNotFound(name,args,generics))
+    | None -> Result.failure (LocalFunctionNotFound(name,args,generics))
+let private staticFunction knownTypes t (name, args, generics) : CompilerResult<TypeIdentifier> =
+    let matchingType = knownTypes |> Map.find t
+    let matchingFunction = 
+        matchingType.Methods 
+        |> List.tryFind 
+            (fun f -> f.Name = name
+                    && (f.Parameters |> List.map (fun p -> p.Type)) = args)
+    match matchingFunction with
+    | Some f -> match f.ReturnType with
+                | Some ret -> Result.succeed ret
+                | None -> failwith "TODO: "
+    | None -> Result.failure (StaticFunctionNotFound(t, name,args,generics))
 
 let typeOfLiteral = 
     (function
@@ -186,7 +198,12 @@ let rec private inferStatement
         |> Result.map (ReturnStatement)
         |> withOldVariables
     | StaticFunctionCallStatement (t,c) ->
-        failwith "TODO:"
+        c.Arguments 
+        |> List.map annotate 
+        |> Result.merge
+        |> Result.map 
+            (fun args -> StaticFunctionCallStatement(t,{c with Arguments = args}))
+            |> withOldVariables
     | ValueDeclaration(id, t, expr) ->
         let valueType = 
             if t.IsSome 

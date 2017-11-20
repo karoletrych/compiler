@@ -18,8 +18,8 @@
     <Compile Include="SemanticCheck.fs" />
     <Compile Include="IR.fs" />
     <Compile Include="IRGeneration.fs" />
+    <Compile Include="CILGeneration.fs" />
     <Compile Include="Compiler.fs" />
-    <Compile Include="AssemblyWriter.fs" />
     <Compile Include="ConsoleRunner.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

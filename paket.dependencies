@@ -4,6 +4,7 @@ framework: >= net461
 nuget Argu
 nuget Expecto
 nuget FAKE
+nuget Fantomas
 nuget FParsec
 nuget FSharp.Core
 nuget FSharpx.Collections

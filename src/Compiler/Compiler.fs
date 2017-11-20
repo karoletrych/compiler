@@ -8,44 +8,20 @@ open TypeResolving
 open TypeInference
 open ReferencedAssembliesMetadata
 open TypeIdentifiersFinding
-open Compiler.ReferencedAssembliesMetadata
 open TypeFinding
-
-type Stage =
-    | SyntaxCheck
-    | TypeFinding
-    | TypeResolving
-    | TypeInference
-    | SemanticCheck 
-    | IRGeneration
-    | CILGeneration
-    | Full
+open SemanticCheck
+open IRGeneration
 
 let compile 
-    (sourceFilePaths : string list)
-    (outputPath : string)
-    (stage : Stage) 
-    (compileToDll : bool)=
-    let modulesWithPaths = 
-        sourceFilePaths 
-        |> List.zip (sourceFilePaths |> List.map File.ReadAllText)
-    let externalTypes = externalTypes [Assembly.GetAssembly(typeof<obj>)]
+    source
+    referencedAssemblies =
+
+    let externalTypes = externalTypes referencedAssemblies
+
+    source 
+    |> parseModules
+    >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
+    >>= (fun modules -> inferTypes (modules, typesDictionary externalTypes modules))
+    >>= semanticCheck 
+    |> Result.map generateIR
     
-    match stage with
-    | SyntaxCheck -> 
-        modulesWithPaths 
-        |> parseModules
-        |> ignore
-    | TypeResolving -> 
-        modulesWithPaths 
-        |> parseModules
-        >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
-        |> ignore  
-    | TypeInference ->
-        modulesWithPaths 
-        |> parseModules
-        >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
-        >>= (fun modules -> inferTypes (modules, typesDictionary externalTypes modules))
-        |> ignore  
-    | _ -> printfn "Stage not implemented."
-    ()

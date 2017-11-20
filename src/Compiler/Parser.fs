@@ -1,18 +1,14 @@
-#if !(INTERACTIVE)
 module Compiler.Parser
-#endif
-
-#if INTERACTIVE
-#r @"../packages/FParsec/lib/net40-client/FParsecCS.dll"
-#r @"../packages/FParsec/lib/net40-client/FParsec.dll"
-#load @"Ast.fs"
-#endif
 
 open System
 open System.Text.RegularExpressions
-open Compiler.Ast
+open Ast
 open FParsec
 
+type SourceFile = {
+    Name : string
+    Code : string
+}
 
 //TODO: unify places of constructing union cases (in parser declaration vs in usage)
 
@@ -377,12 +373,12 @@ let parseDeclarations =
     | ParserResult.Success(result, _, _) -> Result.succeed result 
     | ParserResult.Failure(message, error, state) -> Result.failure (SyntaxError ((message, error, state).ToString()))
 
-let parseModules  ((input : (string * string) list)) = 
+let parseModules (source : SourceFile list) = 
     let buildModule (name, declarationsResult) = 
         declarationsResult 
         |> Result.map (fun decls -> Module.create name decls)
-    input
-    |> List.map (fun (name,sourceCode) -> (name, parseDeclarations sourceCode))
+    source
+    |> List.map (fun s -> (s.Name, parseDeclarations s.Code))
     |> List.map buildModule
     |> Result.merge
     

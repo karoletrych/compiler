@@ -15,12 +15,12 @@ and Class = {
     GenericTypeParameters : GenericTypeParameter list;
     BaseClass : TypeSpec option
     ImplementedInterfaces : TypeSpec list;
-    Properties : PropertyDeclaration list;
+    Properties : Property list;
     Constructor : Constructor option;
     Functions : Function list;
 }
 
-and PropertyDeclaration = { 
+and Property = { 
   Name : string;
   Type : TypeSpec;
   Initializer : Expression option
@@ -150,8 +150,11 @@ and TypeIdentifier = {
 with member x.GenericArgumentsNumber = 
         x.TypeName.GenericArguments |> List.length
      override ti.ToString() =
-       (ti.Namespace |> List.toArray |> (fun strs -> System.String.Join("::", strs)))
-      + (ti.TypeName.Name |> List.toArray |> (fun strs -> System.String.Join("+",  strs)))
+        match ti.Namespace with
+        | [] -> ""
+        | ns -> 
+            (ns |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
+      + (ti.TypeName.Name |> List.toArray |> (fun parts -> System.String.Join("+",  parts)))
       + if List.isEmpty ti.TypeName.GenericArguments
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
@@ -179,6 +182,9 @@ module Identifier =
     let int = fromDotNet typeof<int> 
     let float = fromDotNet typeof<single> 
     let string = fromDotNet typeof<string> 
+    let char = fromDotNet typeof<char>
+    let double = fromDotNet typeof<double>
+    let ``void`` = fromDotNet typeof<System.Void>
     let list t = 
         let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
         { objList 
@@ -191,12 +197,12 @@ module Identifier =
         let builtInTypeSpec =
             function
             | Bool -> bool
-            | Char -> fromDotNet typeof<char>
+            | Char -> char
             | Int -> int
             | Float -> float
-            | Double -> fromDotNet typeof<double>
+            | Double -> double
             | String -> string
-            | Void -> fromDotNet typeof<unit>
+            | Void -> ``void``
             | Object  -> object
         match typeSpec with
         | BuiltInTypeSpec bits -> builtInTypeSpec bits
@@ -230,7 +236,6 @@ module Identifier =
             }
         } 
 
-
     let rec fromModule (m : Module) =
         let splittedName = 
                 m.Name 
@@ -247,7 +252,6 @@ module Identifier =
                 GenericArguments = [] 
             }
         } 
-
     let typeId t = 
         let (TypeIdentifier ti) = t
         ti

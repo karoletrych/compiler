@@ -5,7 +5,8 @@ open Compiler.Ast
 type Failure = 
 | SyntaxError of string
 | TypeNotFound of TypeSpec
-| FunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
+| LocalFunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
+| StaticFunctionNotFound of TypeIdentifier * string * TypeIdentifier list * TypeIdentifier list
 | CannotInferType of string
 | UndefinedVariable of string
 
