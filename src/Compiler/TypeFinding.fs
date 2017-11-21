@@ -3,7 +3,7 @@ open Types
 open Ast
 open FSharpx.Collections
 
-let private createFunctionSignature (method : Function<Expression>) = 
+let private createFunctionSignature (method : Function<AstExpression>) = 
     {
         Parameters = 
             method.Parameters 
@@ -27,7 +27,7 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                     |> List.find (fun c -> (Identifier.fromClassDeclaration c) = typeId) 
                     |> createTypeFromClassDeclaration)
         
-        let createConstructor (astCtor : Constructor<Expression>) = 
+        let createConstructor (astCtor : Constructor<AstExpression>) = 
             {
                 Parameters = astCtor.Parameters 
                 |> List.map (fun (name,t) -> 

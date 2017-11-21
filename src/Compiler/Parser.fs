@@ -136,7 +136,7 @@ pIdentifierImpl := identifier .>> spaces
     else fail ("Identifier cannot be a keyword: " + id))
 
 module Expression = 
-    let opp = new OperatorPrecedenceParser<Expression,_,_>()
+    let opp = new OperatorPrecedenceParser<AstExpression,_,_>()
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma
     let pFunctionCall = 
@@ -163,32 +163,33 @@ module Expression =
         let pLiteralExpression = choice [pBoolParser; attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
         
 
-    let pParenthesizedExpression = between Char.leftParen Char.rightParen pExpression
+    let pParenthesizedExpression = 
+        between Char.leftParen Char.rightParen pExpression
     let pIdentifierExpression = 
         pIdentifier 
             |>> fun id -> IdentifierExpression(id)
 
-    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> AssignmentExpression(x, y))) 
+    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> AssignmentExpression(x, y) |> AstExpression)) 
 
-    opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y)))
-    opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y)))
-    opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y)))
-    opp.AddOperator(InfixOperator("<=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, LessEqual, y)))
-    opp.AddOperator(InfixOperator(">=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, GreaterEqual, y)))
-    opp.AddOperator(InfixOperator(">",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Greater, y)))
-    opp.AddOperator(InfixOperator("<",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Less, y)))
-    opp.AddOperator(InfixOperator("&&", spaces, 5, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalAnd, y)))
-    opp.AddOperator(InfixOperator("+",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Plus, y)))
-    opp.AddOperator(InfixOperator("-",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Minus, y)))
-    opp.AddOperator(InfixOperator("*",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Multiplication, y)))
-    opp.AddOperator(InfixOperator("/",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Division, y)))
-    opp.AddOperator(InfixOperator("%",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Remainder, y)))
+    opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("<=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, LessEqual, y) |> AstExpression))
+    opp.AddOperator(InfixOperator(">=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, GreaterEqual, y) |> AstExpression))
+    opp.AddOperator(InfixOperator(">",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Greater, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("<",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Less, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("&&", spaces, 5, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalAnd, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("+",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Plus, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("-",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Minus, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("*",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Multiplication, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("/",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Division, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("%",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Remainder, y) |> AstExpression))
 
-    opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x))) 
-    opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x))) 
+    opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x) |> AstExpression)) 
+    opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x) |> AstExpression)) 
 
     opp.AddOperator(InfixOperator(".", lookAhead (spaces .>> pFunctionCall), 9, Associativity.Left,
-                                 fun x y -> MemberExpression (MemberFunctionCall(x,y))))
+                                 fun x y -> MemberExpression (MemberFunctionCall(x,y)) |> AstExpression))
 
     let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
@@ -203,13 +204,12 @@ module Expression =
                  (sepBy pExpression Char.semicolon) |>> ListInitializerExpression
 
     opp.TermParser <- choice [
-        pListInitializerExpression;
-        attempt pStaticMemberExpression;
-        pNewExpression;
-        Literal.pLiteralExpression;
-        attempt pFunctionCallExpression;
-        pIdentifierExpression;
-        pParenthesizedExpression
+        pListInitializerExpression |>> AstExpression
+        attempt pStaticMemberExpression|>> AstExpression
+        Literal.pLiteralExpression |>> AstExpression
+        attempt pFunctionCallExpression |>> AstExpression
+        pIdentifierExpression |>> AstExpression
+        pParenthesizedExpression 
     ] 
 
 module Statement =
@@ -250,6 +250,7 @@ module Statement =
     let expressionStatement =
      Expression.pExpression
      >>= (fun expr ->
+                 let (AstExpression expr) = expr
                  match expr with
                  |MemberExpression(me) -> preturn (MemberFunctionCallStatement me)
                  |AssignmentExpression(e1,e2) -> preturn (AssignmentStatement (e1, e2))
@@ -337,7 +338,7 @@ module Class =
             (opt pConstructor)
             (many Function.pFunctionDeclaration)
 
-    let pClass : Parser<Class<Expression>, unit> =
+    let pClass : Parser<Class<AstExpression>, unit> =
         pipe4
             (Keyword.pClass >>. pClassName)
             (opt Function.pGenericParameters >>= toList)

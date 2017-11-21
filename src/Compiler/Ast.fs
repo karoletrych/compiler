@@ -145,19 +145,19 @@ with member x.GenericArgumentsNumber =
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
-and Expression =
-| AssignmentExpression of Expression * Expression
-| BinaryExpression of Expression * BinaryOperator * Expression
-| FunctionCallExpression of FunctionCall<Expression>
+and Expression<'Expression> =
+| AssignmentExpression of 'Expression * 'Expression
+| BinaryExpression of 'Expression * BinaryOperator * 'Expression
+| FunctionCallExpression of FunctionCall<'Expression>
 | IdentifierExpression of string
-| ListInitializerExpression of Expression list
+| ListInitializerExpression of 'Expression list
 | LiteralExpression of Literal
-| MemberExpression of MemberFunctionCall<Expression>
-| NewExpression of TypeSpec * Expression list
-| StaticMemberExpression of TypeSpec * FunctionCall<Expression>
-| UnaryExpression of UnaryOperator * Expression
-    
+| MemberExpression of MemberFunctionCall<'Expression>
+| NewExpression of TypeSpec * 'Expression list
+| StaticMemberExpression of TypeSpec * FunctionCall<'Expression>
+| UnaryExpression of UnaryOperator * 'Expression
 
+and AstExpression = AstExpression of Expression<AstExpression>
 
 module Identifier = 
 

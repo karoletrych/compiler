@@ -11,7 +11,9 @@ let private convertIdentifier i =
         [Ldloc i]
 
 let rec private convertExpression (expr : InferredTypeExpression) =
-    match fst expr with
+    
+    let (InferredTypeExpression(expr, t)) = expr
+    match expr with
     | LiteralExpression l -> 
         match l with 
         | BoolLiteral b -> [ (if b then Ldc_I4(1) else Ldc_I4(0)) ]
@@ -25,7 +27,16 @@ let rec private convertExpression (expr : InferredTypeExpression) =
     | ListInitializerExpression(_) -> failwith "Not Implemented"
     | MemberExpression(_) -> failwith "Not Implemented"
     | NewExpression(_, _) -> failwith "Not Implemented"
-    | StaticMemberExpression(_, _) -> failwith "Not Implemented"
+    | StaticMemberExpression(t, call) -> 
+        let getType expr = 
+            let (InferredTypeExpression(expr, t)) = expr
+            t
+        let args = call.Arguments |> List.collect convertExpression
+        args 
+        @ [Call(Identifier.typeId t,
+                call.Name,
+                call.Arguments 
+                    |> List.map getType)]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private buildFunctionBody statements : ILInstruction list =

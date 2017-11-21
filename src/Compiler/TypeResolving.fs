@@ -26,10 +26,9 @@ let private resolveTypeSpec
         | None -> Result.failure (TypeNotFound typeSpec)
 
 
-let private resolveExpression resolveType expression =
+let private resolveExpression resolveType expression : CompilerResult<AstExpression>=
     let assignment (e1,e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(e1, e2)) e1 e2
     let binary (e1, op, e2) = Result.map2 (fun e1 e2 -> BinaryExpression(e1, op, e2)) e1 e2
-    let inferredType t = failwith "unexpected"
     let functionCall (name,args,generics) = 
         let argsResult = args |> Result.merge 
         let genericsResult =
@@ -52,17 +51,16 @@ let private resolveExpression resolveType expression =
 
     let unary (op,e) = Result.map (fun e -> UnaryExpression(op, e)) e
     expressionCata 
-        assignment 
-        binary 
-        inferredType 
-        functionCall 
-        identifier 
-        literal 
-        listInitializer 
-        memberExpression
-        newExpression 
-        staticMember 
-        unary 
+        (assignment >> Result.map AstExpression)
+        (binary >> Result.map AstExpression)
+        (functionCall >> Result.map AstExpression)
+        (identifier >> Result.map AstExpression)
+        (literal >> Result.map AstExpression)
+        (listInitializer >> Result.map AstExpression)
+        (memberExpression>> Result.map AstExpression)
+        (newExpression >> Result.map AstExpression)
+        (staticMember >> Result.map AstExpression)
+        (unary >> Result.map AstExpression)
         expression
 
 let private resolveStatement resolveExpression resolveType statement =
@@ -218,7 +216,7 @@ let private resolveModule knownTypes modul =
                 |> List.map resolveClass 
                 |> Result.merge)
 
-let resolve (modules : Module<Expression> list, knownTypes : TypeIdentifier list) =
+let resolve (modules : Module<AstExpression> list, knownTypes : TypeIdentifier list) =
     modules
     |> List.map (resolveModule knownTypes)
     |> Result.merge

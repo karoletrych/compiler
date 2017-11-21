@@ -27,6 +27,7 @@ let rec expressionCata
             newExpression 
             staticMember 
             unary 
+    let (AstExpression expression) = expression
     match expression with
         | AssignmentExpression(e1, e2) -> assignment ((recurse e1), (recurse e2))
         | BinaryExpression(e1, op, e2) -> binary ((recurse e1), op, (recurse e2))
