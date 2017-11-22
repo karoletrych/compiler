@@ -8,11 +8,10 @@ open System
 open Compiler
 open Parser
 open CILGeneration
-open Compiler.CompilerResult
-open CILGeneration
-
+open CompilerResult
+let testDirectory = Path.Combine(Assembly.GetEntryAssembly().Location, @"..\..\..\..\tests")
 let files = 
-    System.IO.Directory.GetFiles(@".\test\Compiler.IntegrationTests\tests") 
+    System.IO.Directory.GetFiles(testDirectory)
     |> List.ofArray
 let testFiles = 
     files 
@@ -27,7 +26,7 @@ let withCorrespondingOutput input =
 
 let readFiles (input, output) = ({Name = input; Code = File.ReadAllText input}, File.ReadAllText output)
 let mscorlib = [Assembly.GetAssembly(typeof<obj>)]
-let compile input = Compiler.compile [input] mscorlib
+let compile input = compile [input] mscorlib
 let generateAssembly (ir : CompilerResult<IR.Module list>) = 
     let assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
                             AssemblyName("Test.exe"), AssemblyBuilderAccess.RunAndSave)
@@ -36,28 +35,32 @@ let generateAssembly (ir : CompilerResult<IR.Module list>) =
 
 let execute (assemblyBuilder : AssemblyBuilder) =
     use stringWriter = new StringWriter()
-    let setOut = assemblyBuilder.GetType("SystemConsole").GetMethod("SetOut");
-    setOut.Invoke(null, [|stringWriter|]) |> ignore
+    let originalOut = Console.Out
+    Console.SetOut(stringWriter)
 
     assemblyBuilder.EntryPoint.Invoke(null, Array.empty) |> ignore
 
+    Console.SetOut(originalOut)
     stringWriter.ToString()
 
-let tests1 =
-    testFiles
-    |> List.map (
-            withCorrespondingOutput 
-            >> readFiles
-            >> fun (input, expectedOutput) -> 
-                input |> compile |> generateAssembly |> execute, expectedOutput
-    )
+let getTestData = 
+    withCorrespondingOutput 
+    >> readFiles
+    >> fun (input, expectedOutput) -> 
+            input |> compile |> generateAssembly |> execute, expectedOutput
+
+let createTest testName (output, expectedOutput) = 
+    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+
 
 [<Tests>]
-let tests =
-  testList "Integration tests" [
-    testCase "create from class declaration" <| fun _ ->
-        Expect.equal files [] ""
-]
+let tests = 
+    testList "Integration tests"
+        (testFiles 
+        |> List.map (fun path -> 
+                        let testData = getTestData path
+                        createTest (Path.GetFileName(path)) testData
+                        ))
 
 [<EntryPoint>]
 let main argv =
