@@ -1,18 +1,11 @@
 module Compiler.Ast
 
-type Module<'Expression> = {
-    Name : string
-    Functions : Function<'Expression> list
-    Classes : Class<'Expression> list
-}
-
-and Declaration<'Expression> =
+type Declaration<'Expression> =
 | FunctionDeclaration of Function<'Expression>
 | ClassDeclaration of Class<'Expression>
 
 and Class<'Expression> = {
     Name : string
-    GenericTypeParameters : GenericTypeParameter list
     BaseClass : TypeSpec option
     ImplementedInterfaces : TypeSpec list
     Properties : Property<'Expression> list
@@ -36,7 +29,6 @@ and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be 
 
 and Function<'Expression> = {
   Name : string
-  GenericParameters : GenericTypeParameter list
   Parameters : Parameter list
   ReturnType : TypeSpec option
   Body : Statement<'Expression> list
@@ -129,6 +121,21 @@ and TypeName = {
     GenericArguments : TypeIdentifier list
 }
 
+and Module<'Expression> = {
+    Identifier : TypeIdentifier
+    Functions : Function<'Expression> list
+    Classes : ModuleClass<'Expression> list
+}
+
+and ModuleClass<'Expression> = {
+    Identifier : TypeIdentifier
+    BaseClass : TypeSpec option
+    ImplementedInterfaces : TypeSpec list
+    Properties : Property<'Expression> list
+    Constructor : Constructor<'Expression> option
+    Functions : Function<'Expression> list
+}
+
 and TypeIdentifier = {
     Namespace : string list
     TypeName : TypeName
@@ -214,63 +221,59 @@ module Identifier =
                 GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
             }
         } 
-    let rec fromClassDeclaration (c : Class<'Expression>) = 
-        let splittedName = 
-                    c.Name 
-                    |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))
-                    |> List.ofArray
-        {
-            Namespace = splittedName
-                        |> List.rev
-                        |> List.tail
-                        |> List.rev
-            TypeName = 
-            {
-                Name =  splittedName
-                        |> List.last
-                        |> fun c -> c.Split([|"+"|], System.StringSplitOptions.None)
-                        |> List.ofArray
-                        |> List.rev
-                GenericArguments = [] // TODO: fix
-            }
-        } 
 
-    let rec fromModule (m : Module<'Expression>) =
-        let splittedName = 
-                m.Name 
-                |> (fun n -> n.Split([|"::"|], System.StringSplitOptions.None))
-                |> List.ofArray
-        {
-            Namespace = splittedName
-                        |> List.rev
-                        |> List.tail
-                        |> List.rev
-            TypeName = 
-            {
-                Name =  [splittedName |> List.last]
-                GenericArguments = [] 
-            }
-        } 
     let typeId t = 
         let (TypeIdentifier ti) = t
         ti
 
 module Module =
-    let create (moduleName : string) declarations =
-        let functions = declarations |> List.choose ( fun m ->
-                        match m with
-                        | FunctionDeclaration f -> Some f
-                        | _ -> None)
-        let classes = declarations |> List.choose ( fun m ->
-                        match m with
-                        | ClassDeclaration c -> Some c
-                        | _ -> None)
-        let internalClasses = 
-            classes 
-            |> List.map (fun c -> {c with Name = moduleName + "+" + c.Name })
+    type ModuleIdentifier =
+        | Filesystem of string list
+        | Custom of string
+    let create (moduleId : ModuleIdentifier) declarations =
+        let nspace = 
+            match moduleId with
+            | Filesystem ns -> ns |> List.rev
+        let identifier = 
+            {
+                Namespace = nspace.Tail;
+                TypeName = {
+                            Name = [nspace.Head];
+                            GenericArguments = []
+                           }
+            }
+        let functions = 
+            declarations 
+            |> List.choose ( fun m ->
+                    match m with
+                    | FunctionDeclaration f -> Some f
+                    | _ -> None)
+        let classes = 
+            declarations 
+            |> List.choose (fun m ->
+                match m with
+                | ClassDeclaration c -> Some c
+                | _ -> None)
+            |> List.map (fun c -> 
+            {
+                Identifier = 
+                    {identifier 
+                        with TypeName = 
+                             {
+                                identifier.TypeName 
+                                with Name = 
+                                        c.Name :: identifier.TypeName.Name
+                             }
+                     }
+                BaseClass = c.BaseClass
+                ImplementedInterfaces = c.ImplementedInterfaces
+                Properties = c.Properties
+                Constructor = c.Constructor
+                Functions = c.Functions
+            })
         { 
-          Name = moduleName
-          Functions = functions
-          Classes = internalClasses
+            Identifier = identifier
+            Functions = functions
+            Classes = classes
         }
-    let createDefault declarations = create "DEFAULT" declarations 
+    let createDefault declarations = create (Filesystem ["DEFAULT"]) declarations 

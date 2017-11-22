@@ -13,6 +13,10 @@ type Failure =
 type CompilerResult<'TSuccess> = 
 | Success of 'TSuccess
 | Failure of Failure list
+with member x.Value = 
+        match x with
+        | Success x -> x
+        | Failure errors -> failwith "Value retrieved from CompilerResult being Failure %A" errors
 
 module Result = 
     let succeed x = Success x 

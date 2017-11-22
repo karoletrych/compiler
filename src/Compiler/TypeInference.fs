@@ -156,13 +156,13 @@ let rec private annotate
     | IdentifierExpression i -> Result.succeed (IdentifierExpression(i)), inferExpression expr
     | LiteralExpression l -> Result.succeed (LiteralExpression(l)), inferExpression expr
     | FunctionCallExpression fc -> failwith "Notimplemented"
-    | ListInitializerExpression l-> failwith "Notimplemented"
-    | MemberExpression m-> failwith "Notimplemented"
+    | ListInitializerExpression l -> failwith "Notimplemented"
+    | MemberExpression m -> failwith "Notimplemented"
     | NewExpression(t, args)-> failwith "Notimplemented"
     | StaticMemberExpression (t, call)-> failwith "Notimplemented"
     | UnaryExpression(op,e) -> failwith "Notimplemented"
     )
-        ||> Result.map2 (fun e t -> InferredTypeExpression(e,t))
+    ||> Result.map2 (fun e t -> InferredTypeExpression(e,t))
 
 
 let private lookupLocalVariable (variables : Map<string, TypeIdentifier>) name = 
@@ -291,7 +291,7 @@ let private inferFunction leastUpperBound (currentType : Types.Type) (f : Ast.Fu
         |> List.map (fun p -> (fst p, snd p |> Identifier.typeId))
         |> Map.ofList
     Result.map 
-        (fun body -> {Body = body; ReturnType = f.ReturnType; Parameters = f.Parameters; GenericParameters = f.GenericParameters; Name = f.Name })
+        (fun body -> {Body = body; ReturnType = f.ReturnType; Parameters = f.Parameters; Name = f.Name })
         (f.Body
             |> List.mapFold inferStatement functionArguments
             |> fst
@@ -328,18 +328,17 @@ let inferProperty leastUpperBound (currentType : Types.Type) (p : Ast.Property<A
         (fun init -> {Name = p.Name; Initializer = init; Type = p.Type})
         (Result.mapOption annotate p.Initializer)
 
-let private inferClass knownTypes (c : Class<AstExpression>) : CompilerResult<Class<InferredTypeExpression>>=
+let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerResult<ModuleClass<InferredTypeExpression>>=
     let leastUpperBound = leastUpperBoundIdentifier knownTypes
-    let currentType = (knownTypes |> Map.find (Identifier.fromClassDeclaration c))
+    let currentType = (knownTypes |> Map.find (c.Identifier))
     let inferFunction = inferFunction leastUpperBound currentType
     let inferConstructor = inferConstructor leastUpperBound currentType
     let inferProperty = inferProperty leastUpperBound currentType
     Result.map3
         (fun functions properties ctor -> 
         {
-        Name = c.Name; 
+        Identifier = c.Identifier; 
         Functions = functions; 
-        GenericTypeParameters = c.GenericTypeParameters; 
         BaseClass = c.BaseClass; 
         ImplementedInterfaces = c.ImplementedInterfaces; 
         Properties = properties
@@ -353,11 +352,11 @@ let private inferClass knownTypes (c : Class<AstExpression>) : CompilerResult<Cl
         |> Result.merge)
         (Result.mapOption inferConstructor c.Constructor)
 
-let private inferModule knownTypes modul =
+let private inferModule knownTypes (modul : Module<AstExpression>) =
     let leastUpperBound = leastUpperBoundIdentifier knownTypes
-    let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find (Identifier.fromModule modul))
+    let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find modul.Identifier)
     Result.map2
-        (fun functions classes -> { Name = modul.Name; Functions = functions; Classes = classes } )
+        (fun functions classes -> { Identifier = modul.Identifier; Functions = functions; Classes = classes } )
         (modul.Functions
         |> List.map inferFunction 
         |> Result.merge)

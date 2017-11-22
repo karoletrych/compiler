@@ -6,5 +6,6 @@ nuget Expecto
 nuget FAKE
 nuget Fantomas
 nuget FParsec
+nuget FsCheck
 nuget FSharp.Core
 nuget FSharpx.Collections

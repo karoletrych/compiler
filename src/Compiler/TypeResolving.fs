@@ -131,7 +131,6 @@ let private resolveFunction resolveStatement resolveType func =
             Parameters = p; 
             ReturnType = r; 
             Body = b; 
-            GenericParameters = []
         })
 
 let private resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction clas =
@@ -178,8 +177,7 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
        |> Result.merge
     (fun baseClass interfaces properties constructor functionDeclarations -> 
     {
-        Name = clas.Name
-        GenericTypeParameters = []
+        Identifier = clas.Identifier
         BaseClass = baseClass
         ImplementedInterfaces = interfaces
         Properties = properties
@@ -188,22 +186,20 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
     })
     <!> baseClass <*> interfaces <*> properties <*> constructor <*> functionDeclarations
 
-let private resolveModuleFunction knownTypes modul = 
-    let moduleId = Identifier.fromModule modul
-    let resolveTypeSpec = resolveTypeSpec knownTypes moduleId
+let private resolveModuleFunction knownTypes (modul : Module<AstExpression>) = 
+    let resolveTypeSpec = resolveTypeSpec knownTypes modul.Identifier
     let resolveExpression = resolveExpression resolveTypeSpec
     let resolveStatement = resolveStatement resolveExpression resolveTypeSpec
     resolveFunction resolveStatement resolveTypeSpec
 let private resolveModuleClass knownTypes clas = 
-    let classId = Identifier.fromClassDeclaration clas
-    let resolveTypeSpec = resolveTypeSpec knownTypes classId
+    let resolveTypeSpec = resolveTypeSpec knownTypes clas.Identifier
     let resolveExpression = resolveExpression resolveTypeSpec
     let resolveStatement = resolveStatement resolveExpression resolveTypeSpec
     let resolveFunction = resolveFunction resolveStatement resolveTypeSpec
     resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction clas
 
 
-let private resolveModule knownTypes modul = 
+let private resolveModule knownTypes (modul : Module<AstExpression>) = 
     let resolveModuleFunction = resolveModuleFunction knownTypes modul
     let resolveClass = resolveModuleClass knownTypes
     

@@ -1,12 +1,13 @@
 module Compiler.Parser
 
 open System
+open System.IO
 open System.Text.RegularExpressions
 open Ast
 open FParsec
 
 type SourceFile = {
-    Name : string
+    Name : string 
     Code : string
 }
 
@@ -281,10 +282,6 @@ module Function =
     let parametersList =
         many parameter
 
-    let pGenericParameters = 
-        let pGenericParameter = pIdentifier |>> GenericTypeParameter
-        between Char.leftAngleBracket Char.rightAngleBracket 
-            (sepBy pGenericParameter Char.comma)
     let pFunctionDeclaration = 
         let returnType = opt (Char.colon >>. Types.pTypeSpec)
         let body =
@@ -293,18 +290,16 @@ module Function =
                 Char.rightBrace
                 (many Statement.pStatement)
 
-        pipe5 
+        pipe4 
             (Keyword.pFun >>. pIdentifier)
-            (opt pGenericParameters >>= toList)
             parametersList 
             returnType
             body 
-            (fun a b c d e 
+            (fun a b c e 
                 -> {
                     Name = a;
-                    GenericParameters = b;
-                    Parameters = c;
-                    ReturnType = d;
+                    Parameters = b;
+                    ReturnType = c;
                     Body = e
                 }
             )
@@ -339,16 +334,14 @@ module Class =
             (many Function.pFunctionDeclaration)
 
     let pClass : Parser<Class<AstExpression>, unit> =
-        pipe4
+        pipe3
             (Keyword.pClass >>. pClassName)
-            (opt Function.pGenericParameters >>= toList)
             pInheritanceDeclaration
             (between Char.leftBrace Char.rightBrace pClassBody)
-            (fun name genericParameters inheritanceDeclaration body ->
+            (fun name inheritanceDeclaration body ->
             let properties, constructor, functions = body
             {
                 Name = name;
-                GenericTypeParameters = genericParameters;
                 BaseClass = fst inheritanceDeclaration;
                 Properties = properties;
                 Constructor = constructor;
@@ -366,7 +359,7 @@ let pProgram = spaces >>. many pDeclaration
 let parseProgram =
     removeComments >> run pProgram
 
-open Compiler.CompilerResult
+open CompilerResult
 let parseDeclarations = 
     parseProgram 
     >>
@@ -375,7 +368,8 @@ let parseDeclarations =
     | ParserResult.Failure(message, error, state) -> Result.failure (SyntaxError ((message, error, state).ToString()))
 
 let parseModules (source : SourceFile list) = 
-    let buildModule (name, declarationsResult) = 
+    let buildModule (name : string, declarationsResult) = 
+        let name = Module.Filesystem (name.Split(Path.DirectorySeparatorChar) |> List.ofArray)
         declarationsResult 
         |> Result.map (fun decls -> Module.create name decls)
     source

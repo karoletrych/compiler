@@ -3,7 +3,6 @@ open System.Reflection.Emit
 open System.Reflection
 open IR
 open Ast
-open System.Runtime.InteropServices
 
 type TypeLookupTable = {
     TypeBuilders : Map<TypeIdentifier, TypeBuilder>
@@ -105,7 +104,6 @@ let private generateModule
         let methodBuilder = defineStaticMethod types typeBuilder f
         generateMethodBody types methodBuilder f.Body
     typeBuilder.CreateType()
-
 
 let generateAssembly 
     (assemblyBuilder : AssemblyBuilder) 

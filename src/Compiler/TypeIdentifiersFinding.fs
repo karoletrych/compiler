@@ -3,8 +3,8 @@ module Compiler.TypeIdentifiersFinding
 open Types
 open Ast
 
-let typeIdentifiersInModule modul =
-    Identifier.fromModule modul :: (modul.Classes |> List.map Identifier.fromClassDeclaration)
+let typeIdentifiersInModule (modul : Module<AstExpression>) =
+    modul.Identifier :: (modul.Classes |> List.map (fun c -> c.Identifier))
 
 let typeIdentifiers (externalTypes: Map<TypeIdentifier, Type>) modules =
     let externalTypeIds = 

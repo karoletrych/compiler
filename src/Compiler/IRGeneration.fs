@@ -67,14 +67,14 @@ let private buildProperty (prop : Ast.Property<InferredTypeExpression>) = {
     Type = prop.Type |> Identifier.typeId
 }
 
-let private buildClass (c : Ast.Class<InferredTypeExpression>) : IR.Class = {
-    Identifier = c |> Identifier.fromClassDeclaration
+let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class = {
+    Identifier = c.Identifier
     Methods = c.Functions |> List.map buildFunction
     Properties = c.Properties |> List.map buildProperty
 }
 
-let private buildModule modul : IR.Module = {
-        Identifier = modul |> Identifier.fromModule
+let private buildModule (modul : Module<InferredTypeExpression>) : IR.Module = {
+        Identifier = modul.Identifier
         Classes = modul.Classes |> List.map buildClass
         Functions = modul.Functions |> List.map buildFunction
     } 

@@ -4,7 +4,6 @@ open Compiler.Ast
 let rec expressionCata 
     assignment
     binary 
-    inferredType 
     functionCall 
     identifier 
     literal 
@@ -18,7 +17,6 @@ let rec expressionCata
         expressionCata
             assignment
             binary 
-            inferredType 
             functionCall 
             identifier 
             literal 

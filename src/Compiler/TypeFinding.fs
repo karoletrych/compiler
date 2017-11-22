@@ -24,7 +24,7 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
             |> Option.defaultWith(
                 fun () ->
                     modul.Classes 
-                    |> List.find (fun c -> (Identifier.fromClassDeclaration c) = typeId) 
+                    |> List.find (fun c -> c.Identifier = typeId) 
                     |> createTypeFromClassDeclaration)
         
         let createConstructor (astCtor : Constructor<AstExpression>) = 
@@ -45,8 +45,8 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
             Fields = declaredType.Properties 
                      |> List.map (fun prop -> 
                          (prop.Name, Identifier.fromTypeSpec prop.Type))
-            Identifier = Identifier.fromClassDeclaration declaredType;
-            GenericParameters = [] //TODO: fix
+            Identifier = declaredType.Identifier;
+            GenericParameters = []
             GenericArguments = []
             ImplementedInterfaces = []
             Methods = declaredType.Functions |> List.map createFunctionSignature;
@@ -55,20 +55,21 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
 
-let moduleType modul = 
+let moduleType (modul : Module<AstExpression>) = 
     {
         BaseType = None
         DeclaredConstructors = []
         Fields = []
-        Identifier = Identifier.fromModule modul
+        Identifier = modul.Identifier
         GenericParameters = [] 
         GenericArguments = []
         ImplementedInterfaces = []
         Methods = modul.Functions |> List.map createFunctionSignature;
         NestedTypes = []
     }
-let typesDictionary externalTypes modules =
-    let withNames = List.map (fun c -> (c.Identifier, c)) >> Map.ofList
+let typesDictionary externalTypes (modules : Module<AstExpression> list) =
+    let withNames (types : Type list) = 
+        types |> (List.map (fun c -> (c.Identifier, c)) >> Map.ofList)
     modules    
     |> List.collect (fun m -> (moduleType m) :: findTypesInModule externalTypes m)
     |> withNames
