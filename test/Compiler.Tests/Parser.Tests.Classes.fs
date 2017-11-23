@@ -13,7 +13,7 @@ let tests =
         {
         }
         "
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     // testCase "class with fields" <| fun _ ->
     //   let source = "
     //     class A
@@ -57,10 +57,10 @@ let tests =
     
     testCase "generic class" <| fun _ ->
       let source = "class A<T>{}"
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     testCase "generic class with 2 type parameters" <| fun _ ->
       let source = "class A<T, V>{}"
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     testCase "generic class with inheritance and base constructor call" <| fun _ ->
       let source = "class B<T, V>
                     {
@@ -84,7 +84,7 @@ let tests =
                             _number = number;
                         }
                     }"
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     testCase "class extending class and implementing interfaces" <| fun _ ->
       let source = "class B<T, V>
     {
@@ -108,7 +108,7 @@ let tests =
             _number = number;
         }
     }"
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     testCase "generic function declaration" <| fun _ ->
       let source = "
           fun add<T,V,U> (t : T) (v : V) (u : U)
@@ -116,6 +116,6 @@ let tests =
             return t+v+u;
           }
         "
-      isOk (parseDeclarations source) ""
+      isOk (parse source) ""
     ]
 

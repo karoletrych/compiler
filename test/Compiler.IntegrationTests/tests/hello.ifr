@@ -1,0 +1,5 @@
+module Hello
+fun main : void
+{
+	System::Console:.WriteLine("Hello, World!");
+}

@@ -61,6 +61,7 @@ module Keyword =
     let pNew = skipString "new" .>> nonAlphanumericWs
     let pImplements = skipString "implements" .>> nonAlphanumericWs
     let pExtends = skipString "extends" .>> nonAlphanumericWs
+    let pModule = skipString "module" .>> nonAlphanumericWs
     let keywords = [ 
         "fun";
         "return";
@@ -73,6 +74,7 @@ module Keyword =
         "new";
         "true";
         "false"
+        "module"
     ]
 
 let pIdentifier, pIdentifierImpl = createParserForwardedToRef<string, _>() 
@@ -354,26 +356,32 @@ let pDeclaration =
         (Function.pFunctionDeclaration) |>> FunctionDeclaration;
         Class.pClass |>> ClassDeclaration
         ]
-let pProgram = spaces >>. many pDeclaration 
+let moduleIdentifier = opt (Keyword.pModule >>. pIdentifier)
+let pProgramFile = spaces >>. moduleIdentifier .>>. many pDeclaration 
+                   |>> (fun (mi,decls) -> {ModuleIdentifier = mi; Declarations = decls})
 
-let parseProgram =
-    removeComments >> run pProgram
+let parseProgramFile =
+    removeComments >> run pProgramFile
 
 open CompilerResult
-let parseDeclarations = 
-    parseProgram 
+let parse = 
+    parseProgramFile 
     >>
     function
     | ParserResult.Success(result, _, _) -> Result.succeed result 
     | ParserResult.Failure(message, error, state) -> Result.failure (SyntaxError ((message, error, state).ToString()))
 
 let parseModules (source : SourceFile list) = 
-    let buildModule (name : string, declarationsResult) = 
-        let name = Module.Filesystem (name.Split(Path.DirectorySeparatorChar) |> List.ofArray)
-        declarationsResult 
-        |> Result.map (fun decls -> Module.create name decls)
+    let buildModule (fileName : string, programFile : CompilerResult<ProgramFile>) = 
+        programFile 
+        |> Result.map (fun program ->
+            let moduleId = 
+                match program.ModuleIdentifier with
+                |None -> (fileName.Split(Path.DirectorySeparatorChar) |> List.ofArray)
+                |Some s -> (s.Split([|"::"|], StringSplitOptions.None) |> List.ofArray)
+            Module.create moduleId program.Declarations)
     source
-    |> List.map (fun s -> (s.Name, parseDeclarations s.Code))
+    |> List.map (fun s -> (s.Name, parse s.Code))
     |> List.map buildModule
     |> Result.merge
     

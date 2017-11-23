@@ -1,6 +1,11 @@
 module Compiler.Ast
 
-type Declaration<'Expression> =
+type ProgramFile = {
+    ModuleIdentifier : string option
+    Declarations : Declaration<AstExpression> list
+}
+
+and Declaration<'Expression> =
 | FunctionDeclaration of Function<'Expression>
 | ClassDeclaration of Class<'Expression>
 
@@ -227,13 +232,8 @@ module Identifier =
         ti
 
 module Module =
-    type ModuleIdentifier =
-        | Filesystem of string list
-        | Custom of string
-    let create (moduleId : ModuleIdentifier) declarations =
-        let nspace = 
-            match moduleId with
-            | Filesystem ns -> ns |> List.rev
+    let create (moduleNamespace : string list) declarations =
+        let nspace = moduleNamespace |> List.rev
         let identifier = 
             {
                 Namespace = nspace.Tail;
@@ -276,4 +276,4 @@ module Module =
             Functions = functions
             Classes = classes
         }
-    let createDefault declarations = create (Filesystem ["DEFAULT"]) declarations 
+    let createDefault declarations = create (["DEFAULT"]) declarations 

@@ -2,6 +2,7 @@ module Compiler.IRGeneration
 open IR
 open Ast
 open TypeInference
+open FSharpx.Collections.NonEmptyList
 
 let private convertIdentifier i =
         // match lookupILVariableScope identifierRef with
@@ -40,16 +41,26 @@ let rec private convertExpression (expr : InferredTypeExpression) =
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private buildFunctionBody statements : ILInstruction list =
-    let generateIL (s : Statement<InferredTypeExpression>) =
+    let generateIR (s : Statement<InferredTypeExpression>) =
+        let getType expr = 
+            let (InferredTypeExpression(expr, t)) = expr
+            t
         match s with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = (Identifier.typeId t)
             (method.Arguments |> List.collect convertExpression)
             @ 
-            [Call(typeId, method.Name, [])]
-    match statements with
-    | head::tail -> generateIL head @ buildFunctionBody tail
-    | [] -> []
+            [Call(typeId, method.Name, method.Arguments |> List.map getType)]
+    let instructions = 
+        statements 
+        |> List.collect generateIR
+    instructions @ 
+    if not (instructions 
+            |> List.exists (function
+                             | Ret -> true
+                             | _ -> false))
+    then [Ret]
+        else []
 
 let private locals statements =
     []

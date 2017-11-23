@@ -9,13 +9,14 @@ open Compiler
 open Parser
 open CILGeneration
 open CompilerResult
-let testDirectory = Path.Combine(Assembly.GetEntryAssembly().Location, @"..\..\..\..\tests")
+let exePath = Path.Combine(Assembly.GetEntryAssembly().Location, @"..\")
+let testDirectory = Path.Combine(exePath, @"..\..\..\tests")
 let files = 
     System.IO.Directory.GetFiles(testDirectory)
     |> List.ofArray
 let testFiles = 
     files 
-    |> List.filter (fun f -> Path.GetExtension(f) = ".ks") 
+    |> List.filter (fun f -> Path.GetExtension(f) = ".ifr") 
 
 let resultFiles = 
     files 
@@ -27,10 +28,13 @@ let withCorrespondingOutput input =
 let readFiles (input, output) = ({Name = input; Code = File.ReadAllText input}, File.ReadAllText output)
 let mscorlib = [Assembly.GetAssembly(typeof<obj>)]
 let compile input = compile [input] mscorlib
-let generateAssembly (ir : CompilerResult<IR.Module list>) = 
+let generateAssembly (irResult : CompilerResult<IR.Module list>)=
+    let ir = irResult.Value
+    File.WriteAllText(Path.Combine(exePath, "ir.fsx"),(sprintf "%A" ir))
+
     let assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
-                            AssemblyName("Test.exe"), AssemblyBuilderAccess.RunAndSave)
-    generateAssembly assemblyBuilder mscorlib (Result.get ir) true
+                            AssemblyName("a"), AssemblyBuilderAccess.RunAndSave)
+    generateAssembly assemblyBuilder mscorlib ir true
     assemblyBuilder
 
 let execute (assemblyBuilder : AssemblyBuilder) =
@@ -38,8 +42,9 @@ let execute (assemblyBuilder : AssemblyBuilder) =
     let originalOut = Console.Out
     Console.SetOut(stringWriter)
 
+    assemblyBuilder.Save("a.exe")
     assemblyBuilder.EntryPoint.Invoke(null, Array.empty) |> ignore
-
+    
     Console.SetOut(originalOut)
     stringWriter.ToString()
 
@@ -55,7 +60,7 @@ let createTest testName (output, expectedOutput) =
 
 [<Tests>]
 let tests = 
-    testList "Integration tests"
+    testSequenced <| testList "Integration tests"
         (testFiles 
         |> List.map (fun path -> 
                         let testData = getTestData path
@@ -65,3 +70,4 @@ let tests =
 [<EntryPoint>]
 let main argv =
     runTestsInAssembly defaultConfig argv
+

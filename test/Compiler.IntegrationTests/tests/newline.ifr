@@ -1,0 +1,6 @@
+fun main : void
+{
+	System::Console:.WriteLine();
+	System::Console:.WriteLine();
+	System::Console:.WriteLine();
+}

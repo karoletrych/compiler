@@ -17,6 +17,12 @@ and Class =
         Methods : Method list
     }
 
+and MethodRef = 
+    {
+        Name : string
+        Parameters : TypeIdentifier list
+    }
+
 and Method =
     {
         Name : string

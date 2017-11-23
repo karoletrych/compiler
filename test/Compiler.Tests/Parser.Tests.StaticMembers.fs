@@ -13,23 +13,23 @@ let tests =
                         {
                             System::Console:.WriteLine();
                         }"
-              isOk (parseDeclarations source) "" 
+              isOk (parse source) "" 
             testCase "static function call expression" <| fun _ -> 
               let source = " fun main
                         {
                             var s = System::Console:.ReadLine();
                         }"
-              isOk (parseDeclarations source) "" 
+              isOk (parse source) "" 
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main
                         {
                             var s : System::Object;
                         }"
-              isOk (parseDeclarations source) ""
+              isOk (parse source) ""
             testCase "fully qualified type" <| fun _ -> 
               let source = " fun main (o : System::Object)
                         {
                             System::Console:.WriteLine(o);
                         }"
-              isOk (parseDeclarations source) ""
+              isOk (parse source) ""
         ]
