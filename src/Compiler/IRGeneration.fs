@@ -23,21 +23,23 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | StringLiteral s -> [Ldstr(s)]
     | AssignmentExpression(_, _) -> failwith "Not Implemented"
     | BinaryExpression(_, _, _) -> failwith "Not Implemented"
-    | FunctionCallExpression(_) -> failwith "Not Implemented"
+    | InstanceMemberExpression(_) -> failwith "Not Implemented"
     | IdentifierExpression(_) -> failwith "Not Implemented"
     | ListInitializerExpression(_) -> failwith "Not Implemented"
-    | MemberExpression(_) -> failwith "Not Implemented"
+    | InstanceMemberExpression(_) -> failwith "Not Implemented"
     | NewExpression(_, _) -> failwith "Not Implemented"
-    | StaticMemberExpression(t, call) -> 
-        let getType expr = 
-            let (InferredTypeExpression(expr, t)) = expr
-            t
-        let args = call.Arguments |> List.collect convertExpression
-        args 
-        @ [Call(Identifier.typeId t,
-                call.Name,
-                call.Arguments 
-                    |> List.map getType)]
+    | StaticMemberExpression(t, m) -> 
+        match m with
+        | MemberFunctionCall call ->
+            let getType expr = 
+                let (InferredTypeExpression(expr, t)) = expr
+                t
+            let args = call.Arguments |> List.collect convertExpression
+            args 
+            @ [Call(Identifier.typeId t,
+                    call.Name,
+                    call.Arguments 
+                        |> List.map getType)]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private buildFunctionBody statements : ILInstruction list =

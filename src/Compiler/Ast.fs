@@ -68,7 +68,7 @@ and Statement<'Expression> =
 | CompositeStatement of Statement<'Expression> list
 | FunctionCallStatement of FunctionCall<'Expression>
 | IfStatement of 'Expression * Statement<'Expression> * Statement<'Expression> option
-| MemberFunctionCallStatement of MemberFunctionCall<'Expression>
+| InstanceMemberFunctionCallStatement of 'Expression * FunctionCall<'Expression>
 | ReturnStatement of 'Expression option
 | StaticFunctionCallStatement of TypeSpec * FunctionCall<'Expression>
 | VariableDeclaration of VariableDeclaration<'Expression>
@@ -82,8 +82,23 @@ and VariableDeclaration<'Expression> =
 | DeclarationWithType of string * TypeSpec
 | FullDeclaration of string * TypeSpec * 'Expression
 
-and MemberFunctionCall<'Expression> = MemberFunctionCall of 'Expression * 'Expression
+and Expression<'Expression> =
+| AssignmentExpression of 'Expression * 'Expression
+| BinaryExpression of 'Expression * BinaryOperator * 'Expression
+| LocalFunctionCallExpression of FunctionCall<'Expression>
+| IdentifierExpression of string
+| ListInitializerExpression of 'Expression list
+| LiteralExpression of Literal
+| InstanceMemberExpression of 'Expression * Member<'Expression>
+| NewExpression of TypeSpec * 'Expression list
+| StaticMemberExpression of TypeSpec * Member<'Expression>
+| UnaryExpression of UnaryOperator * 'Expression
 
+and AstExpression = AstExpression of Expression<AstExpression>
+
+and Member<'Expression> = 
+| MemberFunctionCall of FunctionCall<'Expression>
+| MemberField of string
 
 and FunctionCall<'Expression> = {
      Name : string;
@@ -157,22 +172,8 @@ with member x.GenericArgumentsNumber =
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
-and Expression<'Expression> =
-| AssignmentExpression of 'Expression * 'Expression
-| BinaryExpression of 'Expression * BinaryOperator * 'Expression
-| FunctionCallExpression of FunctionCall<'Expression>
-| IdentifierExpression of string
-| ListInitializerExpression of 'Expression list
-| LiteralExpression of Literal
-| MemberExpression of MemberFunctionCall<'Expression>
-| NewExpression of TypeSpec * 'Expression list
-| StaticMemberExpression of TypeSpec * FunctionCall<'Expression>
-| UnaryExpression of UnaryOperator * 'Expression
-
-and AstExpression = AstExpression of Expression<AstExpression>
 
 module Identifier = 
-
     let rec fromDotNet (t : System.Type) = {
         Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
         TypeName = 

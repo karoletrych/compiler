@@ -8,9 +8,11 @@ let rec expressionCata
     identifier 
     literal 
     listInitializer 
-    memberExpression 
+    memberFunctionCall 
+    memberField
     newExpression 
-    staticMember 
+    staticMemberFunctionCall 
+    staticMemberField
     unary 
     expression : 'r = 
     let recurse = 
@@ -21,25 +23,37 @@ let rec expressionCata
             identifier 
             literal 
             listInitializer 
-            memberExpression 
+            memberFunctionCall 
+            memberField
             newExpression 
-            staticMember 
+            staticMemberFunctionCall
+            staticMemberField
             unary 
     let (AstExpression expression) = expression
     match expression with
         | AssignmentExpression(e1, e2) -> assignment ((recurse e1), (recurse e2))
         | BinaryExpression(e1, op, e2) -> binary ((recurse e1), op, (recurse e2))
-        | FunctionCallExpression(fc) -> 
+        | LocalFunctionCallExpression(fc) -> 
             let args = fc.Arguments |> List.map recurse
             functionCall (fc.Name, args, fc.GenericArguments) 
         | IdentifierExpression(ie) -> identifier ie 
         | LiteralExpression(le) -> literal le
         | ListInitializerExpression list -> list |> List.map recurse |> listInitializer
-        | MemberExpression (MemberFunctionCall(e1,e2)) -> memberExpression (recurse e1,recurse e2)
+        | InstanceMemberExpression (e1, m) -> 
+            match m with
+            | MemberFunctionCall (fc) ->  
+                let args = fc.Arguments |> List.map recurse
+                memberFunctionCall (recurse e1, (fc.Name, args, fc.GenericArguments))
+            | MemberField (f) ->
+                memberField f
         | NewExpression (t, args) -> newExpression (t, args |> List.map recurse)
-        | StaticMemberExpression (t, call) -> 
-            let args = call.Arguments |> List.map recurse
-            staticMember (t, (call.Name, args, call.GenericArguments))
+        | StaticMemberExpression (t, m) -> 
+             match m with
+            | MemberFunctionCall (fc) ->  
+                let args = fc.Arguments |> List.map recurse
+                staticMemberFunctionCall (t, (fc.Name, args, fc.GenericArguments))
+            | MemberField (f) ->
+                staticMemberField (t,f)
         | UnaryExpression(op, e) -> unary (op, (recurse e))
 let rec statementCata 
     functionCall

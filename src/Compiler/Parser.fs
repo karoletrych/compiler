@@ -151,7 +151,8 @@ module Expression =
 
     let pFunctionCallExpression = 
         pFunctionCall 
-        |>> FunctionCallExpression
+        |>> LocalFunctionCallExpression
+        |>> AstExpression
     module Literal =
         let pStringLiteral = 
             (between (pstring "\"") 
@@ -171,6 +172,7 @@ module Expression =
     let pIdentifierExpression = 
         pIdentifier 
             |>> fun id -> IdentifierExpression(id)
+            |>> AstExpression
 
     opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> AssignmentExpression(x, y) |> AstExpression)) 
 
@@ -191,14 +193,36 @@ module Expression =
     opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x) |> AstExpression)) 
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x) |> AstExpression)) 
 
-    opp.AddOperator(InfixOperator(".", lookAhead (spaces .>> pFunctionCall), 9, Associativity.Left,
-                                 fun x y -> MemberExpression (MemberFunctionCall(x,y)) |> AstExpression))
+    let instanceMemberExpr = 
+        attempt (pFunctionCallExpression) <|> (pIdentifierExpression)
+    opp.AddOperator(InfixOperator(
+                        ".", 
+                        lookAhead (spaces .>> (instanceMemberExpr)),
+                        9,
+                        Associativity.Left,
+                            fun x y -> 
+                                let (AstExpression e) = y
+                                match e with
+                                | LocalFunctionCallExpression x -> MemberFunctionCall x
+                                | IdentifierExpression x -> MemberField x
+                                | _ -> failwith "parser internal error"
+                                |> fun instanceMember -> InstanceMemberExpression(x, instanceMember)
+                                |> AstExpression
+                                ))
 
     let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
-    let pStaticMemberExpression =
-     Types.pCustomType .>>. ((Char.colonDot >>. pFunctionCall) )
-     |>> StaticMemberExpression
+    let pStaticFunctionCall =
+        Char.colonDot >>. pFunctionCall
+        |>> MemberFunctionCall
+
+    let pStaticField : Parser<Member<AstExpression>, unit> =
+        Char.colonDot >>. pIdentifier
+        |>> MemberField
+    
+    let staticMember = 
+        Types.pCustomType .>>. ((attempt pStaticFunctionCall) <|> pStaticField)
+        |>> StaticMemberExpression
 
     let pListInitializerExpression =
              between 
@@ -208,10 +232,10 @@ module Expression =
 
     opp.TermParser <- choice [
         pListInitializerExpression |>> AstExpression
-        attempt pStaticMemberExpression|>> AstExpression
+        attempt staticMember       |>> AstExpression
         Literal.pLiteralExpression |>> AstExpression
-        attempt pFunctionCallExpression |>> AstExpression
-        pIdentifierExpression |>> AstExpression
+        attempt pFunctionCallExpression
+        pIdentifierExpression
         pParenthesizedExpression 
     ] 
 
@@ -255,9 +279,12 @@ module Statement =
      >>= (fun expr ->
                  let (AstExpression expr) = expr
                  match expr with
-                 |MemberExpression(me) -> preturn (MemberFunctionCallStatement me)
-                 |AssignmentExpression(e1,e2) -> preturn (AssignmentStatement (e1, e2))
-                 |FunctionCallExpression(fc) -> preturn (FunctionCallStatement (fc))
+                 | InstanceMemberExpression(callee, memberFunction) -> 
+                            match memberFunction with
+                            | MemberFunctionCall functionCall -> preturn (InstanceMemberFunctionCallStatement (callee, functionCall))
+                            | MemberField _ -> fail "given expression cannot be a statement"
+                 | AssignmentExpression(e1,e2) -> preturn (AssignmentStatement (e1, e2))
+                 | LocalFunctionCallExpression fc -> preturn (FunctionCallStatement (fc))
                  | _ -> fail "given expression cannot be a statement" )
 
     let pStaticFunctionCallStatement =

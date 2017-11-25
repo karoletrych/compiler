@@ -125,21 +125,25 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ex
         |> Result.merge 
         |> Result.map leastUpperBound 
         |> Result.map Identifier.list
-    let memberExpression (e1, e2) = failwith "TODO:"
+    let memberFunctionCall (e1, e2) = failwith "TODO:"
+    let memberField f = failwith "TODO:"
     let newExpression (t, _) = Result.succeed (Identifier.typeId t)
-    let staticMember (t, (name, args, generics)) = failwith "TODO:"
+    let staticMemberFunctionCall (t, (name, args, generics)) = failwith "TODO:"
+    let staticMemberField = failwith "TODO:"
 
     let unary (_, t) = t
     expressionCata 
-        assignment 
+        assignment
         binary 
         functionCall 
         identifier 
         literal 
         listInitializer 
-        memberExpression
+        memberFunctionCall 
+        memberField
         newExpression 
-        staticMember 
+        staticMemberFunctionCall 
+        staticMemberField
         unary 
         expression
 
@@ -155,9 +159,9 @@ let rec private annotate
         Result.map2 (fun e1 e2 -> BinaryExpression(e1,op,e2)) (recurse e1) (recurse e2), inferExpression expr
     | IdentifierExpression i -> Result.succeed (IdentifierExpression(i)), inferExpression expr
     | LiteralExpression l -> Result.succeed (LiteralExpression(l)), inferExpression expr
-    | FunctionCallExpression fc -> failwith "Notimplemented"
+    | LocalFunctionCallExpression _ ->  failwith "Notimplemented"
     | ListInitializerExpression l -> failwith "Notimplemented"
-    | MemberExpression m -> failwith "Notimplemented"
+    | InstanceMemberExpression (callee, m) -> failwith "Notimplemented"
     | NewExpression(t, args)-> failwith "Notimplemented"
     | StaticMemberExpression (t, call)-> failwith "Notimplemented"
     | UnaryExpression(op,e) -> failwith "Notimplemented"
@@ -219,7 +223,7 @@ let rec private inferStatement
         Result.map3 (fun e s elseS -> IfStatement(e, s,elseS))
             (annotate e) (recurse s |> fst) (elseS |> Result.mapOption (recurse >> fst))
             |> withOldVariables
-    | MemberFunctionCallStatement mfcs ->
+    | InstanceMemberFunctionCallStatement (callee, fc) ->
         failwith "TODO:"
     | ReturnStatement exprOption ->
         exprOption
