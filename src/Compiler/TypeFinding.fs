@@ -3,7 +3,7 @@ open Types
 open Ast
 open FSharpx.Collections
 
-let private createFunctionSignature (method : Function<AstExpression>) = 
+let private createFunctionSignature isStatic (method : Function<AstExpression>)  : Types.Function = 
     {
         Parameters = 
             method.Parameters 
@@ -14,6 +14,7 @@ let private createFunctionSignature (method : Function<AstExpression>) =
             });
         ReturnType = method.ReturnType |> Option.map Identifier.typeId
         Name = method.Name
+        IsStatic = isStatic
     }
 let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
     let rec createTypeFromClassDeclaration declaredType =
@@ -43,14 +44,15 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                        |> getType |> Some;
             DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
             Fields = declaredType.Properties 
-                     |> List.map (fun prop -> 
-                         (prop.Name, Identifier.fromTypeSpec prop.Type))
+                     |> List.map (fun field -> 
+                         ({FieldName = field.Name; Type = Identifier.fromTypeSpec field.Type; IsStatic = false}))
             Identifier = declaredType.Identifier;
             GenericParameters = []
             GenericArguments = []
             ImplementedInterfaces = []
-            Methods = declaredType.Functions |> List.map createFunctionSignature;
+            Methods = declaredType.Functions |> List.map (createFunctionSignature false);
             NestedTypes = []
+            IsStatic = true
         }
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
@@ -64,8 +66,9 @@ let moduleType (modul : Module<AstExpression>) =
         GenericParameters = [] 
         GenericArguments = []
         ImplementedInterfaces = []
-        Methods = modul.Functions |> List.map createFunctionSignature;
+        Methods = modul.Functions |> List.map (createFunctionSignature true);
         NestedTypes = []
+        IsStatic = false
     }
 let typesDictionary externalTypes (modules : Module<AstExpression> list) =
     let withNames (types : Type list) = 

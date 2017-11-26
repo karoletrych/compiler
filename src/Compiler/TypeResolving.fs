@@ -27,40 +27,37 @@ let private resolveTypeSpec
 
 
 let private resolveExpression resolveType expression : CompilerResult<AstExpression>=
-    let assignment (e1,e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(e1, e2)) e1 e2
-    let binary (e1, op, e2) = Result.map2 (fun e1 e2 -> BinaryExpression(e1, op, e2)) e1 e2
-    let functionCall (name, args, generics) = 
+    let resolveFunctionCall (name, args, generics) =
         let argsResult = args |> Result.merge 
         let genericsResult =
             generics 
             |> List.map resolveType 
             |> Result.merge
-        (argsResult, genericsResult) 
-        ||> Result.map2 (fun args generics ->
-            LocalFunctionCallExpression({Name = name; Arguments = args; GenericArguments = generics})) 
+        Result.map2 (fun args generics -> {Name = name; Arguments = args; GenericArguments = generics}) 
+            argsResult genericsResult
+
+    let assignment (e1,e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(e1, e2)) e1 e2
+    let binary (e1, op, e2) = Result.map2 (fun e1 e2 -> BinaryExpression(e1, op, e2)) e1 e2
+    let functionCall fc = 
+        (resolveFunctionCall fc)
+        |> Result.map (fun fc -> LocalFunctionCallExpression(fc)) 
         
     let identifier = IdentifierExpression >> Result.succeed
     let literal = LiteralExpression >> Result.succeed
     let listInitializer list = list |> Result.merge |> Result.map ListInitializerExpression 
-    let memberFunctionCall (e1, (name, args, generics)) = 
-        let argsResult = args |> Result.merge 
-        let genericsResult =
-            generics 
-            |> List.map resolveType 
-            |> Result.merge
-        Result.map3 
-            (fun e1 args generics -> 
-                InstanceMemberExpression (e1, MemberFunctionCall({Name=name; Arguments=args; GenericArguments = generics}))) 
-            e1 argsResult genericsResult
-    let memberField f = failwith "TODO"
+    let memberFunctionCall (e1, fc) = 
+        (e1, resolveFunctionCall fc)
+        ||> Result.map2 
+            (fun e1 fc -> 
+                InstanceMemberExpression (e1, MemberFunctionCall(fc))) 
+    let memberField (e,f) = e |> Result.map (fun e -> (e,f |> MemberField) |> InstanceMemberExpression)
     let newExpression (t, args) = Result.map2 (fun t args -> NewExpression(t,args)) (resolveType t) (Result.merge args)
-    let staticMemberFunctionCall (t, (name,args,generics)) =
-        let argsResult = args |> Result.merge 
-        let genericsResult = generics |> List.map resolveType |> Result.merge
-        (resolveType t, argsResult, genericsResult) 
-        |||> Result.map3 (fun t args generics -> StaticMemberExpression(t, MemberFunctionCall({Name = name; Arguments = args; GenericArguments = generics})))
-    let staticMemberField = failwith "TODO"
-
+    let staticMemberFunctionCall (t, fc) =
+        (resolveType t, resolveFunctionCall fc) 
+        ||> Result.map2 (fun t fc -> StaticMemberExpression(t, MemberFunctionCall(fc)))
+    let staticMemberField (t, f) = 
+        (resolveType t) 
+        |> Result.map (fun t -> (t, MemberField f) |> StaticMemberExpression)
 
     let unary (op,e) = Result.map (fun e -> UnaryExpression(op, e)) e
     expressionCata 
@@ -130,7 +127,6 @@ let private resolveFunction resolveStatement resolveType func =
         func.Parameters 
         |> List.map (resolveParameters resolveType)
         |> Result.merge
-    //TODO: GenericParameters = func.GenericParameters |> List.map scanTypeSpec
     let returnType = 
         func.ReturnType 
         |> Result.mapOption resolveType;

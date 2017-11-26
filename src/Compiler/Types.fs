@@ -3,6 +3,7 @@ open Ast
 
 type Type = 
     {
+        IsStatic : bool
         BaseType : Type option
         DeclaredConstructors : Constructor list
         Identifier : TypeIdentifier
@@ -19,9 +20,20 @@ and Function = {
         Name : string    
         Parameters : Parameter list
         ReturnType : TypeIdentifier option
+        IsStatic : bool
     }
+
 and Constructor = { 
         Parameters : Parameter list 
     }
-and Parameter = { Type : TypeIdentifier; ParameterName : string }
-and Field = string * TypeIdentifier
+
+and Parameter = { 
+    Type : TypeIdentifier;
+    ParameterName : string 
+}
+
+and Field = { 
+    Type : TypeIdentifier; 
+    FieldName : string 
+    IsStatic : bool 
+}

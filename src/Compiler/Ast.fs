@@ -101,10 +101,10 @@ and Member<'Expression> =
 | MemberField of string
 
 and FunctionCall<'Expression> = {
-     Name : string;
-     GenericArguments : TypeSpec list;
-     Arguments : 'Expression list
-     }
+        Name : string;
+        GenericArguments : TypeSpec list;
+        Arguments : 'Expression list
+    }
 
 
 and BinaryOperator =

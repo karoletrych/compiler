@@ -45,15 +45,15 @@ let rec expressionCata
                 let args = fc.Arguments |> List.map recurse
                 memberFunctionCall (recurse e1, (fc.Name, args, fc.GenericArguments))
             | MemberField (f) ->
-                memberField f
+                memberField (recurse e1, f)
         | NewExpression (t, args) -> newExpression (t, args |> List.map recurse)
         | StaticMemberExpression (t, m) -> 
              match m with
-            | MemberFunctionCall (fc) ->  
+             | MemberFunctionCall (fc) ->  
                 let args = fc.Arguments |> List.map recurse
                 staticMemberFunctionCall (t, (fc.Name, args, fc.GenericArguments))
-            | MemberField (f) ->
-                staticMemberField (t,f)
+             | MemberField (f) ->
+                staticMemberField (t, f)
         | UnaryExpression(op, e) -> unary (op, (recurse e))
 let rec statementCata 
     functionCall

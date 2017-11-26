@@ -6,7 +6,8 @@ type Failure =
 | SyntaxError of string
 | TypeNotFound of TypeSpec
 | LocalFunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
-| StaticFunctionNotFound of TypeIdentifier * string * TypeIdentifier list * TypeIdentifier list
+| FunctionNotFound of TypeIdentifier * string * TypeIdentifier list * TypeSpec list
+| FieldNotFound of TypeIdentifier * string
 | CannotInferType of string
 | UndefinedVariable of string
 
@@ -54,6 +55,12 @@ module Result =
         let fFailure errs = 
             Failure errs 
         result |> either fSuccess fFailure 
+    let bind2 f r1 r2 =
+        match (r1, r2) with
+        | Success s1, Success s2 -> f s1 s2
+        | Failure f1, Success _  -> Failure f1
+        | Success _ , Failure f2 -> Failure f2
+        | Failure f1, Failure f2 -> Failure (f1 @ f2)
 
     let map f result =
         let fSuccess x = 

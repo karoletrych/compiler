@@ -16,20 +16,26 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             Parameters = dotnetMethod.GetParameters() |> Array.toList|> List.map createParameter;
             ReturnType = Some (Identifier.fromDotNet dotnetMethod.ReturnType);
             Name = dotnetMethod.Name
+            IsStatic = dotnetMethod.IsStatic
         }
     let createConstructor (dotnetConstructor : ConstructorInfo) = 
         {
             Parameters = dotnetConstructor.GetParameters() |> Array.toList|> List.map createParameter;
         }
     let createField (dotnetField : FieldInfo) =
-        dotnetField.Name, Identifier.fromDotNet dotnetField.FieldType
+        {
+            FieldName = dotnetField.Name
+            Type = Identifier.fromDotNet dotnetField.FieldType
+            IsStatic = dotnetField.IsStatic
+        }
     {
         BaseType = 
             if dotnetType.BaseType <> null then 
                 Some (createTypeFromDotNetType dotnetType.BaseType)
             else None;
         DeclaredConstructors = dotnetType.GetConstructors() |> Array.toList|> List.map createConstructor;
-        Fields = dotnetType.GetFields() |> Array.toList |> List.map createField;
+        Fields = 
+            dotnetType.GetFields() |> Array.toList |> List.map createField;
         Identifier = Identifier.fromDotNet dotnetType
         GenericParameters = 
             if dotnetType.IsGenericParameter then 
@@ -41,6 +47,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
         ImplementedInterfaces = dotnetType.GetInterfaces() |> Array.toList |> List.map createTypeFromDotNetType;
         Methods = dotnetType.GetMethods() |> Array.toList|> List.map createMethod;
         NestedTypes = dotnetType.GetNestedTypes() |> Array.toList |> List.map createTypeFromDotNetType
+        IsStatic = dotnetType.IsAbstract && dotnetType.IsSealed
     }
 let withNames = List.map (fun c -> (c.Identifier, c))
 let typesFromAssembly (assembly : Assembly)= 

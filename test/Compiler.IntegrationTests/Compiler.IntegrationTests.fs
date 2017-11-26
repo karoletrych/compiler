@@ -66,6 +66,9 @@ let tests =
                         let testData = getTestData path
                         createTest (Path.GetFileName(path)) testData
                         ))
+type A = {A : int}
+
+System.Console.WriteLine({A=3})
 
 [<EntryPoint>]
 let main argv =

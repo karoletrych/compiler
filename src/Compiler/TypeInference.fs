@@ -51,31 +51,29 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
         |> longest
         |> fst
         |> List.last
-let private localFunctionType (currentType : Type) (name, args, generics) : CompilerResult<TypeIdentifier> =
-    let matchingFunction = 
-        currentType.Methods
+
+let matchingFunction (t, (name, args, generics), isStatic) = 
+        t.Methods 
         |> List.tryFind 
             (fun f -> f.Name = name
-                    && (f.Parameters |> List.map (fun p -> p.Type)) = args
-                    //TODO: && (f.GenericParametersCount |> List.length = generics |> List.length)
-                    )
-    match matchingFunction with
+                    && f.Parameters |> List.map (fun p -> p.Type) = args
+                    // && List.length f.GenericParameters = List.length generics  TODO:
+                    && f.IsStatic = isStatic)
+
+let private findFunctionTypeInClass t ((name, args, generics), isStatic) : CompilerResult<TypeIdentifier> =
+    match matchingFunction (t, (name, args, generics), isStatic) with
     | Some f -> match f.ReturnType with
                 | Some ret -> Result.succeed ret
                 | None -> failwith "TODO: "
-    | None -> Result.failure (LocalFunctionNotFound(name,args,generics))
-let private staticFunction knownTypes t (name, args, generics) : CompilerResult<TypeIdentifier> =
-    let matchingType = knownTypes |> Map.find t
-    let matchingFunction = 
-        matchingType.Methods 
-        |> List.tryFind 
-            (fun f -> f.Name = name
-                    && (f.Parameters |> List.map (fun p -> p.Type)) = args)
-    match matchingFunction with
-    | Some f -> match f.ReturnType with
-                | Some ret -> Result.succeed ret
-                | None -> failwith "TODO: "
-    | None -> Result.failure (StaticFunctionNotFound(t, name,args,generics))
+    | None -> Result.failure (FunctionNotFound(t.Identifier, name,args,generics))
+
+let private findFieldTypeInClass t (name, isStatic) = 
+    t.Fields 
+    |> List.tryFind (fun f-> f.FieldName = name && f.IsStatic = isStatic)
+    |> function
+       | Some field -> Result.succeed field.Type
+       | None -> Result.failure (FieldNotFound(t.Identifier, name))
+
 
 let typeOfLiteral = 
     (function
@@ -85,10 +83,7 @@ let typeOfLiteral =
     | StringLiteral _-> Identifier.string
     ) >> Result.succeed
 
-
-
-
-let private inferExpression leastUpperBound localFunction lookupLocalVariable expression =
+let private inferExpression currentClass (knownTypes : Map<TypeIdentifier, Types.Type>) leastUpperBound lookupLocalVariable expression =
     let assignment (t1, _) = t1
     let binary (t1, op, t2) =
         let commonType t1 t2 = 
@@ -110,7 +105,8 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ex
     let functionCall (name, args, generics) = 
         args 
         |> Result.merge 
-        |> Result.bind (fun argTypes -> localFunction (name, argTypes, generics |> List.map Identifier.typeId))
+        |> Result.bind (fun argTypes -> 
+                            findFunctionTypeInClass currentClass ((name, argTypes, generics), currentClass.IsStatic))
     let identifier = lookupLocalVariable
     let literal = 
         (
@@ -125,11 +121,25 @@ let private inferExpression leastUpperBound localFunction lookupLocalVariable ex
         |> Result.merge 
         |> Result.map leastUpperBound 
         |> Result.map Identifier.list
-    let memberFunctionCall (e1, e2) = failwith "TODO:"
-    let memberField f = failwith "TODO:"
-    let newExpression (t, _) = Result.succeed (Identifier.typeId t)
-    let staticMemberFunctionCall (t, (name, args, generics)) = failwith "TODO:"
-    let staticMemberField = failwith "TODO:"
+    let memberFunctionCall (callee, (name, args, generics)) = 
+        (callee, args |> Result.merge) 
+        ||> Result.bind2 (fun calleeType args -> findFunctionTypeInClass knownTypes.[calleeType] ((name,args,generics), false))
+    let memberField (callee, f) = 
+        callee 
+        |> Result.bind (fun calleeType -> findFieldTypeInClass knownTypes.[calleeType] (f, false))
+    let newExpression (t, _) = 
+        Result.succeed (Identifier.typeId t)
+
+    let typeSpecToTypeId t =
+        knownTypes.[Identifier.typeId t]
+    let staticMemberFunctionCall (t, (name, args, generics)) = 
+        args 
+        |> Result.merge
+        |> Result.bind 
+            (fun args -> findFunctionTypeInClass 
+                            (typeSpecToTypeId t) ((name, args, generics), true))
+    let staticMemberField (t, f) = 
+        findFieldTypeInClass (typeSpecToTypeId t)  (f, true)
 
     let unary (_, t) = t
     expressionCata 
@@ -152,6 +162,10 @@ let rec private annotate
     (expr : AstExpression) : CompilerResult<InferredTypeExpression> = 
     let recurse = annotate inferExpression
     let unwrapped = unwrapExpression expr
+    let annotateFunction fc =
+        let args = fc.Arguments |> List.map recurse |> Result.merge
+        (args |> Result.map (fun args -> {Name = fc.Name; Arguments = args; GenericArguments = fc.GenericArguments}))
+
     (match unwrapped with
     | AssignmentExpression (e1, e2) -> 
         Result.map2 (fun t1 t2 -> AssignmentExpression(t1,t2)) (recurse e1) (recurse e2), inferExpression expr
@@ -159,12 +173,36 @@ let rec private annotate
         Result.map2 (fun e1 e2 -> BinaryExpression(e1,op,e2)) (recurse e1) (recurse e2), inferExpression expr
     | IdentifierExpression i -> Result.succeed (IdentifierExpression(i)), inferExpression expr
     | LiteralExpression l -> Result.succeed (LiteralExpression(l)), inferExpression expr
-    | LocalFunctionCallExpression _ ->  failwith "Notimplemented"
-    | ListInitializerExpression l -> failwith "Notimplemented"
-    | InstanceMemberExpression (callee, m) -> failwith "Notimplemented"
-    | NewExpression(t, args)-> failwith "Notimplemented"
-    | StaticMemberExpression (t, call)-> failwith "Notimplemented"
-    | UnaryExpression(op,e) -> failwith "Notimplemented"
+    | LocalFunctionCallExpression fc -> 
+        (annotateFunction fc |> Result.map (fun fc -> LocalFunctionCallExpression(fc))), inferExpression expr
+    | ListInitializerExpression l -> 
+        let listMembers = l |> List.map recurse |> Result.merge
+        (listMembers |> Result.map (fun listMembers -> ListInitializerExpression(listMembers))), 
+            inferExpression expr
+    | InstanceMemberExpression (callee, m) -> 
+        (recurse callee,
+            (match m with
+            | MemberFunctionCall mfc ->
+                (annotateFunction mfc)
+                |> Result.map (fun mfc -> MemberFunctionCall(mfc))
+            | MemberField f ->
+                 Result.succeed (MemberField(f)))
+        )
+        ||> Result.map2 (fun c m -> InstanceMemberExpression(c, m)), inferExpression expr
+    | NewExpression(t, args) -> 
+        let args =  args |> List.map recurse |> Result.merge
+        args |> Result.map (fun args -> NewExpression(t,args)), inferExpression expr
+    | StaticMemberExpression (t, call) -> 
+        (match call with
+        | MemberFunctionCall mfc ->
+            annotateFunction mfc
+            |> Result.map (fun mfc -> MemberFunctionCall(mfc))
+        | MemberField f ->
+            Result.succeed (MemberField(f)) 
+        )
+        |> Result.map (fun m -> StaticMemberExpression(t, m))
+            , inferExpression expr
+    | UnaryExpression(op, e) -> (recurse e) |> Result.map (fun e -> UnaryExpression(op,e)), inferExpression expr
     )
     ||> Result.map2 (fun e t -> InferredTypeExpression(e,t))
 
@@ -235,10 +273,10 @@ let rec private inferStatement
         |> List.map annotate 
         |> Result.merge
         |> Result.map 
-            (fun args -> StaticFunctionCallStatement(t,{
-                     Name = c.Name;
-                     GenericArguments = c.GenericArguments;
-                     Arguments = args
+            (fun args -> StaticFunctionCallStatement(t, {
+                         Name = c.Name;
+                         GenericArguments = c.GenericArguments;
+                         Arguments = args
                      }))
             |> withOldVariables
     | ValueDeclaration(id, t, expr) ->
@@ -286,9 +324,8 @@ let private leastUpperBoundIdentifier knownTypes ids =
     |> (fun t -> t.Identifier)
 
 
-let private inferFunction leastUpperBound (currentType : Types.Type) (f : Ast.Function<AstExpression>) = 
-    let localFunctionType = localFunctionType currentType
-    let inferExpression = inferExpression leastUpperBound localFunctionType 
+let private inferFunction knownTypes leastUpperBound (currentType : Types.Type) (f : Ast.Function<AstExpression>) = 
+    let inferExpression = inferExpression currentType knownTypes leastUpperBound 
     let inferStatement = inferStatement inferExpression currentType 
     let functionArguments =
         f.Parameters
@@ -302,11 +339,11 @@ let private inferFunction leastUpperBound (currentType : Types.Type) (f : Ast.Fu
             |> Result.merge
         )
 
-let private inferConstructor leastUpperBound (currentType : Types.Type) (c : Ast.Constructor<AstExpression>) = 
-    let localFunctionType = localFunctionType currentType
-    let lookupLocalVariable = lookupLocalVariable (currentType.Fields |> Map.ofList)
-    let inferStatement = inferStatement (inferExpression leastUpperBound localFunctionType) currentType 
-    let inferExpression = inferExpression leastUpperBound localFunctionType lookupLocalVariable
+let private inferConstructor knownTypes leastUpperBound (currentType : Types.Type) (c : Ast.Constructor<AstExpression>) = 
+    let localFunctionType = findFunctionTypeInClass currentType
+    let lookupLocalVariable = lookupLocalVariable (currentType.Fields |> List.map (fun f -> f.FieldName, f.Type) |> Map.ofList)
+    let inferStatement = inferStatement (inferExpression currentType knownTypes leastUpperBound) currentType 
+    let inferExpression = inferExpression currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     let args =
         c.Parameters
@@ -323,10 +360,9 @@ let private inferConstructor leastUpperBound (currentType : Types.Type) (c : Ast
             |> List.map (annotate)
             |> Result.merge
         )
-let inferProperty leastUpperBound (currentType : Types.Type) (p : Ast.Property<AstExpression>) =
-    let localFunctionType = localFunctionType currentType
-    let lookupLocalVariable = lookupLocalVariable (currentType.Fields |> Map.ofList)
-    let inferExpression = inferExpression leastUpperBound localFunctionType lookupLocalVariable
+let inferProperty knownTypes leastUpperBound (currentType : Types.Type) (p : Ast.Property<AstExpression>) =
+    let lookupLocalVariable = lookupLocalVariable (currentType.Fields |> List.map (fun f -> f.FieldName, f.Type) |> Map.ofList)
+    let inferExpression = inferExpression currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     Result.map
         (fun init -> {Name = p.Name; Initializer = init; Type = p.Type})
@@ -335,9 +371,9 @@ let inferProperty leastUpperBound (currentType : Types.Type) (p : Ast.Property<A
 let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerResult<ModuleClass<InferredTypeExpression>>=
     let leastUpperBound = leastUpperBoundIdentifier knownTypes
     let currentType = (knownTypes |> Map.find (c.Identifier))
-    let inferFunction = inferFunction leastUpperBound currentType
-    let inferConstructor = inferConstructor leastUpperBound currentType
-    let inferProperty = inferProperty leastUpperBound currentType
+    let inferFunction = inferFunction knownTypes leastUpperBound currentType
+    let inferConstructor = inferConstructor knownTypes leastUpperBound currentType
+    let inferProperty = inferProperty knownTypes leastUpperBound currentType
     Result.map3
         (fun functions properties ctor -> 
         {
@@ -358,11 +394,11 @@ let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerRes
 
 let private inferModule knownTypes (modul : Module<AstExpression>) =
     let leastUpperBound = leastUpperBoundIdentifier knownTypes
-    let inferFunction = inferFunction leastUpperBound (knownTypes |> Map.find modul.Identifier)
+    let inferFunction = inferFunction knownTypes leastUpperBound (knownTypes |> Map.find modul.Identifier)
     Result.map2
         (fun functions classes -> { Identifier = modul.Identifier; Functions = functions; Classes = classes } )
         (modul.Functions
-        |> List.map inferFunction 
+        |> List.map inferFunction
         |> Result.merge)
         (modul.Classes
         |> List.map (inferClass knownTypes)
