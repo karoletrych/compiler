@@ -18,6 +18,13 @@ and Class<'Expression> = {
     Functions : Function<'Expression> list
 }
 
+and Function<'Expression> = {
+  Name : string
+  Parameters : Parameter list
+  ReturnType : TypeSpec option
+  Body : Statement<'Expression> list
+}
+
 and Property<'Expression> = { 
   Type : TypeSpec
   Name : string
@@ -28,15 +35,6 @@ and Constructor<'Expression> = {
     Parameters : Parameter list
     BaseClassConstructorCall : 'Expression list
     Statements : Statement<'Expression> list
-}
-
-and GenericTypeParameter = GenericTypeParameter of string // TODO: it should be TypeParameter example: A<IEnumerable<T>> 
-
-and Function<'Expression> = {
-  Name : string
-  Parameters : Parameter list
-  ReturnType : TypeSpec option
-  Body : Statement<'Expression> list
 }
 
 and TypeSpec =
@@ -53,7 +51,6 @@ and BuiltInTypeSpec =
 | String
 | Void
 | Object
-
 
 and CustomType = { 
     Name : string 
@@ -106,7 +103,6 @@ and FunctionCall<'Expression> = {
         Arguments : 'Expression list
     }
 
-
 and BinaryOperator =
 | ConditionalOr
 | ConditionalAnd
@@ -131,6 +127,10 @@ and Literal =
 | IntLiteral of int
 | FloatLiteral of float
 | StringLiteral of string
+
+
+// end of language grammar
+
 
 and  Namespace = {
     Parts : string list

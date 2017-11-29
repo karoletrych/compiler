@@ -19,6 +19,7 @@
     <Compile Include="TypeInference.Tests.fs" />
     <Compile Include="TypeResolving.Tests.fs" />
     <Compile Include="TypeFinding.Tests.fs" />
+    <Compile Include="IRGeneration.Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>

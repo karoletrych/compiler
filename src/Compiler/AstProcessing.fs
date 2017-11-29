@@ -99,4 +99,59 @@ let rec statementCata
     | AssignmentStatement(e1, e2) -> assignment (e1, e2)
     | BreakStatement -> breakStatement
     | IfStatement (e,s,elseS) -> ifStatement (e, recurse s, elseS |> Option.map recurse)
+    | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
+    | WhileStatement(_, _) -> failwith "Not Implemented"
 
+let rec statementFold
+    functionCall
+    staticFunctionCall
+    valueDeclaration
+    declarationWithInitialization
+    declarationWithType
+    fullVariableDeclaration
+    composite
+    returnStatement
+    assignment
+    breakStatement
+    ifStatement
+    (acc : 'acc)
+    statement = 
+    let recurse = 
+        statementFold
+            functionCall
+            staticFunctionCall
+            valueDeclaration
+            declarationWithInitialization
+            declarationWithType
+            fullVariableDeclaration
+            composite
+            returnStatement
+            assignment  
+            breakStatement
+            ifStatement
+    match statement with
+    | FunctionCallStatement(call) ->
+        functionCall acc (call.Name, call.Arguments , call.GenericArguments)
+    | StaticFunctionCallStatement(t, call) ->
+        staticFunctionCall acc (t, (call.Name, call.Arguments, call.GenericArguments))
+    | ValueDeclaration(id, t, e) -> 
+        valueDeclaration acc (id, t, e)
+    | VariableDeclaration(vd) -> 
+        match vd with
+        | DeclarationWithInitialization (id, e) -> declarationWithInitialization acc (id,e)
+        | DeclarationWithType(id, t) -> declarationWithType acc (id, t)
+        | FullDeclaration(id, t, e) -> fullVariableDeclaration acc (id,t,e)
+    | CompositeStatement(cs) ->
+        let newAcc = composite acc
+        cs |> List.collect (recurse newAcc)
+    | ReturnStatement e -> returnStatement acc e
+    | AssignmentStatement(e1, e2) -> assignment acc (e1, e2)
+    | BreakStatement -> breakStatement acc
+    | IfStatement (e,s,elseS) -> 
+        let newAcc = ifStatement acc e
+        recurse 
+            newAcc s 
+            @ 
+            (elseS |> Option.map (recurse newAcc) |> Option.defaultValue [])
+    | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
+    | WhileStatement(_, _) -> failwith "Not Implemented"

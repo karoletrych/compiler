@@ -1,0 +1,9 @@
+module Variable
+fun main : void
+{
+    var x = 2;
+    var y = 3;
+    var z = x + y;
+
+	System::Console:.WriteLine(z);
+}

@@ -26,9 +26,9 @@ module Result =
 
     let get = function
         | Success x -> x
-        | Failure errors -> failwith "get called on CompilerResult being Failure" 
+        | Failure errors -> failwith (sprintf "get called on CompilerResult being Failure %A" errors)
     let getErrors = function
-        | Success x -> failwith "getErrors called on CompilerResult beinf Success"
+        | Success x -> failwith "getErrors called on CompilerResult being Success"
         | Failure errors -> errors
    
     let isFailure = function

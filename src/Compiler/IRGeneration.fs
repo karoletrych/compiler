@@ -2,8 +2,7 @@ module Compiler.IRGeneration
 open IR
 open Ast
 open TypeInference
-open FSharpx.Collections.NonEmptyList
-
+open Compiler.AstProcessing
 let private convertIdentifier i =
         // match lookupILVariableScope identifierRef with
         // | FieldScope(v)    -> [ Ldsfld v ]
@@ -11,8 +10,13 @@ let private convertIdentifier i =
         // | LocalScope(i) -> [ Ldloc i ]
         [Ldloc i]
 
+type GeneratorState = {
+    LocalVariableIndex : uint16
+}
+let getType expr = 
+    let (InferredTypeExpression(expr, t)) = expr
+    t
 let rec private convertExpression (expr : InferredTypeExpression) =
-    
     let (InferredTypeExpression(expr, t)) = expr
     match expr with
     | LiteralExpression l -> 
@@ -23,24 +27,33 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | StringLiteral s -> [Ldstr(s)]
     | AssignmentExpression(_, _) -> failwith "Not Implemented"
     | BinaryExpression(_, _, _) -> failwith "Not Implemented"
-    | InstanceMemberExpression(_) -> failwith "Not Implemented"
-    | IdentifierExpression(_) -> failwith "Not Implemented"
+    | InstanceMemberExpression(calleeExpression, mem) -> 
+        let (InferredTypeExpression(callee, calleeT)) = calleeExpression
+        match mem with
+        | MemberFunctionCall call ->
+            convertExpression calleeExpression 
+            @ [CallMethod(
+                calleeT,
+                        {
+                            MethodName = call.Name
+                            Parameters = call.Arguments |> List.map getType
+                            IsStatic = false
+                        })
+                        ]
+    | IdentifierExpression(i) -> [Identifier(i)]
     | ListInitializerExpression(_) -> failwith "Not Implemented"
     | InstanceMemberExpression(_) -> failwith "Not Implemented"
     | NewExpression(_, _) -> failwith "Not Implemented"
     | StaticMemberExpression(t, m) -> 
         match m with
         | MemberFunctionCall call ->
-            let getType expr = 
-                let (InferredTypeExpression(expr, t)) = expr
-                t
             let args = call.Arguments |> List.collect convertExpression
             args 
-            @ [Call(Identifier.typeId t,
-                    call.Name,
-                    call.Arguments 
-                        |> List.map getType)]
+            @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; IsStatic = true})]
+        | MemberField f ->
+              [GetField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
+    | LocalFunctionCallExpression(_) -> failwith "Not Implemented"
 
 let rec private buildFunctionBody statements : ILInstruction list =
     let generateIR (s : Statement<InferredTypeExpression>) =
@@ -52,7 +65,26 @@ let rec private buildFunctionBody statements : ILInstruction list =
             let typeId = (Identifier.typeId t)
             (method.Arguments |> List.collect convertExpression)
             @ 
-            [Call(typeId, method.Name, method.Arguments |> List.map getType)]
+            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; IsStatic = true})]
+        | AssignmentStatement(_, _) -> failwith "Not Implemented"
+        | BreakStatement -> failwith "Not Implemented"
+        | CompositeStatement(_) -> failwith "Not Implemented"
+        | FunctionCallStatement(_) -> failwith "Not Implemented"
+        | IfStatement(_, _, _) -> failwith "Not Implemented"
+        | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
+        | ReturnStatement(_) -> failwith "Not Implemented"
+        | VariableDeclaration(vd) -> 
+            match vd with
+            | DeclarationWithInitialization (name, init) -> [DeclareLocal(name, getType init)]
+            | DeclarationWithType (name, t) -> [DeclareLocal(name, Identifier.typeId t)]
+            | FullDeclaration (name, t, _) -> [DeclareLocal(name, Identifier.typeId t)]
+            
+        | ValueDeclaration(name, t, initializer) ->
+            [DeclareLocal(name, 
+                match t with 
+                | Some t -> Identifier.fromTypeSpec t
+                | None -> initializer |> getType)]
+        | WhileStatement(_, _) -> failwith "Not Implemented"
     let instructions = 
         statements 
         |> List.collect generateIR
@@ -62,17 +94,13 @@ let rec private buildFunctionBody statements : ILInstruction list =
                              | Ret -> true
                              | _ -> false))
     then [Ret]
-        else []
+    else []
 
-let private locals statements =
-    []
-
-let private buildFunction (func : Function<InferredTypeExpression>) = {
+let private buildFunction (func : Function<InferredTypeExpression>) : IR.Method = {
     Name = func.Name
     Body = buildFunctionBody func.Body
     ReturnType = Identifier.typeId func.ReturnType.Value
     Parameters = func.Parameters |> List.map (fun p -> {Name = fst p; Type = Identifier.typeId (snd p) })
-    LocalVariables = locals func.Body
 }
 
 let private buildProperty (prop : Ast.Property<InferredTypeExpression>) = {

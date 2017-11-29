@@ -10,13 +10,14 @@ open Parser
 open CILGeneration
 open CompilerResult
 let exePath = Path.Combine(Assembly.GetEntryAssembly().Location, @"..\")
+let outputPath = Path.Combine(exePath, "a.exe")
 let testDirectory = Path.Combine(exePath, @"..\..\..\tests")
 let files = 
     System.IO.Directory.GetFiles(testDirectory)
     |> List.ofArray
 let testFiles = 
     files 
-    |> List.filter (fun f -> Path.GetExtension(f) = ".ifr") 
+    |> List.where (fun f -> Path.GetExtension(f) = ".ifr")
 
 let resultFiles = 
     files 
@@ -42,6 +43,7 @@ let execute (assemblyBuilder : AssemblyBuilder) =
     let originalOut = Console.Out
     Console.SetOut(stringWriter)
 
+    if File.Exists(outputPath) then File.Delete(outputPath)
     assemblyBuilder.Save("a.exe")
     assemblyBuilder.EntryPoint.Invoke(null, Array.empty) |> ignore
     
@@ -52,10 +54,15 @@ let getTestData =
     withCorrespondingOutput 
     >> readFiles
     >> fun (input, expectedOutput) -> 
-            input |> compile |> generateAssembly |> execute, expectedOutput
+            input 
+            |> compile 
+            |> generateAssembly 
+            |> execute,          expectedOutput
 
 let createTest testName (output, expectedOutput) = 
-    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    if testName = "variable.ifr"
+    then ftestCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    else testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 
 [<Tests>]
@@ -66,9 +73,6 @@ let tests =
                         let testData = getTestData path
                         createTest (Path.GetFileName(path)) testData
                         ))
-type A = {A : int}
-
-System.Console.WriteLine({A=3})
 
 [<EntryPoint>]
 let main argv =

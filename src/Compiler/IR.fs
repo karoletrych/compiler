@@ -13,26 +13,32 @@ type Module =
 and Class = 
     {
         Identifier : TypeIdentifier
-        Properties : Variable list
+        Properties : Parameter list
         Methods : Method list
     }
 
 and MethodRef = 
     {
-        Name : string
+        MethodName : string
         Parameters : TypeIdentifier list
+        IsStatic : bool
+    }
+
+and FieldRef = 
+    {
+        FieldName : string
+        IsStatic : bool
     }
 
 and Method =
     {
         Name : string
         ReturnType : TypeIdentifier
-        Parameters : Variable list
-        LocalVariables : Variable list
+        Parameters : Parameter list
         Body : ILInstruction list
     }
 
-and Variable =
+and Parameter =
     {
         Type : TypeIdentifier
         Name : string
@@ -45,7 +51,10 @@ and ILInstruction =
     | Br of Label
     | Brfalse of Label
     | Brtrue of Label
-    | Call of TypeIdentifier * string * TypeIdentifier list
+    | CallMethod of TypeIdentifier * MethodRef
+    | DeclareLocal of string * TypeIdentifier
+    | GetField of TypeIdentifier * FieldRef
+    | Identifier of string
     | Ceq
     | Cge
     | Cgt
@@ -62,7 +71,7 @@ and ILInstruction =
     | Ldelem of TypeIdentifier
     | Ldlen
     | Ldloc of int16
-    | Ldsfld of Variable
+    | Ldsfld of Parameter
     | Mul
     | Neg
     | Newarr of TypeIdentifier
@@ -72,5 +81,5 @@ and ILInstruction =
     | Starg of int16
     | Stelem of TypeIdentifier
     | Stloc of int16
-    | Stsfld of Variable
+    | Stsfld of Parameter
     | Sub

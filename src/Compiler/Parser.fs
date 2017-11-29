@@ -275,8 +275,8 @@ module Statement =
             (Char.equals >>. Expression.pExpression)
 
     let expressionStatement =
-     Expression.pExpression
-     >>= (fun expr ->
+        Expression.pExpression
+        >>= (fun expr ->
                  let (AstExpression expr) = expr
                  match expr with
                  | InstanceMemberExpression(callee, memberFunction) -> 
@@ -288,13 +288,20 @@ module Statement =
                  | _ -> fail "given expression cannot be a statement" )
 
     let pStaticFunctionCallStatement =
-     attempt Types.pCustomType .>>.
-     ((Char.colonDot >>. Expression.pFunctionCall) )
-     |>> StaticFunctionCallStatement
+        attempt Types.pCustomType .>>.
+        ((Char.colonDot >>. Expression.pFunctionCall) )
+        |>> StaticFunctionCallStatement
+
+    let compositeStatement = 
+        between 
+            Char.leftBrace Char.rightBrace
+            (many pStatement)
+        |>> CompositeStatement
 
     pStatementRef := 
         choice
             [
+                compositeStatement;
                 pIfStatement;
                 (pLocalValueDeclarationStatement .>> Char.semicolon) |>> ValueDeclaration;
                 (pLocalVariableDeclarationStatement .>> Char.semicolon) |>> VariableDeclaration

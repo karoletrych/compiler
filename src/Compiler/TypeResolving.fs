@@ -122,7 +122,7 @@ let private resolveStatement resolveExpression resolveType statement =
         statement
 
 let private resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))
-let private resolveFunction resolveStatement resolveType func = 
+let private resolveFunction resolveStatement resolveType (func : Function<AstExpression>) = 
     let parameters = 
         func.Parameters 
         |> List.map (resolveParameters resolveType)
