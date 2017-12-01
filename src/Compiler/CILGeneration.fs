@@ -140,7 +140,9 @@ let fillMethodBody
         | Ret        -> il.Emit(OpCodes.Ret)
         | Starg(i)   -> il.Emit(OpCodes.Starg, i)
         | Stelem(t)  -> il.Emit(OpCodes.Stelem, (t.ToString()))
-        | Stloc(i)   -> il.Emit(OpCodes.Stloc, i)
+        | Stloc(i)   -> 
+            let local = acc.LocalVariables |> Map.find i
+            il.Emit(OpCodes.Stloc, local)
         | Sub        -> il.Emit(OpCodes.Sub)
         | Br(_) -> failwith "Not Implemented"
         | Brfalse(_) -> failwith "Not Implemented"

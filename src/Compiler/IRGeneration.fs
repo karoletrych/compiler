@@ -26,7 +26,24 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | FloatLiteral f -> [ Ldc_R4(f) ]
         | StringLiteral s -> [Ldstr(s)]
     | AssignmentExpression(_, _) -> failwith "Not Implemented"
-    | BinaryExpression(_, _, _) -> failwith "Not Implemented"
+    | BinaryExpression(e1, op, e2) ->
+        convertExpression e1 
+        @ convertExpression e2
+        @
+        match op with
+        | ConditionalOr -> failwith "TODO:"
+        | ConditionalAnd ->failwith  "TODO:"
+        | Equal ->failwith  "TODO:"
+        | NotEqual ->failwith  "TODO:"
+        | LessEqual ->failwith  "TODO:"
+        | Less ->failwith  "TODO:"
+        | GreaterEqual ->failwith  "TODO:"
+        | Greater ->failwith  "TODO:"
+        | Plus -> [Add]
+        | Minus -> failwith  "TODO:"
+        | Multiplication-> failwith  "TODO:"
+        | Division -> failwith  "TODO:"
+        | Remainder -> failwith  "TODO:"
     | InstanceMemberExpression(calleeExpression, mem) -> 
         let (InferredTypeExpression(callee, calleeT)) = calleeExpression
         match mem with
@@ -75,15 +92,21 @@ let rec private buildFunctionBody statements : ILInstruction list =
         | ReturnStatement(_) -> failwith "Not Implemented"
         | VariableDeclaration(vd) -> 
             match vd with
-            | DeclarationWithInitialization (name, init) -> [DeclareLocal(name, getType init)]
-            | DeclarationWithType (name, t) -> [DeclareLocal(name, Identifier.typeId t)]
-            | FullDeclaration (name, t, _) -> [DeclareLocal(name, Identifier.typeId t)]
-            
-        | ValueDeclaration(name, t, initializer) ->
+            | DeclarationWithInitialization (name, init) -> 
+                convertExpression init @ [DeclareLocal(name, getType init); Stloc(name)]
+            | DeclarationWithType (name, t) -> 
+                [DeclareLocal(name, Identifier.typeId t); Stloc(name)] // TODO:
+            | FullDeclaration (name, t, init) -> 
+                convertExpression init 
+                @ [DeclareLocal(name, Identifier.typeId t); Stloc(name)]
+        | ValueDeclaration(name, t, init) ->
+            convertExpression init 
+            @
             [DeclareLocal(name, 
                 match t with 
                 | Some t -> Identifier.fromTypeSpec t
-                | None -> initializer |> getType)]
+                | None -> init |> getType);
+                Stloc(name)]
         | WhileStatement(_, _) -> failwith "Not Implemented"
     let instructions = 
         statements 

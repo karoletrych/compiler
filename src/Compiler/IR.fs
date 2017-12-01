@@ -80,6 +80,6 @@ and ILInstruction =
     | Ret
     | Starg of int16
     | Stelem of TypeIdentifier
-    | Stloc of int16
+    | Stloc of string
     | Stsfld of Parameter
     | Sub
