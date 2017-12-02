@@ -1,0 +1,11 @@
+module While
+
+fun main : void
+{
+    var a = 0;
+    while(a<3)
+    {
+        System::Console:.WriteLine(a);
+        a = a + 1;
+    }
+}

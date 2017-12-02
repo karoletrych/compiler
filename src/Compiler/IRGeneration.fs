@@ -24,14 +24,16 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | IntLiteral i -> [ Ldc_I4(i) ]
         | FloatLiteral f -> [ Ldc_R4(f) ]
         | StringLiteral s -> [Ldstr(s)]
-    | AssignmentExpression(_, _) -> failwith "Not Implemented"
+    | AssignmentExpression(assignee, expr) -> 
+        convertExpression expr
+        @ [Dup]
+        @ [StoreToIdentifier assignee]
     | BinaryExpression(e1, op, e2) ->
         convertExpression e1 
-        @ convertExpression e2
-        @
-        match op with
+      @ convertExpression e2
+      @ match op with
         | ConditionalOr -> failwith "TODO:"
-        | ConditionalAnd ->failwith  "TODO:"
+        | ConditionalAnd -> failwith  "TODO:"
         | Equal -> [Ceq]
         | NotEqual -> failwith "TODO:"
         | LessEqual -> [Cle]
@@ -40,15 +42,15 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | Greater -> [Cge]
         | Plus -> [Add]
         | Minus -> [Sub]
-        | Multiplication-> failwith  "TODO:"
-        | Division -> failwith  "TODO:"
-        | Remainder -> failwith  "TODO:"
+        | Multiplication-> [Mul]
+        | Division -> [Div]
+        | Remainder -> [Rem]
     | InstanceMemberExpression(calleeExpression, mem) -> 
         let (InferredTypeExpression(callee, calleeT)) = calleeExpression
         match mem with
         | MemberFunctionCall call ->
             convertExpression calleeExpression 
-            @ [CallMethod(
+          @ [CallMethod(
                 calleeT,
                         {
                             MethodName = call.Name
@@ -56,7 +58,7 @@ let rec private convertExpression (expr : InferredTypeExpression) =
                             IsStatic = false
                         })
                         ]
-    | IdentifierExpression(i) -> [Identifier(i)]
+    | IdentifierExpression(i) -> [LoadFromIdentifier(i)]
     | ListInitializerExpression(_) -> failwith "Not Implemented"
     | NewExpression(_, _) -> failwith "Not Implemented"
     | StaticMemberExpression(t, m) -> 
@@ -64,7 +66,7 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | MemberFunctionCall call ->
             let args = call.Arguments |> List.collect convertExpression
             args 
-            @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; IsStatic = true})]
+          @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; IsStatic = true})]
         | MemberField f ->
               [GetField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
@@ -83,7 +85,9 @@ let rec private convertStatements statements : ILInstruction list =
             (method.Arguments |> List.collect convertExpression)
             @ 
             [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; IsStatic = true})]
-        | AssignmentStatement(_, _) -> failwith "Not Implemented"
+        | AssignmentStatement(assignee, e2) -> 
+            convertExpression e2
+            @ [StoreToIdentifier assignee]
         | BreakStatement -> failwith "Not Implemented"
         | CompositeStatement(cs) -> cs |> List.collect generateIR
         | FunctionCallStatement(_) -> failwith "Not Implemented"
@@ -97,29 +101,38 @@ let rec private convertStatements statements : ILInstruction list =
 
             convertExpression expr 
             @ [Brfalse elseLabel]
-            @ convertStatements s 
+            @ generateIR s 
             @ [Label elseLabel]
             @ elseStatements
 
-            | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
-            | ReturnStatement(_) -> failwith "Not Implemented"
-            | VariableDeclaration(vd) -> 
-                match vd with
-                | DeclarationWithInitialization (name, init) -> 
-                    convertExpression init @ [DeclareLocal(name, getType init); Stloc(name)]
-                | DeclarationWithType (name, t) -> 
-                    [DeclareLocal(name, Identifier.typeId t); Stloc(name)] // TODO:
-                | FullDeclaration (name, t, init) -> 
-                    convertExpression init 
-                  @ [DeclareLocal(name, Identifier.typeId t); Stloc(name)]
-            | ValueDeclaration(name, t, init) ->
+        | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
+        | ReturnStatement(_) -> failwith "Not Implemented"
+        | VariableDeclaration(vd) -> 
+            match vd with
+            | DeclarationWithInitialization (name, init) -> 
+                convertExpression init @ [DeclareLocal(name, getType init); Stloc(name)]
+            | DeclarationWithType (name, t) -> 
+                [DeclareLocal(name, Identifier.typeId t); Stloc(name)] // TODO:
+            | FullDeclaration (name, t, init) -> 
                 convertExpression init 
-              @ [DeclareLocal(name, 
-                    match t with 
-                    | Some t -> Identifier.fromTypeSpec t
-                    | None -> init |> getType);
-                    Stloc(name)]
-            | WhileStatement(_, _) -> failwith "Not Implemented"
+                @ [DeclareLocal(name, Identifier.typeId t); Stloc(name)]
+        | ValueDeclaration(name, t, init) ->
+            convertExpression init 
+            @ [DeclareLocal(name, 
+                match t with 
+                | Some t -> Identifier.fromTypeSpec t
+                | None -> init |> getType);
+                Stloc(name)]
+        | WhileStatement(expr, s) -> 
+            let endLabel = randomInt()
+            let beginLabel = randomInt()
+            [Label beginLabel]
+            @ convertExpression expr 
+            @ [Brfalse endLabel]
+            @ generateIR s 
+            @ [Br beginLabel] 
+            @ [Label endLabel]
+
     let instructions = 
         statements |> generateIR
     let lastInstructionIsNotRet instructions =

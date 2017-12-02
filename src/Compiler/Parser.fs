@@ -2,9 +2,9 @@ module Compiler.Parser
 
 open System
 open System.IO
-open System.Text.RegularExpressions
 open Ast
 open FParsec
+open System.Text.RegularExpressions
 
 type SourceFile = {
     Name : string 
@@ -62,19 +62,21 @@ module Keyword =
     let pImplements = skipString "implements" .>> nonAlphanumericWs
     let pExtends = skipString "extends" .>> nonAlphanumericWs
     let pModule = skipString "module" .>> nonAlphanumericWs
+    let pWhile = skipString "while" .>> nonAlphanumericWs
     let keywords = [ 
-        "fun";
-        "return";
-        "var";
-        "val";
-        "if";
-        "else";
-        "class";
-        "construct";
-        "new";
-        "true";
+        "fun"
+        "return"
+        "var"
+        "val"
+        "if"
+        "else"
+        "class"
+        "construct"
+        "new"
+        "true"
         "false"
         "module"
+        "while"
     ]
 
 let pIdentifier, pIdentifierImpl = createParserForwardedToRef<string, _>() 
@@ -174,8 +176,19 @@ module Expression =
             |>> fun id -> IdentifierExpression(id)
             |>> AstExpression
 
-    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> AssignmentExpression(x, y) |> AstExpression)) 
+    let createAssignmentExpr x y = 
+        let (AstExpression e) = x
+        let x = 
+            match e with
+            | IdentifierExpression x -> IdentifierAssignee x
+            | InstanceMemberExpression (e,i) -> 
+                match i with
+                | MemberField i -> MemberFieldAssignee (e, i)
+                | MemberFunctionCall _ -> failwith "unexpected"
+            | _ -> failwith "unexpected"
+        AssignmentExpression(x,y)
 
+    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> (createAssignmentExpr x y) |> AstExpression))
     opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, ConditionalOr, y) |> AstExpression))
     opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y) |> AstExpression))
     opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y) |> AstExpression))
@@ -195,20 +208,23 @@ module Expression =
 
     let instanceMemberExpr = 
         attempt (pFunctionCallExpression) <|> (pIdentifierExpression)
-    opp.AddOperator(InfixOperator(
-                        ".", 
-                        lookAhead (spaces .>> (instanceMemberExpr)),
-                        9,
-                        Associativity.Left,
-                            fun x y -> 
-                                let (AstExpression e) = y
-                                match e with
-                                | LocalFunctionCallExpression x -> MemberFunctionCall x
-                                | IdentifierExpression x -> MemberField x
-                                | _ -> failwith "parser internal error"
-                                |> fun instanceMember -> InstanceMemberExpression(x, instanceMember)
-                                |> AstExpression
-                                ))
+
+    let createMemberExpr x y = 
+        let (AstExpression e) = y
+        match e with
+        | LocalFunctionCallExpression x -> MemberFunctionCall x
+        | IdentifierExpression x -> MemberField x
+        | _ -> failwith "parser internal error"
+        |> fun instanceMember -> InstanceMemberExpression(x, instanceMember)
+
+    opp.AddOperator(
+        InfixOperator(
+            ".", 
+            lookAhead (spaces .>> (instanceMemberExpr)),
+            9,
+            Associativity.Left,
+            fun x y -> (createMemberExpr x y) |> AstExpression)
+            )
 
     let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
@@ -243,11 +259,15 @@ module Statement =
     let pStatement, pStatementRef = createParserForwardedToRef()
 
     let pElseStatement = Keyword.pElse >>. pStatement
-    let pIfStatement = pipe3 
-                        (Keyword.pIf >>. Expression.pExpression) 
-                        (pStatement) 
-                        (opt pElseStatement)
-                        (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
+    let pIfStatement = 
+        pipe3 
+            (Keyword.pIf >>. Expression.pExpression) 
+            (pStatement) 
+            (opt pElseStatement)
+            (fun expression statement elseSt -> IfStatement(expression, statement, elseSt))
+    let pWhileStatement = 
+            (Keyword.pWhile >>. Expression.pExpression) .>>. pStatement
+            |>> fun (expression, statement) -> WhileStatement(expression, statement)
 
     let pFunctionCallStatement = Expression.pFunctionCall |>>  FunctionCallStatement
     let pReturnStatement =
@@ -283,7 +303,7 @@ module Statement =
                             match memberFunction with
                             | MemberFunctionCall functionCall -> preturn (InstanceMemberFunctionCallStatement (callee, functionCall))
                             | MemberField _ -> fail "given expression cannot be a statement"
-                 | AssignmentExpression(e1,e2) -> preturn (AssignmentStatement (e1, e2))
+                 | AssignmentExpression(assignee,e) -> preturn (AssignmentStatement (assignee, e))
                  | LocalFunctionCallExpression fc -> preturn (FunctionCallStatement (fc))
                  | _ -> fail "given expression cannot be a statement" )
 
@@ -303,6 +323,7 @@ module Statement =
             [
                 compositeStatement;
                 pIfStatement;
+                pWhileStatement;
                 (pLocalValueDeclarationStatement .>> Char.semicolon) |>> ValueDeclaration;
                 (pLocalVariableDeclarationStatement .>> Char.semicolon) |>> VariableDeclaration
                 pReturnStatement .>> Char.semicolon;

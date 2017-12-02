@@ -84,7 +84,7 @@ let typeOfLiteral =
     ) >> Result.succeed
 
 let private inferExpression currentClass (knownTypes : Map<TypeIdentifier, Types.Type>) leastUpperBound lookupLocalVariable expression =
-    let assignment (t1, _) = t1
+    let assignment ((t1, i), _) = t1
     let binary (t1, op, t2) =
         let commonType t1 t2 = 
             if t1 = t2 
@@ -167,8 +167,12 @@ let rec private annotate
         (args |> Result.map (fun args -> {Name = fc.Name; Arguments = args; GenericArguments = fc.GenericArguments}))
 
     (match unwrapped with
-    | AssignmentExpression (e1, e2) -> 
-        Result.map2 (fun t1 t2 -> AssignmentExpression(t1,t2)) (recurse e1) (recurse e2), inferExpression expr
+    | AssignmentExpression (assignee, e2) -> 
+        match assignee with
+        | MemberFieldAssignee (e1, i) ->
+            Result.map2 (fun t1 t2 -> AssignmentExpression(MemberFieldAssignee(t1,i),t2)) (recurse e1) (recurse e2), inferExpression expr
+        | IdentifierAssignee i ->
+            Result.map (fun t2 -> AssignmentExpression(IdentifierAssignee(i),t2)) (recurse e2), inferExpression expr
     | BinaryExpression (e1, op, e2) -> 
         Result.map2 (fun e1 e2 -> BinaryExpression(e1,op,e2)) (recurse e1) (recurse e2), inferExpression expr
     | IdentifierExpression i -> Result.succeed (IdentifierExpression(i)), inferExpression expr
@@ -229,9 +233,14 @@ let rec private inferStatement
         statement, declaredVariables |> Map.add variableName variableType
 
     match statement with
-    | AssignmentStatement (e1, e2) ->
-        Result.map2 (fun e1 e2 -> AssignmentStatement(e1, e2)) 
-            (annotate e1) (annotate e2)
+    | AssignmentStatement (assignee, e2) ->
+        match assignee with
+        | MemberFieldAssignee (e1, i) ->
+            Result.map2 (fun e1 e2 -> AssignmentStatement(MemberFieldAssignee(e1,i), e2)) 
+                (annotate e1) (annotate e2)
+        | IdentifierAssignee i ->
+            Result.map (fun e -> AssignmentStatement(IdentifierAssignee(i), e)) 
+                (annotate e2) 
         |> withOldVariables
     | BreakStatement ->
         BreakStatement 

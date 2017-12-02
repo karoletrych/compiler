@@ -62,7 +62,7 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    if testName = "if.ifr"
+    if testName = "while.ifr"
     then ftestCase testName (fun _ -> 
         let output = test()
         Expect.equal output expectedOutput testName)

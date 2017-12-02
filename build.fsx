@@ -20,17 +20,6 @@ let mutable dotnetExePath = "dotnet"
 // Helpers
 // --------------------------------------------------------------------------------------
 
-let run' timeout cmd args dir =
-    if execProcess (fun info ->
-        info.FileName <- cmd
-        if not (String.IsNullOrWhiteSpace dir) then
-            info.WorkingDirectory <- dir
-        info.Arguments <- args
-    ) timeout |> not then
-        failwithf "Error while running '%s' with args: %s" cmd args
-
-let run = run' System.TimeSpan.MaxValue
-
 let runDotnet workingDir args =
     let result =
         ExecProcess (fun info ->

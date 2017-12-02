@@ -60,7 +60,7 @@ and CustomType = {
 and Parameter = string * TypeSpec
 
 and Statement<'Expression> =
-| AssignmentStatement of 'Expression * 'Expression
+| AssignmentStatement of Assignee<'Expression> * 'Expression
 | BreakStatement
 | CompositeStatement of Statement<'Expression> list
 | FunctionCallStatement of FunctionCall<'Expression>
@@ -80,7 +80,7 @@ and VariableDeclaration<'Expression> =
 | FullDeclaration of string * TypeSpec * 'Expression
 
 and Expression<'Expression> =
-| AssignmentExpression of 'Expression * 'Expression
+| AssignmentExpression of Assignee<'Expression> * 'Expression
 | BinaryExpression of 'Expression * BinaryOperator * 'Expression
 | LocalFunctionCallExpression of FunctionCall<'Expression>
 | IdentifierExpression of string
@@ -92,6 +92,9 @@ and Expression<'Expression> =
 | UnaryExpression of UnaryOperator * 'Expression
 
 and AstExpression = AstExpression of Expression<AstExpression>
+and Assignee<'Expression> = 
+| IdentifierAssignee of string
+| MemberFieldAssignee of 'Expression * string
 
 and Member<'Expression> = 
 | MemberFunctionCall of FunctionCall<'Expression>

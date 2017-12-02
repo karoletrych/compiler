@@ -1,6 +1,7 @@
 module Compiler.IR
 
 open Ast
+open Compiler.TypeInference
 
 
 type Module = 
@@ -52,7 +53,8 @@ and ILInstruction =
     | CallMethod of TypeIdentifier * MethodRef
     | DeclareLocal of string * TypeIdentifier
     | GetField of TypeIdentifier * FieldRef
-    | Identifier of string
+    | LoadFromIdentifier of string
+    | StoreToIdentifier of Assignee<InferredTypeExpression>
     | Ceq
     | Cge
     | Cgt

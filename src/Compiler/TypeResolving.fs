@@ -36,7 +36,7 @@ let private resolveExpression resolveType expression : CompilerResult<AstExpress
         Result.map2 (fun args generics -> {Name = name; Arguments = args; GenericArguments = generics}) 
             argsResult genericsResult
 
-    let assignment (e1,e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(e1, e2)) e1 e2
+    let assignment ((e1, i), e2) = Result.map2 (fun e1 e2 -> AssignmentExpression(MemberFieldAssignee(e1, i), e2)) e1 e2
     let binary (e1, op, e2) = Result.map2 (fun e1 e2 -> BinaryExpression(e1, op, e2)) e1 e2
     let functionCall fc = 
         (resolveFunctionCall fc)
@@ -96,7 +96,8 @@ let private resolveStatement resolveExpression resolveType statement =
     let fullVariableDeclaration (id, t, e) = (resolveType t, resolveExpression e) ||> Result.map2 (fun t e -> VariableDeclaration( FullDeclaration(id,t,e)) )
     let composite stmts = stmts |> Result.merge |> Result.map (fun stmts -> CompositeStatement(stmts)) 
     let returnStatement e = (Result.mapOption resolveExpression e) |> Result.map (fun e -> ReturnStatement(e)) 
-    let assignment (e1, e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(e1, e2)) 
+    let assignment ((e1, i), e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(MemberFieldAssignee(e1,i), e2)) 
+    let identifierAssignment (i, e2) = (resolveExpression e2) |> Result.map (fun e2 -> AssignmentStatement(IdentifierAssignee(i), e2)) 
     let breakStatement = Result.succeed BreakStatement
     let ifStatement (e,s,elseS) = 
         match elseS with
@@ -106,7 +107,9 @@ let private resolveStatement resolveExpression resolveType statement =
         | None ->
             (resolveExpression e, s)
             ||>Result.map2 (fun e s -> IfStatement(e, s, None))
-    let valueDeclaration (id, t : TypeSpec option, e) = (Result.mapOption resolveType t, resolveExpression e) ||> Result.map2 (fun t e -> ValueDeclaration(id,t,e))
+    let whileStatement (e, s) = 
+        (resolveExpression e, s)
+        ||> Result.map2 (fun e s -> WhileStatement(e,s))
     statementCata
         functionCall
         staticFunctionCall
@@ -116,9 +119,11 @@ let private resolveStatement resolveExpression resolveType statement =
         fullVariableDeclaration
         composite
         returnStatement
+        identifierAssignment
         assignment
         breakStatement
         ifStatement
+        whileStatement
         statement
 
 let private resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))

@@ -31,7 +31,10 @@ let rec expressionCata
             unary 
     let (AstExpression expression) = expression
     match expression with
-        | AssignmentExpression(e1, e2) -> assignment ((recurse e1), (recurse e2))
+        | AssignmentExpression(assignee, e2) -> 
+            match assignee with
+            | IdentifierAssignee i -> identifier i
+            | MemberFieldAssignee (e, i) -> assignment ((recurse e, i), recurse e2)
         | BinaryExpression(e1, op, e2) -> binary ((recurse e1), op, (recurse e2))
         | LocalFunctionCallExpression(fc) -> 
             let args = fc.Arguments |> List.map recurse
@@ -64,9 +67,11 @@ let rec statementCata
     fullVariableDeclaration
     composite
     returnStatement
-    assignment
+    identifierAssignment
+    fieldMemberAssignment
     breakStatement
     ifStatement
+    whileStatement
     statement = 
     let recurse = 
         statementCata
@@ -78,9 +83,11 @@ let rec statementCata
             fullVariableDeclaration
             composite
             returnStatement
-            assignment  
+            identifierAssignment
+            fieldMemberAssignment  
             breakStatement
             ifStatement
+            whileStatement
     match statement with
     | FunctionCallStatement(call) ->
         functionCall (call.Name, call.Arguments , call.GenericArguments)
@@ -96,11 +103,14 @@ let rec statementCata
     | CompositeStatement(cs) ->
         cs |> List.map recurse |> composite
     | ReturnStatement e -> returnStatement e
-    | AssignmentStatement(e1, e2) -> assignment (e1, e2)
+    | AssignmentStatement(assignee, e2) -> 
+        match assignee with
+            | IdentifierAssignee i -> identifierAssignment (i, e2)
+            | MemberFieldAssignee (e, i) -> fieldMemberAssignment ((e, i), e2)
     | BreakStatement -> breakStatement
     | IfStatement (e,s,elseS) -> ifStatement (e, recurse s, elseS |> Option.map recurse)
     | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
-    | WhileStatement(_, _) -> failwith "Not Implemented"
+    | WhileStatement(e, s) -> whileStatement (e, recurse s)
 
 let rec statementFold
     functionCall

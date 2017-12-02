@@ -4,7 +4,6 @@ framework: >= net461
 nuget Argu
 nuget Expecto
 nuget FAKE
-nuget Fantomas
 nuget FParsec
 nuget FsCheck
 nuget FSharp.Core

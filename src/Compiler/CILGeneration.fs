@@ -168,7 +168,7 @@ let fillMethodBody
         | Ldstr(s) -> il.Emit(OpCodes.Ldstr, s)
         | Ldsfld(_) -> failwith "Not Implemented"
         | Stsfld(_) -> failwith "Not Implemented"
-        | Identifier(i) -> 
+        | LoadFromIdentifier(i) -> 
             let local =
                 acc.LocalVariables
                 |> Map.tryFind i
@@ -178,6 +178,19 @@ let fillMethodBody
                 // TODO: Inherited properties
                 let (Field field) = typesTable.FindField t {FieldName = i; IsStatic = false}
                 il.Emit(OpCodes.Ldfld, field)
+        | StoreToIdentifier(assignee) -> 
+            match assignee with
+            | IdentifierAssignee i -> 
+                let local =
+                    acc.LocalVariables
+                    |> Map.tryFind i
+                match local with
+                | Some l -> il.Emit(OpCodes.Stloc , l);
+                | None -> 
+                    // TODO: Inherited properties
+                    let (Field field) = typesTable.FindField t {FieldName = i; IsStatic = false}
+                    il.Emit(OpCodes.Stsfld , field)
+            | MemberFieldAssignee (e, i) -> failwith "not implemented"
         | Br(_) -> failwith "covered above"
         | Brfalse(_) -> failwith "covered above"
         | Brtrue(_) -> failwith "covered above"
