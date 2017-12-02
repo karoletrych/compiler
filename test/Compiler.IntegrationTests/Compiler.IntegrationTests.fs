@@ -54,25 +54,34 @@ let getTestData =
     withCorrespondingOutput 
     >> readFiles
     >> fun (input, expectedOutput) -> 
-            input 
-            |> compile 
-            |> generateAssembly 
-            |> execute,          expectedOutput
+            (fun () ->
+                input 
+                |> compile 
+                |> generateAssembly 
+                |> execute),          expectedOutput
 
-let createTest testName (output, expectedOutput) = 
-    if testName = "variable.ifr"
-    then ftestCase testName (fun _ -> Expect.equal output expectedOutput testName)
-    else testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+let createTest testName testData = 
+    let (test, expectedOutput) = testData
+    if testName = "if.ifr"
+    then ftestCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
+    else testCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
+    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
+let allTests = 
+    (testFiles 
+    |> List.map (fun path -> 
+                let testData = getTestData path
+                createTest (Path.GetFileName(path)) testData
+                ))
 
 [<Tests>]
 let tests = 
     testSequenced <| testList "Integration tests"
-        (testFiles 
-        |> List.map (fun path -> 
-                        let testData = getTestData path
-                        createTest (Path.GetFileName(path)) testData
-                        ))
+        allTests
 
 [<EntryPoint>]
 let main argv =

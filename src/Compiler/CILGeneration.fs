@@ -76,20 +76,39 @@ with
                     
 type MethodBuilderState = {
     LocalVariables : Map<string, LocalBuilder>
+    Labels : Map<int, Label>
 }
+let startState = {LocalVariables = Map.empty; Labels = Map.empty}
+
        
 let fillMethodBody 
     (t : TypeIdentifier)
     (typesTable : FilledTypeTable) 
     (methodBuilder : MethodBuilder) 
     (instructions : ILInstruction list) =
+
     let emitInstruction (il : ILGenerator) (acc : MethodBuilderState) =
+        let useLabel foo (l : int) =
+            let result =
+                match acc.Labels.TryFind l with
+                | Some l ->  l, acc.Labels
+                | None -> 
+                    let label = il.DefineLabel()
+                    label, acc.Labels.Add(l, label)
+            foo (fst result)
+            {acc with Labels = snd result}
         function
         | DeclareLocal(name, t) -> 
             let local = il.DeclareLocal(typesTable.FindType t)
-            {
-                acc with LocalVariables = acc.LocalVariables.Add(name, local) 
-            }
+            {acc with LocalVariables = acc.LocalVariables.Add(name, local) }
+        | Label(l) -> 
+            l |> useLabel (fun label -> il.MarkLabel(label))
+        | Br(l) -> 
+            l |> useLabel (fun label -> il.Emit(OpCodes.Br, label))
+        | Brfalse(l) -> 
+            l |> useLabel (fun label -> il.Emit(OpCodes.Brfalse, label))
+        | Brtrue(l) -> 
+            l |> useLabel (fun label -> il.Emit(OpCodes.Brtrue, label))
         | other -> 
         other |> function
         | DeclareLocal _ -> failwith "error"
@@ -121,6 +140,7 @@ let fillMethodBody
                         il.Emit(OpCodes.Ceq)
         | Cgt        -> il.Emit(OpCodes.Cgt)
         | Cle        -> il.Emit(OpCodes.Cgt)
+                        // TODO: other types than int
                         il.Emit(OpCodes.Ldc_I4_0)
                         il.Emit(OpCodes.Ceq)
         | Clt        -> il.Emit(OpCodes.Clt)
@@ -144,10 +164,6 @@ let fillMethodBody
             let local = acc.LocalVariables |> Map.find i
             il.Emit(OpCodes.Stloc, local)
         | Sub        -> il.Emit(OpCodes.Sub)
-        | Br(_) -> failwith "Not Implemented"
-        | Brfalse(_) -> failwith "Not Implemented"
-        | Brtrue(_) -> failwith "Not Implemented"
-        | Label(_) -> failwith "Not Implemented"
         | Ldc_R4(f) -> il.Emit(OpCodes.Ldc_R4, f)
         | Ldstr(s) -> il.Emit(OpCodes.Ldstr, s)
         | Ldsfld(_) -> failwith "Not Implemented"
@@ -162,13 +178,17 @@ let fillMethodBody
                 // TODO: Inherited properties
                 let (Field field) = typesTable.FindField t {FieldName = i; IsStatic = false}
                 il.Emit(OpCodes.Ldfld, field)
+        | Br(_) -> failwith "covered above"
+        | Brfalse(_) -> failwith "covered above"
+        | Brtrue(_) -> failwith "covered above"
+        | Label(_) -> failwith "covered above"
         acc
 
     let ilGenerator = methodBuilder.GetILGenerator()
     instructions 
     |> List.fold 
         (fun state i -> emitInstruction ilGenerator state i)
-        {LocalVariables = Map.empty}
+        startState
     
 let private defineStaticMethod 
     (types : TypeTable) 

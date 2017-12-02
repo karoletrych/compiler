@@ -1,0 +1,15 @@
+module IfTest
+
+fun main : void
+{
+    if(3<2)
+        System::Console:.WriteLine("3<2");
+    else 
+    {
+        System::Console:.WriteLine("3>2");
+        if (6>4)
+            System::Console:.WriteLine("6>4");
+        else
+            System::Console:.WriteLine("6<4");
+    }
+}

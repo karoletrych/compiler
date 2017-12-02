@@ -44,13 +44,11 @@ and Parameter =
         Name : string
     }
 
-and Label = int
-
 and ILInstruction =
     | Add
-    | Br of Label
-    | Brfalse of Label
-    | Brtrue of Label
+    | Br of int
+    | Brfalse of int
+    | Brtrue of int
     | CallMethod of TypeIdentifier * MethodRef
     | DeclareLocal of string * TypeIdentifier
     | GetField of TypeIdentifier * FieldRef
@@ -62,7 +60,7 @@ and ILInstruction =
     | Clt
     | Dup
     | Div
-    | Label of Label
+    | Label of int
     | Ldarg of int16
     | Ldc_I4 of int
     | Ldc_R4 of float
