@@ -2,20 +2,13 @@ module Compiler.IRGeneration
 open IR
 open Ast
 open TypeInference
-let private convertIdentifier i =
-        // match lookupILVariableScope identifierRef with
-        // | FieldScope(v)    -> [ Ldsfld v ]
-        // | ArgumentScope(i) -> [ Ldarg i ]
-        // | LocalScope(i) -> [ Ldloc i ]
-        [Ldloc i]
 
 type GeneratorState = {
     LocalVariableIndex : uint16
 }
-let getType expr = 
-    let (InferredTypeExpression(_, t)) = expr
-    t
-let rec private convertExpression (expr : InferredTypeExpression) =
+
+let rec private convertExpression context (expr : InferredTypeExpression) =
+    let convertExpression = convertExpression context
     let (InferredTypeExpression(expr, _)) = expr
     match expr with
     | LiteralExpression l -> 
@@ -26,7 +19,7 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | StringLiteral s -> [Ldstr(s)]
     | AssignmentExpression(assignee, expr) -> 
         convertExpression expr
-        @ [Dup]
+        @ [Duplicate]
         @ [StoreToIdentifier assignee]
     | BinaryExpression(e1, op, e2) ->
         convertExpression e1 
@@ -55,7 +48,7 @@ let rec private convertExpression (expr : InferredTypeExpression) =
                         {
                             MethodName = call.Name
                             Parameters = call.Arguments |> List.map getType
-                            IsStatic = false
+                            Context = Instance
                         })
                         ]
     | IdentifierExpression(i) -> [LoadFromIdentifier(i)]
@@ -66,25 +59,29 @@ let rec private convertExpression (expr : InferredTypeExpression) =
         | MemberFunctionCall call ->
             let args = call.Arguments |> List.collect convertExpression
             args 
-          @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; IsStatic = true})]
+          @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; Context = Static})]
         | MemberField f ->
               [GetField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
-    | LocalFunctionCallExpression(_) -> failwith "Not Implemented"
+    | LocalFunctionCallExpression(lfc) -> 
+        (lfc.Arguments |> List.collect convertExpression)
+        @ [CallLocalMethod {
+                            MethodName = lfc.Name
+                            Parameters = lfc.Arguments |> List.map getType
+                            Context = context
+                           }]
 
 let random = System.Random()
 let randomInt () = random.Next()
-let rec private convertStatements statements : ILInstruction list =
+let rec private convertStatements isStatic statements : ILInstruction list =
+    let convertExpression = convertExpression isStatic
     let rec generateIR (s : Statement<InferredTypeExpression>) =
-        let getType expr = 
-            let (InferredTypeExpression(_, t)) = expr
-            t
         match s with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = (Identifier.typeId t)
             (method.Arguments |> List.collect convertExpression)
             @ 
-            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; IsStatic = true})]
+            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static})]
         | AssignmentStatement(assignee, e2) -> 
             convertExpression e2
             @ [StoreToIdentifier assignee]
@@ -106,7 +103,10 @@ let rec private convertStatements statements : ILInstruction list =
             @ elseStatements
 
         | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
-        | ReturnStatement(_) -> failwith "Not Implemented"
+        | ReturnStatement(r) -> 
+            match r with 
+            | Some r -> convertExpression r @ [RetValue (getType r)]
+            | None -> [Ret]
         | VariableDeclaration(vd) -> 
             match vd with
             | DeclarationWithInitialization (name, init) -> 
@@ -135,13 +135,17 @@ let rec private convertStatements statements : ILInstruction list =
 
     let instructions = 
         statements |> generateIR
-    let lastInstructionIsNotRet instructions =
-        instructions |> List.last <> Ret
-    instructions @ if lastInstructionIsNotRet instructions then [Ret] else []
+    let noRetInstruction instructions = 
+        not (instructions 
+           |> List.exists (function
+                          | Ret -> true
+                          | RetValue _ -> true
+                          | _ -> false))
+    instructions @ if noRetInstruction instructions then [Ret] else []
 
-let private buildFunction (func : Function<InferredTypeExpression>) : IR.Method = {
+let private buildFunction isStatic (func : Function<InferredTypeExpression>) : IR.Method = {
     Name = func.Name
-    Body = convertStatements (CompositeStatement func.Body)
+    Body = convertStatements isStatic (CompositeStatement func.Body)
     ReturnType = Identifier.typeId func.ReturnType.Value
     Parameters = 
         func.Parameters 
@@ -155,14 +159,14 @@ let private buildProperty (prop : Ast.Property<InferredTypeExpression>) = {
 
 let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class = {
     Identifier = c.Identifier
-    Methods = c.Functions |> List.map buildFunction
+    Methods = c.Functions |> List.map (buildFunction Instance)
     Properties = c.Properties |> List.map buildProperty
 }
 
 let private buildModule (modul : Module<InferredTypeExpression>) : IR.Module = {
     Identifier = modul.Identifier
     Classes = modul.Classes |> List.map buildClass
-    Functions = modul.Functions |> List.map buildFunction
+    Functions = modul.Functions |> List.map (buildFunction Static)
 } 
 let generateIR modules : IR.Module list =
     modules |> List.map buildModule

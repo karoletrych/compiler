@@ -45,7 +45,10 @@ let execute (assemblyBuilder : AssemblyBuilder) =
 
     if File.Exists(outputPath) then File.Delete(outputPath)
     assemblyBuilder.Save("a.exe")
-    assemblyBuilder.EntryPoint.Invoke(null, Array.empty) |> ignore
+    try
+        assemblyBuilder.EntryPoint.Invoke(null, Array.empty) |> ignore
+    with 
+        | ex -> printfn "%s" ex.Message
     
     Console.SetOut(originalOut)
     stringWriter.ToString()
@@ -62,7 +65,7 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    if testName = "while.ifr"
+    if testName = "returnTypeInference.ifr"
     then ftestCase testName (fun _ -> 
         let output = test()
         Expect.equal output expectedOutput testName)

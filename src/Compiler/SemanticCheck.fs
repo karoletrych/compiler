@@ -18,6 +18,7 @@ open Compiler.CompilerResult
 // Sprawdzanie cyrkularnego dziedziczenia
 // Nazwy zmiennych w ramach funkcji (nie scopea) są unikalne
 // argumenty dla operatorów są poprawne
+// if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 
 let semanticCheck modules =
     Result.succeed modules

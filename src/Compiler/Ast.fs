@@ -128,7 +128,7 @@ and UnaryOperator =
 and Literal =
 | BoolLiteral of bool
 | IntLiteral of int
-| FloatLiteral of float
+| FloatLiteral of single
 | StringLiteral of string
 
 
@@ -229,7 +229,8 @@ module Identifier =
                 Name = cts |>  (fun t -> [t.Name]);
                 GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
             }
-        } 
+        }
+        | TypeIdentifier(i) -> i
 
     let typeId t = 
         let (TypeIdentifier ti) = t

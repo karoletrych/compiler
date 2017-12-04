@@ -5,10 +5,10 @@ open Compiler.Ast
 type Failure = 
 | SyntaxError of string
 | TypeNotFound of TypeSpec
-| LocalFunctionNotFound of string * TypeIdentifier list * TypeIdentifier list
 | FunctionNotFound of TypeIdentifier * string * TypeIdentifier list * TypeSpec list
+| FunctionTypeCannotBeInferred of string * TypeIdentifier list
 | FieldNotFound of TypeIdentifier * string
-| CannotInferType of string
+| CannotInferBinaryExpressionType of TypeIdentifier * TypeIdentifier
 | UndefinedVariable of string
 
 type CompilerResult<'TSuccess> = 
@@ -17,7 +17,7 @@ type CompilerResult<'TSuccess> =
 with member x.Value = 
         match x with
         | Success x -> x
-        | Failure errors -> failwith "Value retrieved from CompilerResult being Failure %A" errors
+        | Failure errors -> failwith (sprintf "Value retrieved from CompilerResult being Failure %A" errors)
 
 module Result = 
     let succeed x = Success x 

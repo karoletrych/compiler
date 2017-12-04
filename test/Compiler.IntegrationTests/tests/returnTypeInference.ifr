@@ -1,0 +1,21 @@
+module ReturnTypeInference
+
+fun test (p : int)
+{
+    if(p == 0)
+        return 0;
+    else if(p == 1)
+        return "1";
+    else
+        return 2.0;
+}
+
+fun main
+{
+    val r0 = test(0);
+    val r1 = test(1);
+    val r2 = test(2);
+    System::Console:.WriteLine(r0.GetType());
+    System::Console:.WriteLine(r1.GetType());
+    System::Console:.WriteLine(r2.GetType());
+}

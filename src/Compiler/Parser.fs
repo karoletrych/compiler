@@ -163,7 +163,7 @@ module Expression =
                 .>> spaces
             |>> StringLiteral
 
-        let pFloatLiteral = pfloat |>> FloatLiteral
+        let pFloatLiteral = pfloat |>> (single >> FloatLiteral)
         let pIntLiteral = (pint32 .>> notFollowedBy (pstring ".")) .>> spaces |>> IntLiteral
         let pBoolParser = (pstring "true" >>% BoolLiteral true) <|> (pstring "false" >>% BoolLiteral false)
         let pLiteralExpression = choice [pBoolParser; attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression

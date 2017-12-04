@@ -50,9 +50,10 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
             GenericParameters = []
             GenericArguments = []
             ImplementedInterfaces = []
-            Methods = declaredType.Functions |> List.map (createFunctionSignature false);
+            Methods = declaredType.Functions 
+                      |> List.map (createFunctionSignature false)
             NestedTypes = []
-            IsStatic = true
+            IsStatic = false
         }
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
@@ -68,7 +69,7 @@ let moduleType (modul : Module<AstExpression>) =
         ImplementedInterfaces = []
         Methods = modul.Functions |> List.map (createFunctionSignature true);
         NestedTypes = []
-        IsStatic = false
+        IsStatic = true
     }
 let typesDictionary externalTypes (modules : Module<AstExpression> list) =
     let withNames (types : Type list) = 

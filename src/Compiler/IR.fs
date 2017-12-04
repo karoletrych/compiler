@@ -1,7 +1,7 @@
 module Compiler.IR
 
 open Ast
-open Compiler.TypeInference
+open TypeInference
 
 
 type Module = 
@@ -18,11 +18,15 @@ and Class =
         Methods : Method list
     }
 
+and Context =
+| Static
+| Instance
+
 and MethodRef = 
     {
         MethodName : string
         Parameters : TypeIdentifier list
-        IsStatic : bool
+        Context : Context
     }
 
 and FieldRef = 
@@ -47,10 +51,12 @@ and Parameter =
 
 and ILInstruction =
     | Add
+    | Box of TypeIdentifier
     | Br of int
     | Brfalse of int
     | Brtrue of int
     | CallMethod of TypeIdentifier * MethodRef
+    | CallLocalMethod of MethodRef
     | DeclareLocal of string * TypeIdentifier
     | GetField of TypeIdentifier * FieldRef
     | LoadFromIdentifier of string
@@ -60,12 +66,12 @@ and ILInstruction =
     | Cgt
     | Cle
     | Clt
-    | Dup
+    | Duplicate
     | Div
     | Label of int
     | Ldarg of int16
     | Ldc_I4 of int
-    | Ldc_R4 of float
+    | Ldc_R4 of single
     | Ldc_R8 of double
     | Ldstr of string
     | Ldelem of TypeIdentifier
@@ -78,6 +84,7 @@ and ILInstruction =
     | Pop
     | Rem
     | Ret
+    | RetValue of TypeIdentifier
     | Starg of int16
     | Stelem of TypeIdentifier
     | Stloc of string
