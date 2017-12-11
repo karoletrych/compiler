@@ -1,0 +1,79 @@
+module Classes
+
+class Animal 
+{
+    val _noise : string
+
+    construct (noise : string)
+    {
+        _noise = noise;
+    }
+
+    fun MakeNoise
+    {
+        System::Console:.WriteLine(_noise);
+    }
+}
+
+class Dog extends Animal
+{
+    construct : ("Hau!")
+    {
+    }
+}
+
+class Cat extends Animal
+{
+    construct : ("Miau!")
+    {
+    }
+}
+
+class Duck extends Animal
+{
+    construct : ("")
+    {
+    }
+
+    fun MakeNoise
+    {
+        System::Console:.WriteLine("Kwak!");
+        System::Console:.WriteLine("Kwak!");
+        System::Console:.WriteLine("Kwak!");
+    }
+}
+
+fun createAnimal (animalType : string)
+{
+    if(animalType == "dog")
+        return new Dog();
+    else if(animalType == "cat")
+        return new Cat();
+    else 
+        return new Duck();
+}
+
+fun printAnimals (animals : System::Collections::Generic::List<Animal>)
+{
+    var i = 0;
+    System::Console:.WriteLine(i);
+    System::Console:.WriteLine(animals.Count);
+    while(i < animals.Count)
+    {
+        System::Console:.WriteLine(i);
+        val animal = animals.get_Item(i);
+        System::Console:.WriteLine(animal.GetType());
+        animal.MakeNoise();
+        i = i + 1;
+    }
+}
+
+fun main
+{
+    val dog = createAnimal("dog");
+    val cat = createAnimal("cat");
+    val duck = createAnimal("duck");
+
+    val animals = [dog; cat; duck];
+    printAnimals(animals);
+}

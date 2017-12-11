@@ -8,6 +8,7 @@ Debug
 *.user
 obj
 bin
+a.exe
 
 
 ### Linux ###

@@ -11,8 +11,18 @@ open System
 // Build variables
 // --------------------------------------------------------------------------------------
 
-let buildDir  = "./build/"
+open System.IO
+
 let appReferences = !! "/**/*.fsproj"
+let releaseAppReferences = !! "/src/**/*.fsproj"
+let releaseDir  = "./release/"
+let version = "0.1"
+let buildDir = "./src/Compiler/bin/Release/"
+
+let buildDirs = 
+    appReferences
+    |> Seq.map Path.GetDirectoryName
+    |> Seq.collect (fun p -> [Path.Combine(p,"obj"); Path.Combine(p, "bin")])
 let dotnetcliVersion = "2.0.3"
 let mutable dotnetExePath = "dotnet"
 
@@ -33,7 +43,8 @@ let runDotnet workingDir args =
 // --------------------------------------------------------------------------------------
 
 Target "Clean" (fun _ ->
-    CleanDirs [buildDir]
+    CleanDirs buildDirs 
+    CleanDir releaseDir
 )
 
 Target "InstallDotNetCLI" (fun _ ->
@@ -56,6 +67,30 @@ Target "Build" (fun _ ->
     )
 )
 
+Target "RestoreRelease" (fun _ ->
+    releaseAppReferences
+    |> Seq.iter (fun p ->
+        let dir = System.IO.Path.GetDirectoryName p
+        runDotnet dir "restore"
+    )
+)
+
+Target "BuildRelease" (fun _ ->
+    releaseAppReferences
+    |> Seq.iter (fun p ->
+        let dir = System.IO.Path.GetDirectoryName p
+        runDotnet dir "build -c Release"
+    )
+)
+
+Target "Zip" (fun _ ->
+    let zipPath = releaseDir + "Compiler." + version + ".zip" 
+
+    !! (buildDir + "/**/*.*") 
+    |> Zip buildDir zipPath
+)
+
+
 // --------------------------------------------------------------------------------------
 // Build order
 // --------------------------------------------------------------------------------------
@@ -64,5 +99,11 @@ Target "Build" (fun _ ->
   ==> "InstallDotNetCLI"
   ==> "Restore"
   ==> "Build"
+
+"RestoreRelease"
+  ==> "BuildRelease"
+
+"BuildRelease"
+  ==> "Zip"
 
 RunTargetOrDefault "Build"

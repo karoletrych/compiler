@@ -72,6 +72,7 @@ let rec statementCata
     breakStatement
     ifStatement
     whileStatement
+    instanceFunctionCall
     statement = 
     let recurse = 
         statementCata
@@ -88,6 +89,7 @@ let rec statementCata
             breakStatement
             ifStatement
             whileStatement
+            instanceFunctionCall
     match statement with
     | FunctionCallStatement(call) ->
         functionCall (call.Name, call.Arguments , call.GenericArguments)
@@ -109,7 +111,7 @@ let rec statementCata
             | MemberFieldAssignee (e, i) -> fieldMemberAssignment ((e, i), e2)
     | BreakStatement -> breakStatement
     | IfStatement (e,s,elseS) -> ifStatement (e, recurse s, elseS |> Option.map recurse)
-    | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
+    | InstanceMemberFunctionCallStatement(expr, fc) -> instanceFunctionCall (expr, fc)
     | WhileStatement(e, s) -> whileStatement (e, recurse s)
 
 let rec statementFold
@@ -124,6 +126,8 @@ let rec statementFold
     assignment
     breakStatement
     ifStatement
+    whileStatement
+    instanceFunctionCall
     (acc : 'acc)
     statement = 
     let recurse = 
@@ -139,6 +143,8 @@ let rec statementFold
             assignment  
             breakStatement
             ifStatement
+            whileStatement
+            instanceFunctionCall
     match statement with
     | FunctionCallStatement(call) ->
         functionCall acc (call.Name, call.Arguments , call.GenericArguments)
@@ -163,5 +169,7 @@ let rec statementFold
             newAcc s 
             @ 
             (elseS |> Option.map (recurse newAcc) |> Option.defaultValue [])
-    | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
-    | WhileStatement(_, _) -> failwith "Not Implemented"
+    | InstanceMemberFunctionCallStatement(callee, mfc) -> instanceFunctionCall acc (callee, mfc)
+    | WhileStatement(e, s) -> 
+        let newAcc = whileStatement acc e
+        recurse newAcc s

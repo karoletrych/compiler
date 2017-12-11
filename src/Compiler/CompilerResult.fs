@@ -1,5 +1,6 @@
 module Compiler.CompilerResult
 open Compiler.Ast
+open System
 
 
 type Failure = 
@@ -11,13 +12,35 @@ type Failure =
 | CannotInferBinaryExpressionType of TypeIdentifier * TypeIdentifier
 | UndefinedVariable of string
 
+let toString (errors : Failure list) = 
+    let errorString x = 
+        let argsToString args = System.String.Join(",", (args |> List.toArray|> Array.map (fun t->t.ToString())))
+        let failure = 
+            match Reflection.FSharpValue.GetUnionFields(x, typeof<Failure>) with
+            | case, _ -> case.Name
+        let message = 
+            match x with 
+            | SyntaxError s -> s
+            | TypeNotFound ts -> (ts.ToString())
+            | FunctionNotFound(t, name, args, generics) -> 
+                let generics = System.String.Join(",", (generics |> List.toArray|> Array.map (fun t->t.ToString())))
+                t.ToString() + "::" + name + "<" + generics + ">" + "(" + argsToString args + ")"
+            | FunctionTypeCannotBeInferred (name,args) ->
+                name + "(" + argsToString args + ")"
+            | FieldNotFound (t,name) -> "Type: " + t.ToString() + " FieldName: "+ name
+            | CannotInferBinaryExpressionType (t1, t2) -> t1.ToString() + " " + t2.ToString()
+            | UndefinedVariable v -> v.ToString()
+        failure + ": " + message
+    errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))
+
 type CompilerResult<'TSuccess> = 
 | Success of 'TSuccess
 | Failure of Failure list
 with member x.Value = 
         match x with
         | Success x -> x
-        | Failure errors -> failwith (sprintf "Value retrieved from CompilerResult being Failure %A" errors)
+        | Failure errors -> failwith (sprintf "Value retrieved from CompilerResult being Failure %s" (toString errors))
+
 
 module Result = 
     let succeed x = Success x 
@@ -26,7 +49,7 @@ module Result =
 
     let get = function
         | Success x -> x
-        | Failure errors -> failwith (sprintf "get called on CompilerResult being Failure %A" errors)
+        | Failure errors -> failwith (sprintf "get called on CompilerResult being Failure %s" (toString errors))
     let getErrors = function
         | Success x -> failwith "getErrors called on CompilerResult being Success"
         | Failure errors -> errors
@@ -99,6 +122,8 @@ module Result =
     let inline (<!>) f x = map f x
     let inline (<*>) f x = apply f x
     let map3 f x y z = f <!> x <*> y <*> z
+
+    
 
 let inline (<!>) f x = Result.map f x
 let inline (<*>) f x = Result.apply f x

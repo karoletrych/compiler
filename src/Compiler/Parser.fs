@@ -226,7 +226,8 @@ module Expression =
             fun x y -> (createMemberExpr x y) |> AstExpression)
             )
 
-    let pNewExpression = Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
+    let pNewExpression = 
+        Keyword.pNew >>. Types.pTypeSpec .>>. between Char.leftParen Char.rightParen pArgumentList |>> NewExpression
 
     let pStaticFunctionCall =
         Char.colonDot >>. pFunctionCall
@@ -250,6 +251,7 @@ module Expression =
         pListInitializerExpression |>> AstExpression
         attempt staticMember       |>> AstExpression
         Literal.pLiteralExpression |>> AstExpression
+        pNewExpression |>> AstExpression
         attempt pFunctionCallExpression
         pIdentifierExpression
         pParenthesizedExpression 
@@ -378,7 +380,7 @@ module Class =
                 (Keyword.pConstructor >>. Function.parametersList)
                 pBaseCall
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
-                (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Statements = body})
+                (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Body = body})
         let property = 
              pipe3
                 (Keyword.pVal >>. pIdentifier)
@@ -387,7 +389,7 @@ module Class =
                 (fun name t initializer -> { Name = name; Type = t; Initializer = initializer})
         tuple3
             (many property)
-            (opt pConstructor)
+            (many pConstructor)
             (many Function.pFunctionDeclaration)
 
     let pClass : Parser<Class<AstExpression>, unit> =
@@ -396,12 +398,12 @@ module Class =
             pInheritanceDeclaration
             (between Char.leftBrace Char.rightBrace pClassBody)
             (fun name inheritanceDeclaration body ->
-            let properties, constructor, functions = body
+            let properties, constructors, functions = body
             {
                 Name = name;
                 BaseClass = fst inheritanceDeclaration;
                 Properties = properties;
-                Constructor = constructor;
+                Constructors = constructors;
                 Functions = functions;
                 ImplementedInterfaces = snd inheritanceDeclaration;
             })

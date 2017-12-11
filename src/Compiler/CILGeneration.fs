@@ -4,9 +4,14 @@ open System.Reflection
 open IR
 open Ast
 
+let findGenericTypeDefinition (types : Map<TypeIdentifier, System.Type>) id =
+   types
+   |> Map.pick (fun k v -> if k.Namespace = id.Namespace && k.TypeName.Name = id.TypeName.Name  && k.GenericArgumentsNumber = id.GenericArgumentsNumber then Some v else None)
+
 type TypeBuilderWrapper = {
     MethodBuilders : Map<IR.MethodRef, MethodBuilder>
-    PropertyBuilders : Map<string, PropertyBuilder>
+    FieldBuilders : Map<string, FieldBuilder>
+    ConstructorBuilders : Map<TypeIdentifier list, ConstructorBuilder>
     TypeBuilder : TypeBuilder
 }
 
@@ -15,14 +20,21 @@ type TypeTable = {
     ExternalTypes : Map<TypeIdentifier, System.Type>
 }
 with member this.FindType id : System.Type = 
-        this.TypeBuilders 
-        |> Map.tryFind id 
-        |> function 
-           | Some t -> t :> System.Type 
-           | None -> (this.ExternalTypes |> Map.find id)
+            match id.TypeName.GenericArguments with
+            | [] ->
+                this.TypeBuilders 
+                |> Map.tryFind id 
+                |> function 
+                   | Some t -> t :> System.Type
+                   | None -> (this.ExternalTypes |> Map.find id)
+            | generics ->
+                let t = findGenericTypeDefinition this.ExternalTypes id
+                let genericArgs = generics |> List.map this.FindType
+                t.MakeGenericType(genericArgs |> List.toArray)
+                
  
 type Field = 
-| Property of PropertyInfo
+| Property of MethodInfo
 | Field of FieldInfo
 
 type FilledTypeTable = {
@@ -31,202 +43,260 @@ type FilledTypeTable = {
 }
 with 
         member this.FindType id : System.Type = 
-            this.FilledTypeBuilders 
-            |> Map.tryFind id 
-            |> function 
-               | Some t -> t.TypeBuilder :> System.Type 
-               | None -> (this.ExternalTypes |> Map.find id)
+            match id.TypeName.GenericArguments with
+            | [] ->
+                this.FilledTypeBuilders 
+                |> Map.tryFind id 
+                |> function 
+                   | Some t -> t.TypeBuilder :> System.Type 
+                   | None -> (this.ExternalTypes |> Map.find id)
+            | generics ->
+                let t = findGenericTypeDefinition this.ExternalTypes id
+                let genericArgs = generics |> List.map this.FindType
+                t.MakeGenericType(genericArgs |> List.toArray)
         member this.FindMethod tId (methodRef : MethodRef) = 
             let bindingFlags =
                 match methodRef.Context with
                 | Static -> BindingFlags.Static ||| BindingFlags.Public
                 | Instance -> BindingFlags.Instance ||| BindingFlags.Public
-            this.FilledTypeBuilders 
-            |> Map.tryFind tId 
-            |> function 
-            | Some t -> 
-                t.MethodBuilders.[methodRef] :> MethodInfo
-            | None -> 
-                (this.ExternalTypes.[tId]
-                    |> (fun t -> t.GetMethod(methodRef.MethodName,
-                                     bindingFlags,
-                                     null,
-                                     methodRef.Parameters 
-                                        |> List.map(this.FindType) |> List.toArray,
-                                     null)
-                                     ))
-        member this.FindField tId propertyRef = 
+            let t = this.FindType tId
+            t
+            |> function
+                | :? TypeBuilder ->
+                    let tb = this.FilledTypeBuilders.[tId]
+                    let methodBuilder = tb.MethodBuilders |> Map.tryFind methodRef |> Option.map (fun m -> m :> MethodInfo)
+                    match methodBuilder with
+                    | Some m -> m
+                    | None -> 
+                        let baseClassMethod = this.FindMethod (Identifier.fromDotNet tb.TypeBuilder.BaseType) methodRef
+                        baseClassMethod
+                | externalT ->
+                    if tId.GenericArgumentsNumber <> 0 
+                    then
+                        let t = findGenericTypeDefinition this.ExternalTypes tId 
+                        let methodRef = t.GetMethod(methodRef.MethodName)
+                        //TODO: ^^^ only name?
+                        TypeBuilder.GetMethod(externalT, methodRef)
+                    else
+                        externalT.GetMethod(methodRef.MethodName,
+                                             bindingFlags,
+                                             null,
+                                             methodRef.Parameters 
+                                                |> List.map(this.FindType) |> List.toArray,
+                                             null)
+        member this.FindConstructor (tId : TypeIdentifier) (argTypes : TypeIdentifier list) : ConstructorInfo=
+            let t = this.FindType tId
+            t
+            |> function
+            | :? TypeBuilder ->
+                let tb = this.FilledTypeBuilders.[tId]
+                let constructorBuilder = 
+                    tb.ConstructorBuilders 
+                    |> Map.find argTypes
+                constructorBuilder :> ConstructorInfo
+            | externalT ->
+                if tId.GenericArgumentsNumber <> 0 
+                    then
+                        let t = findGenericTypeDefinition this.ExternalTypes tId 
+                        let constructorRef = t.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
+                        TypeBuilder.GetConstructor(externalT, constructorRef)
+                    else
+                        externalT.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
+
+        member this.FindField tId fieldRef = 
             let bindingFlags =
-                    match propertyRef.IsStatic with
+                    match fieldRef.IsStatic with
                     | true -> BindingFlags.Static ||| BindingFlags.Public
                     | false -> BindingFlags.Instance ||| BindingFlags.Public
-            this.FilledTypeBuilders 
-            |> Map.tryFind tId 
-            |> function 
-            | Some t -> 
-                Property (t.PropertyBuilders.[propertyRef.FieldName] :> PropertyInfo)
-            | None -> 
-                (this.ExternalTypes.[tId]
-                    |> (fun t -> 
-                        match t.GetProperty(propertyRef.FieldName, bindingFlags) with
-                        | null -> Field (t.GetField(propertyRef.FieldName, bindingFlags))
-                        | t -> Property t
-                        )
-                )
+                
+            let t = this.FindType tId
+            t
+            |> function
+                | :? TypeBuilder ->
+                    let tb = this.FilledTypeBuilders.[tId]
+                    let fieldBuilder = tb.FieldBuilders |> Map.tryFind fieldRef.FieldName |> Option.map (fun m -> m :> FieldInfo)
+                    match fieldBuilder with
+                    | Some f -> Field f
+                    | None -> 
+                        let baseClassMethod = this.FindField (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
+                        baseClassMethod
+                | externalT ->
+                    if tId.GenericArgumentsNumber <> 0 
+                    then
+                        let unconstructedT = findGenericTypeDefinition this.ExternalTypes tId 
+                        let dotnetField = unconstructedT.GetField(fieldRef.FieldName)
+                        match dotnetField with
+                        | null -> 
+                            let tProperty = unconstructedT.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod
+                            Property (TypeBuilder.GetMethod(externalT, tProperty))
+                        | f -> Field (TypeBuilder.GetField(externalT, f))
+                    else
+                        match externalT.GetField(fieldRef.FieldName) with
+                        | null -> Property (externalT.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod)
+                        | f -> Field f
                     
 type MethodBuilderState = {
-    LocalVariables : Map<string, LocalBuilder>
     Labels : Map<int, Label>
 }
-let private startState = {LocalVariables = Map.empty; Labels = Map.empty}
-let private fillMethodBody 
-    (t : TypeIdentifier)
+let private initialState = {Labels = Map.empty}
+let emitInstruction 
     (typesTable : FilledTypeTable) 
-    (methodBuilder : MethodBuilder) 
-    (method : IR.Method)=
-
-    let emitInstruction (il : ILGenerator) (acc : MethodBuilderState) =
-        let useLabel foo (l : int) =
-            let result =
-                match acc.Labels.TryFind l with
-                | Some l ->  l, acc.Labels
-                | None -> 
-                    let label = il.DefineLabel()
-                    label, acc.Labels.Add(l, label)
-            foo (fst result)
-            {acc with Labels = snd result}
-        let callMethod t methodRef = 
-            let methodInfo = typesTable.FindMethod t methodRef
-            match methodRef.Context with
-            | Static -> 
-                il.Emit(OpCodes.Call, methodInfo)
-            | Instance -> 
-                let typeInfo = typesTable.FindType t
+    (il : ILGenerator) 
+    (returnType : TypeIdentifier) 
+    (t : TypeIdentifier) 
+    (parameters : IR.Variable list) 
+    (variables : Map<string, LocalBuilder>)
+    (context : Context)
+    (acc : MethodBuilderState) =
+    let useLabel foo (l : int) =
+        let result =
+            match acc.Labels.TryFind l with
+            | Some l ->  l, acc.Labels
+            | None -> 
+                let label = il.DefineLabel()
+                label, acc.Labels.Add(l, label)
+        foo (fst result)
+        {acc with Labels = snd result}
+    let callMethod t methodRef = 
+        let methodInfo = typesTable.FindMethod t methodRef
+        match methodRef.Context with
+        | Static -> 
+            il.Emit(OpCodes.Call, methodInfo)
+        | Instance -> 
+            let typeInfo = typesTable.FindType t
+            if typeInfo.IsValueType then
                 let loc = il.DeclareLocal(typeInfo)
                 il.Emit(OpCodes.Stloc, loc);
                 il.Emit(OpCodes.Ldloca, loc);
                 // https://msdn.microsoft.com/en-us/library/system.reflection.emit.opcodes.constrained(v=vs.110).aspx
                 il.Emit(OpCodes.Constrained, typeInfo);
-                il.Emit(OpCodes.Callvirt, methodInfo);
- 
-        function
-        | DeclareLocal(name, t) -> 
-            let local = il.DeclareLocal(typesTable.FindType t)
-            {acc with LocalVariables = acc.LocalVariables.Add(name, local) }
-        | Label(l) -> 
-            l |> useLabel (fun label -> il.MarkLabel(label))
-        | Br(l) -> 
-            l |> useLabel (fun label -> il.Emit(OpCodes.Br, label))
-        | Brfalse(l) -> 
-            l |> useLabel (fun label -> il.Emit(OpCodes.Brfalse, label))
-        | Brtrue(l) -> 
-            l |> useLabel (fun label -> il.Emit(OpCodes.Brtrue, label))
-        | other -> 
-        other |> function
-        | DeclareLocal _ -> failwith "error"
-        | Add -> il.Emit(OpCodes.Add)
-        | CallMethod(t, methodRef) -> 
-            callMethod t methodRef
-        | CallLocalMethod(methodRef) -> 
-            callMethod t methodRef
-        | GetField (t, fieldRef) ->
-            let field = typesTable.FindField t fieldRef
-            match field with
-            | Property p -> il.Emit(OpCodes.Call, p.GetMethod)
-            | Field f -> 
-                         match fieldRef.IsStatic with
-                         | true -> il.Emit(OpCodes.Ldsfld, f)
-                         | false -> il.Emit(OpCodes.Ldfld, f)
-        | Ceq        -> il.Emit(OpCodes.Ceq)
-        | Cge        -> il.Emit(OpCodes.Clt)
-                        il.Emit(OpCodes.Ldc_I4_0)
-                        il.Emit(OpCodes.Ceq)
-        | Cgt        -> il.Emit(OpCodes.Cgt)
-        | Cle        -> il.Emit(OpCodes.Cgt)
-                        // TODO: other types than int
-                        il.Emit(OpCodes.Ldc_I4_0)
-                        il.Emit(OpCodes.Ceq)
-        | Clt        -> il.Emit(OpCodes.Clt)
-        | Duplicate        -> il.Emit(OpCodes.Dup)
-        | Div        -> il.Emit(OpCodes.Div)
-        | Ldarg(i)   -> il.Emit(OpCodes.Ldarg, i)
-        | Ldc_I4(i)  -> il.Emit(OpCodes.Ldc_I4, i)
-        | Ldc_R8(r)  -> il.Emit(OpCodes.Ldc_R8, r)
-        | Ldelem(t)  -> il.Emit(OpCodes.Ldelem, (t.ToString()))
-        | Ldlen      -> il.Emit(OpCodes.Ldlen)
-        | Ldloc(i)   -> il.Emit(OpCodes.Ldloc, i)
-        | Mul        -> il.Emit(OpCodes.Mul)
-        | Neg        -> il.Emit(OpCodes.Neg)
-        | Newarr(t)  -> il.Emit(OpCodes.Newarr, (t.ToString()))
-        | Pop        -> il.Emit(OpCodes.Pop)
-        | Rem        -> il.Emit(OpCodes.Rem)
-        | Ret        -> il.Emit(OpCodes.Ret)
-        | RetValue(t)-> 
-            let t = typesTable.FindType t
-            let returnT = typesTable.FindType method.ReturnType
-            if t.IsValueType && not returnT.IsValueType then il.Emit(OpCodes.Box, t)
-            il.Emit(OpCodes.Ret)
-        | Starg(i)   -> il.Emit(OpCodes.Starg, i)
-        | Stelem(t)  -> il.Emit(OpCodes.Stelem, (t.ToString()))
-        | Stloc(i)   -> 
-            let local = acc.LocalVariables |> Map.find i
-            il.Emit(OpCodes.Stloc, local)
-        | Sub        -> il.Emit(OpCodes.Sub)
-        | Ldc_R4(f) -> il.Emit(OpCodes.Ldc_R4, f)
-        | Ldstr(s) -> il.Emit(OpCodes.Ldstr, s)
-        | Ldsfld(_) -> failwith "Not Implemented"
-        | Stsfld(_) -> failwith "Not Implemented"
-        | LoadFromIdentifier(i) -> 
-            let local =
-                acc.LocalVariables
-                |> Map.tryFind i
-            match local with
-            | Some l -> il.Emit(OpCodes.Ldloc, l);
-            | None -> 
-                let argIndex = method.Parameters |> List.tryFindIndex (fun arg -> arg.Name = i)
-                match argIndex with
-                | Some arg -> il.Emit(OpCodes.Ldarg, arg)
-                | None ->
-                    // TODO: Inherited properties
-                    let (Field field) = typesTable.FindField t {FieldName = i; IsStatic = false}
-                    il.Emit(OpCodes.Ldfld, field)
-        | StoreToIdentifier(assignee) -> 
-            match assignee with
-            | IdentifierAssignee i -> 
-                let local =
-                    acc.LocalVariables
-                    |> Map.tryFind i
-                match local with
-                | Some l -> il.Emit(OpCodes.Stloc , l);
-                | None -> 
-                    let argIndex = method.Parameters |> List.tryFindIndex (fun arg -> arg.Name = i)
-                    match argIndex with
-                    | Some arg -> il.Emit(OpCodes.Starg, arg)
-                    | None -> 
-                        // TODO: Inherited properties
-                        let (Field field) = typesTable.FindField t {FieldName = i; IsStatic = false}
-                        il.Emit(OpCodes.Stsfld , field)
-            | MemberFieldAssignee (e, i) -> failwith "not implemented"
-        | Br(_) -> failwith "covered above"
-        | Brfalse(_) -> failwith "covered above"
-        | Brtrue(_) -> failwith "covered above"
-        | Label(_) -> failwith "covered above"
-        acc
 
-    let ilGenerator = methodBuilder.GetILGenerator()
+            il.Emit(OpCodes.Callvirt, methodInfo);
+
+    function
+    | Label(l) -> 
+        l |> useLabel (fun label -> il.MarkLabel(label))
+    | Br(l) -> 
+        l |> useLabel (fun label -> il.Emit(OpCodes.Br, label))
+    | Brfalse(l) -> 
+        l |> useLabel (fun label -> il.Emit(OpCodes.Brfalse, label))
+    | Brtrue(l) -> 
+        l |> useLabel (fun label -> il.Emit(OpCodes.Brtrue, label))
+    | other -> 
+    other |> function
+    | Add -> il.Emit(OpCodes.Add)
+    | CallMethod(t, methodRef) -> 
+        callMethod t methodRef
+    | CallLocalMethod(methodRef) -> 
+        callMethod t methodRef
+    | GetExternalField (t, fieldRef) ->
+        let field = typesTable.FindField t fieldRef
+        match field with
+        | Property p -> il.Emit(OpCodes.Call, p)
+        | Field f -> 
+                     match fieldRef.IsStatic with
+                     | true -> il.Emit(OpCodes.Ldsfld, f)
+                     | false -> il.Emit(OpCodes.Ldfld, f)
+    | Ceq        -> il.Emit(OpCodes.Ceq)
+    | Cge        -> il.Emit(OpCodes.Clt)
+                    il.Emit(OpCodes.Ldc_I4_0)
+                    il.Emit(OpCodes.Ceq)
+    | Cgt        -> il.Emit(OpCodes.Cgt)
+    | Cle        -> il.Emit(OpCodes.Cgt)
+                    // TODO: other types than int
+                    il.Emit(OpCodes.Ldc_I4_0)
+                    il.Emit(OpCodes.Ceq)
+    | Clt        -> il.Emit(OpCodes.Clt)
+    | Duplicate        -> il.Emit(OpCodes.Dup)
+    | Div        -> il.Emit(OpCodes.Div)
+    | LdcI4(i)  -> il.Emit(OpCodes.Ldc_I4, i)
+    | LdcR8(r)  -> il.Emit(OpCodes.Ldc_R8, r)
+    | LdcR4(f) -> il.Emit(OpCodes.Ldc_R4, f)
+    | Ldstr(s) -> il.Emit(OpCodes.Ldstr, s)
+    | Ldlen      -> il.Emit(OpCodes.Ldlen)
+    | Mul        -> il.Emit(OpCodes.Mul)
+    | Sub      -> il.Emit(OpCodes.Sub)
+    | Neg        -> il.Emit(OpCodes.Neg)
+    | CallConstructor(t, argTypes) -> 
+        let constructorInfo = typesTable.FindConstructor t argTypes
+        il.Emit(OpCodes.Call, constructorInfo)
+    | NewObj(t, argTypes) -> 
+        let constructorInfo = typesTable.FindConstructor t argTypes
+        il.Emit(OpCodes.Newobj, constructorInfo)
+    | Pop        -> il.Emit(OpCodes.Pop)
+    | Rem        -> il.Emit(OpCodes.Rem)
+    | Ret        -> il.Emit(OpCodes.Ret)
+    | RetValue(t)-> 
+        let t = typesTable.FindType t
+        let returnT = typesTable.FindType returnType
+        if t.IsValueType && not returnT.IsValueType then il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+    | Starg(i)   -> il.Emit(OpCodes.Starg, i)
+    | Stloc(i)   -> 
+        il.Emit(OpCodes.Stloc, variables.[i])
+    | Ldloc(local) -> 
+        il.Emit(OpCodes.Ldloc, variables.[local])
+    | Ldarg argName ->
+        let argIndex = parameters |> List.findIndex (fun arg -> arg.Name = argName)
+        match context with
+        | Static -> il.Emit(OpCodes.Ldarg, argIndex)
+        | Instance -> il.Emit(OpCodes.Ldarg, argIndex + 1)
+        // TODO: Inherited properties
+    | Ldfld(field) -> 
+        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = false}
+        il.Emit(OpCodes.Ldfld , field)
+    | Stfld(field) -> 
+        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = false}
+        il.Emit(OpCodes.Stfld , field)
+    | Stsfld(field) -> 
+        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = true}
+        il.Emit(OpCodes.Stfld , field)
+    | LdargIdx(idx) -> il.Emit(OpCodes.Ldarg, idx)
+    | Br(_) -> failwith "covered above"
+    | Brfalse(_) -> failwith "covered above"
+    | Brtrue(_) -> failwith "covered above"
+    | Label(_) -> failwith "covered above"
+    acc
+
+let private fillMethodBody 
+    (t : TypeIdentifier)
+    (typesTable : FilledTypeTable) 
+    (methodBuilder : MethodBuilder) 
+    (method : IR.Method) 
+     =
+    let il = methodBuilder.GetILGenerator()
+    let variables = 
+        method.LocalVariables
+        |> List.map (fun v -> (v.Name, il.DeclareLocal(typesTable.FindType v.Type)))
+        |> Map.ofList
     method.Body
     |> List.fold 
-        (fun state i -> emitInstruction ilGenerator state i)
-        startState
+        (fun state instr -> 
+                emitInstruction 
+                    typesTable 
+                    il 
+                    method.ReturnType 
+                    t 
+                    method.Parameters 
+                    variables
+                    method.Context
+                    state instr)
+        initialState
     
-let private defineStaticMethod 
+let private defineMethod 
     (types : TypeTable) 
     (typeBuilder : TypeBuilder) 
-    (method : IR.Method) = 
+    (method : IR.Method) 
+    (context : Context) = 
+        let attr = 
+            match context with
+            | Static -> MethodAttributes.Static            
+            | Instance -> MethodAttributes.Virtual
+
         typeBuilder.DefineMethod(
             method.Name,
             MethodAttributes.Public
-                ||| MethodAttributes.Static 
+                ||| attr
                 ||| MethodAttributes.HideBySig,
             CallingConventions.Standard,
             types.FindType(method.ReturnType),
@@ -238,93 +308,152 @@ let private defineStaticMethod
 let private fillTypesInTable
     (types : TypeTable) 
     (typeBuilder : TypeBuilder)
-    (modul : IR.Module) =
-    modul.Functions 
+    (functions : IR.Method list) 
+    (context : Context) =
+    functions
     |> List.map 
         (fun f -> {
                     MethodName = f.Name;
                     Parameters = f.Parameters |> List.map (fun p -> p.Type)
-                    Context = Static;
+                    Context = context;
                   },
-                   defineStaticMethod types typeBuilder f)
+                   defineMethod types typeBuilder f context)
     |> Map.ofList
+
+let fillBaseType (typesLookupTable : TypeTable) (typeBuilder : TypeBuilder) (c : IR.Class) =
+    let t = typesLookupTable.FindType(c.BaseClass)
+    typeBuilder.SetParent(t)
+
+let createModuleBuilder (assemblyBuilder : AssemblyBuilder) setEntryPoint = 
+    let extension = 
+        match setEntryPoint with
+        | true -> ".exe"
+        | false -> ".dll"
+    assemblyBuilder.DefineDynamicModule(
+        assemblyBuilder.GetName().Name + ".mod",
+        assemblyBuilder.GetName().Name + extension, false)
+
+let getExternalTypes = 
+    List.collect (fun (a : Assembly) -> a.GetExportedTypes() |> List.ofArray)
+    >> List.map (fun t -> (Identifier.fromDotNet t, t))
+    >> Map.ofList
+
+let defineClassType (mb : ModuleBuilder) (t : IR.Class) : TypeBuilder =
+    mb.DefineType(t.Identifier.ToString(), TypeAttributes.Class)
+let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
+    mb.DefineType(m.Identifier.ToString())
 
 let generateAssembly 
     (assemblyBuilder : AssemblyBuilder) 
     (referencedAssemblies : Assembly list)
     (modules : IR.Module list) 
     (setEntryPoint : bool) =
-    let moduleBuilder = 
-        let extension = 
-            match setEntryPoint with
-            | true -> ".exe"
-            | false -> ".dll"
-        assemblyBuilder.DefineDynamicModule(
-            assemblyBuilder.GetName().Name + ".mod",
-            assemblyBuilder.GetName().Name + extension, false)
-
-    let externalTypes : Map<TypeIdentifier, System.Type> =
-        referencedAssemblies 
-        |> List.collect (fun a -> a.GetExportedTypes() |> List.ofArray)
-        |> List.map (fun t -> (Identifier.fromDotNet t, t))
-        |> Map.ofList
+    let moduleBuilder = createModuleBuilder assemblyBuilder setEntryPoint
+    let externalTypes = getExternalTypes referencedAssemblies
+    let defineModuleType = defineModuleType moduleBuilder
+    let defineClassType = defineClassType moduleBuilder
 
     let typeBuilders =
         modules 
         |> List.map (fun m ->
-                m.Identifier,
-                moduleBuilder.DefineType(m.Identifier.ToString())
-                )
+                    m.Identifier, defineModuleType m )
         |> List.append
                 (modules
                 |> List.collect (fun m ->
                     m.Classes 
-                    |> List.map (fun c ->
-                        c.Identifier, moduleBuilder.DefineType(c.Identifier.ToString()))
-                        ))
+                    |> List.map (fun c -> c.Identifier, defineClassType c)))
+                        
+        |> Map.ofList
 
     let typesLookupTable = {
-        TypeBuilders = typeBuilders |> Map.ofList
+        TypeBuilders = typeBuilders
         ExternalTypes = externalTypes
     }
     let filledTypeBuilders = 
         modules 
-        |> List.map (fun m -> 
+        |> List.collect (fun m -> 
+            let typeBuilder = typeBuilders.[m.Identifier]
+            let methodBuilders = fillTypesInTable typesLookupTable typeBuilder m.Functions Static
+            [m.Identifier,
+                {
+                    MethodBuilders = methodBuilders
+                    TypeBuilder = typeBuilder
+                    FieldBuilders = Map.empty
+                    ConstructorBuilders = Map.empty
+                }]
+            |> List.append 
+                (m.Classes 
+                |> List.map(fun c ->
                     let typeBuilder = 
-                        typeBuilders 
-                        |> List.map snd
-                        |> List.find (fun tb -> tb.FullName = m.Identifier.ToString())
-                    let methodBuilders = fillTypesInTable typesLookupTable typeBuilder m
-                    m.Identifier,
+                        typeBuilders.[c.Identifier]
+                    let methodBuilders = fillTypesInTable typesLookupTable typeBuilder c.Methods Instance
+                    fillBaseType typesLookupTable typeBuilder c
+
+                    c.Identifier,
                     {
                         MethodBuilders = methodBuilders
                         TypeBuilder = typeBuilder
-                        PropertyBuilders = Map.empty
+                        FieldBuilders = c.Fields 
+                                        |> List.map (fun (p : IR.Variable) -> p.Name, typeBuilder.DefineField(p.Name, typesLookupTable.FindType(p.Type), FieldAttributes.Public))
+                                        |> Map.ofList
+                        ConstructorBuilders = 
+                            match c.Constructors with
+                            | [] -> [([],typeBuilder.DefineDefaultConstructor(MethodAttributes.HideBySig ||| MethodAttributes.Public))] |> Map.ofList
+                            | ctors -> 
+                                ctors 
+                                |> List.map (fun ctor -> 
+                                    let argTypes = ctor.Parameters |> List.map (fun p -> typesLookupTable.FindType p.Type)
+                                    ctor.Parameters |> List.map (fun p -> p.Type), typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, argTypes |> Array.ofList))
+                                |> Map.ofList
                     }
-                    )
+                )
+        )
+    )
     let filledTypeBuildersMap = filledTypeBuilders |> Map.ofList
     let filledTypesTable = {
             FilledTypeBuilders = filledTypeBuildersMap
             ExternalTypes = externalTypes
         }
 
-    modules 
-        |> List.iter (fun m ->
-            m.Functions
-            |> List.iter (fun (f : Method) ->  
-                let methodRef = 
+    let fillFunction typeId context (f : IR.Method)  = 
+        let methodRef = 
                     {
                         MethodName = f.Name; 
                         Parameters = f.Parameters |> List.map (fun p -> p.Type)
-                        Context = Static
+                        Context = context
                     }
-                let mb = filledTypeBuildersMap
-                            .[m.Identifier]
-                            .MethodBuilders
-                            .[methodRef]
-                fillMethodBody m.Identifier filledTypesTable mb f |> ignore
-                ))
-            
+        let mb = filledTypeBuildersMap
+                    .[typeId]
+                    .MethodBuilders
+                    .[methodRef]
+        fillMethodBody typeId filledTypesTable mb f |> ignore
+    let fillConstructor t (c : IR.Constructor) =
+        let ctorParams = c.Parameters |> List.map (fun p -> p.Type)
+        let cb = 
+            filledTypeBuildersMap.[t].ConstructorBuilders.[ctorParams]
+        let il = cb.GetILGenerator()
+        let variables = 
+            c.LocalVariables
+            |> List.map (fun v -> (v.Name, il.DeclareLocal(filledTypesTable.FindType v.Type)))
+            |> Map.ofList
+
+        c.Body
+        |> List.fold 
+            (fun state i -> 
+                emitInstruction filledTypesTable il Identifier.``void`` t c.Parameters variables Instance state i)
+            initialState |> ignore
+    modules 
+        |> List.iter (fun m ->
+            m.Functions
+            |> List.iter (fillFunction m.Identifier Static)
+            m.Classes
+            |> List.iter (fun (c : IR.Class)->
+                c.Methods
+                |> List.iter (fillFunction c.Identifier Instance)
+                c.Constructors
+                |> List.iter (fillConstructor c.Identifier)
+                )
+                )
 
     let completeTypes = 
         filledTypeBuilders
@@ -338,8 +467,3 @@ let generateAssembly
         |> List.filter (fun m -> m.Name = "main")
         |> List.exactlyOne
         |> assemblyBuilder.SetEntryPoint
-
-
-    // typeBuilder.CreateType()
-    // generateMethodBody types (methodBuilders.[f]) f.Body
-

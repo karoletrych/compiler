@@ -14,9 +14,17 @@ type Module =
 and Class = 
     {
         Identifier : TypeIdentifier
-        Properties : Parameter list
+        Fields : Variable list
         Methods : Method list
+        BaseClass : TypeIdentifier
+        Constructors : Constructor list
     }
+
+and Constructor = {
+    Parameters : Variable list
+    Body : ILInstruction list
+    LocalVariables : Variable list
+}
 
 and Context =
 | Static
@@ -39,11 +47,13 @@ and Method =
     {
         Name : string
         ReturnType : TypeIdentifier
-        Parameters : Parameter list
+        Parameters : Variable list
         Body : ILInstruction list
+        LocalVariables : Variable list
+        Context : Context
     }
 
-and Parameter =
+and Variable =
     {
         Type : TypeIdentifier
         Name : string
@@ -51,16 +61,19 @@ and Parameter =
 
 and ILInstruction =
     | Add
-    | Box of TypeIdentifier
     | Br of int
     | Brfalse of int
     | Brtrue of int
     | CallMethod of TypeIdentifier * MethodRef
     | CallLocalMethod of MethodRef
-    | DeclareLocal of string * TypeIdentifier
-    | GetField of TypeIdentifier * FieldRef
-    | LoadFromIdentifier of string
-    | StoreToIdentifier of Assignee<InferredTypeExpression>
+    | GetExternalField of TypeIdentifier * FieldRef
+    | Ldloc of string
+    | Stloc of string
+    | Ldarg of string
+    | LdargIdx of int16
+    | Starg of string
+    | Ldfld of string
+    | Stfld of string
     | Ceq
     | Cge
     | Cgt
@@ -69,24 +82,18 @@ and ILInstruction =
     | Duplicate
     | Div
     | Label of int
-    | Ldarg of int16
-    | Ldc_I4 of int
-    | Ldc_R4 of single
-    | Ldc_R8 of double
+    | LdcI4 of int
+    | LdcR4 of single
+    | LdcR8 of double
     | Ldstr of string
-    | Ldelem of TypeIdentifier
     | Ldlen
-    | Ldloc of int16
-    | Ldsfld of Parameter
     | Mul
     | Neg
-    | Newarr of TypeIdentifier
+    | CallConstructor of TypeIdentifier * TypeIdentifier list
+    | NewObj of TypeIdentifier * TypeIdentifier list
     | Pop
     | Rem
     | Ret
     | RetValue of TypeIdentifier
-    | Starg of int16
-    | Stelem of TypeIdentifier
-    | Stloc of string
-    | Stsfld of Parameter
+    | Stsfld of string
     | Sub

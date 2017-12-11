@@ -15,10 +15,11 @@ open Compiler.CompilerResult
 // Break -> no enclosing loop
 // Function already defined.
 // No entry point (main)
-// Sprawdzanie cyrkularnego dziedziczenia
+// Sprawdzanie cyklicznego dziedziczenia
 // Nazwy zmiennych w ramach funkcji (nie scopea) są unikalne
 // argumenty dla operatorów są poprawne
 // if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
+// sprawdzenie wywolan konstruktorow klas bazowych
 
 let semanticCheck modules =
     Result.succeed modules

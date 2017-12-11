@@ -3,28 +3,46 @@ module Compiler.TypeResolving
 open CompilerResult
 open AstProcessing
 open Ast
+let merge options = 
+    match options with
+            | [] -> Some []
+            | list -> if list |> List.forall Option.isSome
+                      then list |> List.map Option.get |> Some
+                      else None
 
-let private resolveTypeSpec 
-    (types : List<TypeIdentifier>)
-    (currentTypeId) 
-    (typeSpec : TypeSpec) =
-    let id = typeSpec |> Identifier.fromTypeSpec
+let rec resolveTypeIdentifier 
+    types
+    (currentTypeId : TypeIdentifier)
+    tId =
+    let resolveTypeIdentifier = resolveTypeIdentifier types currentTypeId
     let typesInCurrentNamespace =
         types
         |> List.filter 
             (fun id -> id.Namespace = currentTypeId.Namespace)
-        
-    match typesInCurrentNamespace 
-        |> List.tryFind 
-            (fun x -> x.TypeName = id.TypeName 
-                    || (x.TypeName.Name.Head = id.TypeName.Name.Head
-                        && x.TypeName.GenericArguments = id.TypeName.GenericArguments)) with
-    | Some id -> Result.succeed (TypeIdentifier id)
-    | None -> 
-        match types |> List.tryFind (fun x -> x = id) with
-        | Some id -> Result.succeed (TypeIdentifier id)
-        | None -> Result.failure (TypeNotFound typeSpec)
+    // find fully qualified name
+    types 
+    |> List.tryFind (fun x -> x = tId)
+    // or look through locally visible types
+    |> Option.orElse 
+        (tId.TypeName.GenericArguments 
+                    |> List.map resolveTypeIdentifier
+                    |> merge
+                    |> Option.bind 
+                        (fun generics ->
+                            types 
+                            |> List.tryFind(fun x -> x.TypeName.Name.Head = tId.TypeName.Name.Head)
+                            |> Option.map (fun t ->
+                                {t with TypeName = {t.TypeName with GenericArguments = generics}}
+                            )))
+                        
 
+let private resolveTypeSpec 
+    types
+    currentTypeId
+    typeSpec =
+    match resolveTypeIdentifier types currentTypeId (Identifier.fromTypeSpec typeSpec) with
+    | Some id -> Result.succeed (TypeIdentifier id)
+    | None -> Result.failure (TypeNotFound typeSpec)
 
 let private resolveExpression resolveType expression : CompilerResult<AstExpression>=
     let resolveFunctionCall (name, args, generics) =
@@ -110,6 +128,11 @@ let private resolveStatement resolveExpression resolveType statement =
     let whileStatement (e, s) = 
         (resolveExpression e, s)
         ||> Result.map2 (fun e s -> WhileStatement(e,s))
+    let instanceFunctionCall (e, fc : FunctionCall<AstExpression>) =
+        (resolveExpression e, fc.Arguments |> List.map resolveExpression |> Result.merge)
+        ||> Result.map2 (fun e args -> InstanceMemberFunctionCallStatement(e, {Name = fc.Name; Arguments = args; GenericArguments = fc.GenericArguments}))
+
+
     statementCata
         functionCall
         staticFunctionCall
@@ -124,6 +147,7 @@ let private resolveStatement resolveExpression resolveType statement =
         breakStatement
         ifStatement
         whileStatement
+        instanceFunctionCall
         statement
 
 let private resolveParameters resolveType = (fun p -> (p |> snd |> resolveType |> Result.map (fun t -> (fst p, t))))
@@ -155,7 +179,7 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
         clas.ImplementedInterfaces 
         |> List.map resolveTypeSpec 
         |> Result.merge
-    let properties = clas.Properties 
+    let properties = clas.Fields 
                      |> List.map (fun p -> 
                             let init = p.Initializer |> Result.mapOption resolveExpression; 
                             let t = resolveTypeSpec p.Type
@@ -170,37 +194,38 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
                                 t
                         )
                      |> Result.merge
-    let constructor = clas.Constructor 
-                      |> Result.mapOption (fun c ->
-                            let parameters = 
-                                c.Parameters 
-                                |> List.map (resolveParameters resolveTypeSpec)
-                                |> Result.merge
-                            let baseClassConstructorCall = 
-                                c.BaseClassConstructorCall 
-                                |> List.map resolveExpression 
-                                |> Result.merge
-                            let statements = 
-                                c.Statements 
-                                |> List.map resolveStatement
-                                |> Result.merge
-                            (parameters, baseClassConstructorCall, statements)
-                            |||> Result.map3 (fun p b s -> {Parameters = p; BaseClassConstructorCall = b; Statements = s})
+    let constructors = clas.Constructors 
+                      |> List.map (fun c -> 
+                                let parameters = 
+                                    c.Parameters 
+                                    |> List.map (resolveParameters resolveTypeSpec)
+                                    |> Result.merge
+                                let baseClassConstructorCall = 
+                                    c.BaseClassConstructorCall 
+                                    |> List.map resolveExpression 
+                                    |> Result.merge
+                                let statements = 
+                                    c.Body 
+                                    |> List.map resolveStatement
+                                    |> Result.merge
+                                (parameters, baseClassConstructorCall, statements)
+                                |||> Result.map3 (fun p b s -> {Parameters = p; BaseClassConstructorCall = b; Body = s})
                        )
+                       |> Result.merge
     let functionDeclarations = 
         clas.Functions 
        |> List.map resolveFunction
        |> Result.merge
-    (fun baseClass interfaces properties constructor functionDeclarations -> 
+    (fun baseClass interfaces fields constructor functionDeclarations -> 
     {
         Identifier = clas.Identifier
         BaseClass = baseClass
         ImplementedInterfaces = interfaces
-        Properties = properties
-        Constructor = constructor
+        Fields = fields
+        Constructors = constructor
         Functions = functionDeclarations
     })
-    <!> baseClass <*> interfaces <*> properties <*> constructor <*> functionDeclarations
+    <!> baseClass <*> interfaces <*> properties <*> constructors <*> functionDeclarations
 
 let private resolveModuleFunction knownTypes (modul : Module<AstExpression>) = 
     let resolveTypeSpec = resolveTypeSpec knownTypes modul.Identifier

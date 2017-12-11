@@ -13,8 +13,8 @@ and Class<'Expression> = {
     Name : string
     BaseClass : TypeSpec option
     ImplementedInterfaces : TypeSpec list
-    Properties : Property<'Expression> list
-    Constructor : Constructor<'Expression> option
+    Properties : Field<'Expression> list
+    Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
 }
 
@@ -25,7 +25,7 @@ and Function<'Expression> = {
   Body : Statement<'Expression> list
 }
 
-and Property<'Expression> = { 
+and Field<'Expression> = { 
   Type : TypeSpec
   Name : string
   Initializer : 'Expression option
@@ -34,7 +34,7 @@ and Property<'Expression> = {
 and Constructor<'Expression> = {
     Parameters : Parameter list
     BaseClassConstructorCall : 'Expression list
-    Statements : Statement<'Expression> list
+    Body : Statement<'Expression> list
 }
 
 and TypeSpec =
@@ -154,8 +154,8 @@ and ModuleClass<'Expression> = {
     Identifier : TypeIdentifier
     BaseClass : TypeSpec option
     ImplementedInterfaces : TypeSpec list
-    Properties : Property<'Expression> list
-    Constructor : Constructor<'Expression> option
+    Fields : Field<'Expression> list
+    Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
 }
 
@@ -169,8 +169,8 @@ with member x.GenericArgumentsNumber =
         match ti.Namespace with
         | [] -> ""
         | ns -> 
-            (ns |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
-      + (ti.TypeName.Name |> List.toArray |> (fun parts -> System.String.Join("+",  parts)))
+            (ns |> List.rev |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
+      + (ti.TypeName.Name |> List.rev |> List.toArray |> (fun parts -> System.String.Join("+",  parts)))
       + if List.isEmpty ti.TypeName.GenericArguments
         then ""
         else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
@@ -200,7 +200,7 @@ module Identifier =
     let char = fromDotNet typeof<char>
     let double = fromDotNet typeof<double>
     let ``void`` = fromDotNet typeof<System.Void>
-    let list t = 
+    let listOf t = 
         let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
         { objList 
             with TypeName = 
@@ -232,9 +232,16 @@ module Identifier =
         }
         | TypeIdentifier(i) -> i
 
-    let typeId t = 
-        let (TypeIdentifier ti) = t
-        ti
+    let typeId = 
+        function 
+        | TypeIdentifier ti  -> ti
+        | BuiltInTypeSpec(_) -> failwith "Invalid operation"
+        | CustomTypeSpec _ -> failwith "Invalid operation"
+    let equalWithoutGeneric t1 t2 = 
+        t1.Namespace = t2.Namespace && t1.TypeName.Name = t2.TypeName.Name
+    let withoutGenerics t1 = 
+        {Namespace = t1.Namespace; TypeName = {Name = t1.TypeName.Name; GenericArguments = []}}
+
 
 module Module =
     let create (moduleNamespace : string list) declarations =
@@ -272,8 +279,8 @@ module Module =
                      }
                 BaseClass = c.BaseClass
                 ImplementedInterfaces = c.ImplementedInterfaces
-                Properties = c.Properties
-                Constructor = c.Constructor
+                Fields = c.Properties
+                Constructors = c.Constructors
                 Functions = c.Functions
             })
         { 

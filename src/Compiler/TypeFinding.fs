@@ -9,12 +9,13 @@ let private createFunctionSignature isStatic (method : Function<AstExpression>) 
             method.Parameters 
             |> List.map (fun (id, t) -> 
             {
-                Type = Identifier.typeId t
+                Type = ConstructedType (Identifier.typeId t)
                 ParameterName = id
             });
-        ReturnType = method.ReturnType |> Option.map Identifier.typeId
+        ReturnType = method.ReturnType |> Option.map (Identifier.typeId >> ConstructedType)
         Name = method.Name
         IsStatic = isStatic
+        GenericParameters = []
     }
 let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
     let rec createTypeFromClassDeclaration declaredType =
@@ -34,7 +35,7 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                 |> List.map (fun (name,t) -> 
                     {
                      ParameterName = name 
-                     Type = Identifier.fromTypeSpec t
+                     Type = Identifier.fromTypeSpec t |> ConstructedType
                     });
             }
         {
@@ -42,32 +43,33 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                        | Some t -> t
                        | None -> TypeIdentifier Identifier.object)
                        |> getType |> Some;
-            DeclaredConstructors = declaredType.Constructor |> Option.toList |> List.map createConstructor;
-            Fields = declaredType.Properties 
+            DeclaredConstructors = declaredType.Constructors |> List.map createConstructor;
+            Fields = declaredType.Fields 
                      |> List.map (fun field -> 
-                         ({FieldName = field.Name; Type = Identifier.fromTypeSpec field.Type; IsStatic = false}))
+                         ({FieldName = field.Name; Type = Identifier.fromTypeSpec field.Type |> ConstructedType; IsStatic = false}))
             Identifier = declaredType.Identifier;
             GenericParameters = []
-            GenericArguments = []
             ImplementedInterfaces = []
             Methods = declaredType.Functions 
                       |> List.map (createFunctionSignature false)
+                      |> List.append (knownTypes.[Identifier.object]).Methods
             NestedTypes = []
             IsStatic = false
         }
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
 
-let moduleType (modul : Module<AstExpression>) = 
+let moduleType (knownTypes : Map<TypeIdentifier, Type>) (modul : Module<AstExpression>) :Types.Type = 
     {
         BaseType = None
         DeclaredConstructors = []
         Fields = []
         Identifier = modul.Identifier
         GenericParameters = [] 
-        GenericArguments = []
         ImplementedInterfaces = []
-        Methods = modul.Functions |> List.map (createFunctionSignature true);
+        Methods = modul.Functions 
+                  |> List.map (createFunctionSignature true)
+                  |> List.append (knownTypes.[Identifier.object]).Methods
         NestedTypes = []
         IsStatic = true
     }
@@ -75,6 +77,6 @@ let typesDictionary externalTypes (modules : Module<AstExpression> list) =
     let withNames (types : Type list) = 
         types |> (List.map (fun c -> (c.Identifier, c)) >> Map.ofList)
     modules    
-    |> List.collect (fun m -> (moduleType m) :: findTypesInModule externalTypes m)
+    |> List.collect (fun m -> (moduleType externalTypes m) :: findTypesInModule externalTypes m)
     |> withNames
     |> Map.union externalTypes
