@@ -348,11 +348,10 @@ let defineClassType (mb : TypeBuilder) (t : IR.Class) : TypeBuilder =
 let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
     mb.DefineType(m.Identifier.ToString(), TypeAttributes.Class ||| TypeAttributes.Public)
 
-let generateAssembly 
-    (assemblyBuilder : AssemblyBuilder) 
+let defineTypes (assemblyBuilder : AssemblyBuilder) 
     (referencedAssemblies : Assembly list)
     (modules : IR.Module list) 
-    (setEntryPoint : bool) =
+    (setEntryPoint : bool)=
     let moduleBuilder = createModuleBuilder assemblyBuilder setEntryPoint
     let externalTypes = getExternalTypes referencedAssemblies
     let defineModuleType = defineModuleType moduleBuilder
@@ -360,18 +359,19 @@ let generateAssembly
     let typeBuilders =
         modules 
         |> List.collect (fun m ->
-                    let moduleTypeBuilder = defineModuleType m
-                    (m.Identifier, moduleTypeBuilder) :: (m.Classes |> List.map (fun c -> c.Identifier, defineClassType moduleTypeBuilder c)))
+            let moduleTypeBuilder = defineModuleType m
+            (m.Identifier, moduleTypeBuilder) :: (m.Classes |> List.map (fun c -> c.Identifier, defineClassType moduleTypeBuilder c)))
         |> Map.ofList
-
-    let typesLookupTable = {
+    {
         TypeBuilders = typeBuilders
         ExternalTypes = externalTypes
     }
+
+let fillTypes (modules : Module list) (typesLookupTable : TypeTable) =
     let filledTypeBuilders = 
         modules 
         |> List.collect (fun m -> 
-            let typeBuilder = typeBuilders.[m.Identifier]
+            let typeBuilder = typesLookupTable.TypeBuilders.[m.Identifier]
             let methodBuilders = fillTypesInTable typesLookupTable typeBuilder m.Functions Static
             [m.Identifier,
                 {
@@ -384,7 +384,7 @@ let generateAssembly
                 (m.Classes 
                 |> List.map(fun c ->
                     let typeBuilder = 
-                        typeBuilders.[c.Identifier]
+                        typesLookupTable.TypeBuilders.[c.Identifier]
                     let methodBuilders = fillTypesInTable typesLookupTable typeBuilder c.Methods Instance
                     fillBaseType typesLookupTable typeBuilder c
 
@@ -396,22 +396,19 @@ let generateAssembly
                                         |> List.map (fun (p : IR.Variable) -> p.Name, typeBuilder.DefineField(p.Name, typesLookupTable.FindType(p.Type), FieldAttributes.Public))
                                         |> Map.ofList
                         ConstructorBuilders = 
-                            match c.Constructors with
-                            | [] -> [([],typeBuilder.DefineDefaultConstructor(MethodAttributes.HideBySig ||| MethodAttributes.Public))] |> Map.ofList
-                            | ctors -> 
-                                ctors 
+                                c.Constructors 
                                 |> List.map (fun ctor -> 
                                     let argTypes = ctor.Parameters |> List.map (fun p -> typesLookupTable.FindType p.Type)
                                     ctor.Parameters |> List.map (fun p -> p.Type), typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, argTypes |> Array.ofList))
                                 |> Map.ofList
                     }
                 )
+            )
         )
-    )
     let filledTypeBuildersMap = filledTypeBuilders |> Map.ofList
     let filledTypesTable = {
             FilledTypeBuilders = filledTypeBuildersMap
-            ExternalTypes = externalTypes
+            ExternalTypes = typesLookupTable.ExternalTypes
         }
 
     let fillFunction typeId context (f : IR.Method)  = 
@@ -446,28 +443,42 @@ let generateAssembly
             m.Functions
             |> List.iter (fillFunction m.Identifier Static)
             m.Classes
-            |> List.iter (fun (c : IR.Class)->
+            |> List.iter (fun c ->
                 c.Methods
                 |> List.iter (fillFunction c.Identifier Instance)
                 c.Constructors
                 |> List.iter (fillConstructor c.Identifier)
                 )
                 )
-
+    filledTypeBuildersMap
+let buildTypes (modules : Module list) filledTypeBuilders = 
     let moduleIds = modules |> List.map (fun m -> m.Identifier)
     let (moduleTypeBuilders, classTypeBuilders) = 
         filledTypeBuilders
+        |> Map.toList
         |> List.partition (fun t ->  moduleIds |> List.contains (fst t))
 
-    let completeTypes = 
-        (moduleTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))
-      @ (classTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))
+    (moduleTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))
+  @ (classTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))    
+
+let findEntryPoint =
+    List.collect (fun (t : System.Type) -> 
+                            t.GetMethods(BindingFlags.Static ||| BindingFlags.Public) 
+                            |> List.ofArray)
+    >> List.filter (fun m -> m.Name = "main")
+    >> List.exactlyOne
+
+let generateAssembly 
+    (assemblyBuilder : AssemblyBuilder) 
+    (referencedAssemblies : Assembly list)
+    (modules : IR.Module list) 
+    (setEntryPoint : bool) =
+
+    let typesLookupTable = defineTypes assemblyBuilder referencedAssemblies modules setEntryPoint
+    let filledTypeBuilders = fillTypes modules typesLookupTable
+    let completeTypes = buildTypes modules filledTypeBuilders
 
     if setEntryPoint
     then completeTypes 
-        |> List.collect (fun t -> 
-                            t.GetMethods(BindingFlags.Static ||| BindingFlags.Public) 
-                            |> List.ofArray)
-        |> List.filter (fun m -> m.Name = "main")
-        |> List.exactlyOne
+        |> findEntryPoint
         |> assemblyBuilder.SetEntryPoint

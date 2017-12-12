@@ -8,16 +8,21 @@ open System.Reflection.Emit
 open System
 open CompilerResult
 open CILGeneration
+open System
+open System.IO
+open System
+open System
 
 type OutputType = 
 | Exe
-| Library
+| Dll
 
 type CLIArguments =
-    | [<MainCommand; ExactlyOnce; First>] SourceFiles of path : string list
-    | [<Unique>] Output of path : string
-    | [<Unique>] OutputType of OutputType
-    | [<Unique>] ReferencedDlls of paths : string list
+    | [<MainCommand; First>] SourceFiles of path : string list
+    | [<Unique>] [<AltCommandLine("-o")>] Output of path : string
+    | [<Unique>] [<AltCommandLine("-O")>] OutputType of OutputType
+    | [<Unique>] [<AltCommandLine("-R")>] ReferencedDlls of paths : string list
+    | [<Unique>] [<AltCommandLine("-S")>] PrintIR
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -26,20 +31,47 @@ with
             | Output _ -> "output path."
             | OutputType _ -> "output type."
             | ReferencedDlls _ -> "referenced dll paths"
+            | PrintIR _ -> "print intermediate representation"
 
 let writeOutputMessage errors =
-    printfn "Compilation Failure"
+    printfn "Compilation Failure: " 
+    printfn "%s" (toString errors)
 
+let baseDirectory =
+    Uri (Environment.CurrentDirectory + string Path.DirectorySeparatorChar ) 
+let getInputFiles () =
+    printfn "No input files specified. Searching for .ifr files:"
+    let files = 
+        Directory.GetFiles(Environment.CurrentDirectory, "*.ifr", SearchOption.AllDirectories)
+        |> Array.map (Uri >> (fun file -> 
+                                Uri.UnescapeDataString(
+                                    baseDirectory.MakeRelativeUri(file)
+                                        .ToString()
+                                        .Replace('/', Path.DirectorySeparatorChar))
+                            ))
+        |> Array.toList
+    files |> List.map (fun f -> printfn "%s" f) |> ignore
+    files 
+    
 
 let generateOutputFile (outputPath, outputType, referencedAssemblies) modules =
-    let assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
-                            AssemblyName(outputPath), AssemblyBuilderAccess.RunAndSave)
+    let assemblyBuilder = 
+        AppDomain.CurrentDomain.DefineDynamicAssembly(
+            AssemblyName(Path.GetFileNameWithoutExtension(outputPath)), AssemblyBuilderAccess.RunAndSave)
     let isExe = 
         match outputType with
         | Exe -> true
-        | Library -> false
+        | Dll -> false
+ 
     do generateAssembly assemblyBuilder referencedAssemblies modules isExe
-    do assemblyBuilder.Save(outputPath)
+    do assemblyBuilder.Save(Path.GetFileName(outputPath))
+    printfn "Writing output file to: %s" outputPath
+    do File.Move(Path.GetFileName(outputPath), outputPath)
+
+let validateFilePaths filePaths =
+    filePaths
+    |> List.iter (fun p -> if not (File.Exists(p)) then failwithf "File %s does not exist" p)
+
 
 [<EntryPoint>]
 let main argv =
@@ -49,13 +81,18 @@ let main argv =
         let referencedDlls = args.GetResult (<@ReferencedDlls@>,[])
         let outputPath = args.GetResult (<@Output@>, "Program.exe")
         let outputType = args.GetResult (<@OutputType@>, Exe)
-        let sourcePaths = args.GetResult (<@SourceFiles@>, [])
-
+        let printIR = args.Contains <@PrintIR@>
+        let sourcePaths = 
+            args.GetResult (<@SourceFiles@>, [])
+            |> function
+               | [] ->  getInputFiles ()
+               | paths -> validateFilePaths paths; paths
+        
         let sourceFiles =
             sourcePaths 
             |> List.map (fun name -> 
             {
-                Name = (Path.GetFileNameWithoutExtension(name));
+                Name = Path.GetFileNameWithoutExtension(name)
                 Code = File.ReadAllText name
             })
 
@@ -66,9 +103,13 @@ let main argv =
             sourceFiles
             referencedAssemblies
             |> Result.either
-                (generateOutputFile 
-                    (outputPath, outputType, referencedAssemblies))
+                (
+                    fun modules -> 
+                        if printIR then File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "ir.fsx"), (sprintf "%A" modules))
+                        generateOutputFile (outputPath, outputType, referencedAssemblies) modules
+                )
                 writeOutputMessage 
     with
     | :? ArguParseException as parseException -> (printfn "%s" parseException.Message)
+    | exc -> printfn "%s" (exc.ToString())
     0

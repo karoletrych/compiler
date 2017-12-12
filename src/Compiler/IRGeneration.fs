@@ -3,6 +3,7 @@ open IR
 open Ast
 open TypeInference
 open AstProcessing
+open Compiler.Types
 
 type DataStorage =
 | Field
@@ -109,6 +110,12 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
 
 let random = System.Random()
 let randomInt () = random.Next()
+let noRetInstruction instructions = 
+        not (instructions 
+           |> List.exists (function
+                          | Ret -> true
+                          | RetValue _ -> true
+                          | _ -> false))
 let rec private convertStatements isStatic identifiers statements : ILInstruction list =
     let convertExpression = convertExpression identifiers isStatic
     let rec generateIR (s : Statement<InferredTypeExpression>) =
@@ -191,12 +198,7 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
 
     let instructions = 
         statements |> generateIR
-    let noRetInstruction instructions = 
-        not (instructions 
-           |> List.exists (function
-                          | Ret -> true
-                          | RetValue _ -> true
-                          | _ -> false))
+    
     instructions @ if noRetInstruction instructions then [Ret] else []
 
 let private findLocalVariables body =
@@ -239,38 +241,63 @@ let private buildField (prop : Ast.Field<InferredTypeExpression>) = {
     Type = prop.Type |> Identifier.typeId
 }
 
-let private buildConstructor fields baseType (ctor : Constructor<InferredTypeExpression>) : IR.Constructor= 
+let fieldInitializers identifiers = 
+        List.collect (fun f -> 
+                f.Initializer 
+                |> Option.map (fun initializer -> 
+                        [LdargIdx 0s] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
+                    )
+                |> function
+                   | Some o -> o
+                   | None -> []
+            )
+
+let private buildConstructor (fields : Field<InferredTypeExpression> list) baseType (ctor : Constructor<InferredTypeExpression>) : IR.Constructor = 
     let baseArgTypes = 
         ctor.BaseClassConstructorCall
         |> List.map getType
     let localVariables = findLocalVariables ctor.Body
     let identifiers = 
         (localVariables |> List.map (fun v -> v.Name, LocalVariable))
-       @ (ctor.Parameters |> List.map (fun p -> fst p, Argument))
-       @ (fields |> List.map (fun f -> (f, Field)))
+      @ (ctor.Parameters |> List.map (fun p -> fst p, Argument))
+      @ (fields |> List.map (fun f -> (f.Name, Field)))
         |> Map.ofList
     let baseInitialiserArgs =
         ctor.BaseClassConstructorCall 
         |> List.collect (convertExpression identifiers Static)
     { 
         Parameters = ctor.Parameters 
-                    |> List.map (fun p -> {Name = fst p; Type = Identifier.typeId (snd p) })
+                     |> List.map (fun p -> { Name = fst p; Type = Identifier.typeId (snd p) })
         Body = [LdargIdx 0s]
                @ baseInitialiserArgs
                @ [CallConstructor(baseType, baseArgTypes)]
                @ convertStatements Static identifiers (CompositeStatement ctor.Body)
+               @ (fieldInitializers identifiers fields)
         LocalVariables = findLocalVariables ctor.Body
-    }   
+    }
+let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseType =
+    let identifiers = 
+        (fields |> List.map (fun f -> (f.Name, Field)))
+        |> Map.ofList
+    let instructions = [LdargIdx 0s; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
+    { 
+        Parameters = []
+        Body = instructions @ if noRetInstruction instructions then [Ret] else []
+        LocalVariables = []
+    }
 
 let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class = 
-    let baseType = c.BaseClass |> Option.map Identifier.typeId |> Option.defaultValue Identifier.object 
-    let fieldNames = (c.Fields |> List.map(fun f-> f.Name))
+    let baseType = c.BaseClass |> Option.map Identifier.typeId |> Option.defaultValue Identifier.object
+    let fieldNames = (c.Fields |> List.map(fun f -> f.Name))
     {
         Identifier = c.Identifier
         Methods = c.Functions |> List.map (buildFunction Instance fieldNames)
         Fields = c.Fields |> List.map buildField
         BaseClass = baseType
-        Constructors = c.Constructors |> List.map (buildConstructor fieldNames baseType )
+        Constructors = 
+            match c.Constructors with
+            | [] -> [buildDefaultConstructor c.Fields baseType]
+            | ctors -> ctors |> List.map (buildConstructor c.Fields baseType )
     }
 
 let private buildModule (modul : Module<InferredTypeExpression>) : IR.Module = {

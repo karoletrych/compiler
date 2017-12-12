@@ -14,7 +14,7 @@ open System
 open System.IO
 
 let appReferences = !! "/**/*.fsproj"
-let releaseAppReferences = !! "/src/**/*.fsproj"
+let srcAppReferences = !! "/src/**/*.fsproj"
 let releaseDir  = "./release/"
 let version = "0.1"
 let buildDir = "./src/Compiler/bin/Release/"
@@ -67,8 +67,8 @@ Target "Build" (fun _ ->
     )
 )
 
-Target "RestoreRelease" (fun _ ->
-    releaseAppReferences
+Target "RestoreSrc" (fun _ ->
+    srcAppReferences
     |> Seq.iter (fun p ->
         let dir = System.IO.Path.GetDirectoryName p
         runDotnet dir "restore"
@@ -76,10 +76,18 @@ Target "RestoreRelease" (fun _ ->
 )
 
 Target "BuildRelease" (fun _ ->
-    releaseAppReferences
+    srcAppReferences
     |> Seq.iter (fun p ->
         let dir = System.IO.Path.GetDirectoryName p
         runDotnet dir "build -c Release"
+    )
+)
+
+Target "BuildDebug" (fun _ ->
+    srcAppReferences
+    |> Seq.iter (fun p ->
+        let dir = System.IO.Path.GetDirectoryName p
+        runDotnet dir "build"
     )
 )
 
@@ -100,8 +108,11 @@ Target "Zip" (fun _ ->
   ==> "Restore"
   ==> "Build"
 
-"RestoreRelease"
+"RestoreSrc"
   ==> "BuildRelease"
+
+"RestoreSrc"
+ ==> "BuildDebug"
 
 "BuildRelease"
   ==> "Zip"
