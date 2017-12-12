@@ -15,21 +15,21 @@ class Animal
     }
 }
 
-class Dog extends Animal
+class Dog : Animal
 {
     construct : ("Hau!")
     {
     }
 }
 
-class Cat extends Animal
+class Cat : Animal
 {
     construct : ("Miau!")
     {
     }
 }
 
-class Duck extends Animal
+class Duck : Animal
 {
     construct : ("")
     {

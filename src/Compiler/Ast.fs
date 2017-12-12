@@ -12,7 +12,6 @@ and Declaration<'Expression> =
 and Class<'Expression> = {
     Name : string
     BaseClass : TypeSpec option
-    ImplementedInterfaces : TypeSpec list
     Properties : Field<'Expression> list
     Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
@@ -153,7 +152,6 @@ and Module<'Expression> = {
 and ModuleClass<'Expression> = {
     Identifier : TypeIdentifier
     BaseClass : TypeSpec option
-    ImplementedInterfaces : TypeSpec list
     Fields : Field<'Expression> list
     Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
@@ -278,7 +276,6 @@ module Module =
                              }
                      }
                 BaseClass = c.BaseClass
-                ImplementedInterfaces = c.ImplementedInterfaces
                 Fields = c.Properties
                 Constructors = c.Constructors
                 Functions = c.Functions

@@ -367,8 +367,7 @@ module Function =
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pInheritanceDeclaration = 
-        opt (Keyword.pExtends >>. Types.pQualifiedType |>> CustomTypeSpec ) .>>.
-        (opt (Keyword.pImplements >>. (sepBy1 Types.pQualifiedType Char.comma |>> List.map CustomTypeSpec) ) >>= toList)
+        opt (Char.colon >>. Types.pQualifiedType |>> CustomTypeSpec ) 
     
     let pClassBody = 
         let pConstructor =
@@ -401,11 +400,10 @@ module Class =
             let properties, constructors, functions = body
             {
                 Name = name;
-                BaseClass = fst inheritanceDeclaration;
+                BaseClass = inheritanceDeclaration;
                 Properties = properties;
                 Constructors = constructors;
                 Functions = functions;
-                ImplementedInterfaces = snd inheritanceDeclaration;
             })
 
 let pDeclaration = 

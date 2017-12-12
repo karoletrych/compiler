@@ -139,6 +139,12 @@ type MethodBuilderState = {
     Labels : Map<int, Label>
 }
 let private initialState = {Labels = Map.empty}
+
+let findField (typesTable : FilledTypeTable) t fieldRef = 
+     match typesTable.FindField t fieldRef with
+     | Property _ -> failwith "only fields are supported by InferLang"
+     | Field f -> f
+
 let emitInstruction 
     (typesTable : FilledTypeTable) 
     (il : ILGenerator) 
@@ -243,13 +249,13 @@ let emitInstruction
         | Instance -> il.Emit(OpCodes.Ldarg, argIndex + 1)
         // TODO: Inherited properties
     | Ldfld(field) -> 
-        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = false}
+        let field = findField typesTable t {FieldName = field; IsStatic = false}
         il.Emit(OpCodes.Ldfld , field)
     | Stfld(field) -> 
-        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = false}
+        let field = findField typesTable t {FieldName = field; IsStatic = false}
         il.Emit(OpCodes.Stfld , field)
     | Stsfld(field) -> 
-        let (Field field) = typesTable.FindField t {FieldName = field; IsStatic = true}
+        let field = findField typesTable t {FieldName = field; IsStatic = true}
         il.Emit(OpCodes.Stfld , field)
     | LdargIdx(idx) -> il.Emit(OpCodes.Ldarg, idx)
     | Br(_) -> failwith "covered above"
@@ -262,8 +268,7 @@ let private fillMethodBody
     (t : TypeIdentifier)
     (typesTable : FilledTypeTable) 
     (methodBuilder : MethodBuilder) 
-    (method : IR.Method) 
-     =
+    (method : IR.Method) =
     let il = methodBuilder.GetILGenerator()
     let variables = 
         method.LocalVariables
@@ -338,10 +343,10 @@ let getExternalTypes =
     >> List.map (fun t -> (Identifier.fromDotNet t, t))
     >> Map.ofList
 
-let defineClassType (mb : ModuleBuilder) (t : IR.Class) : TypeBuilder =
-    mb.DefineType(t.Identifier.ToString(), TypeAttributes.Class)
+let defineClassType (mb : TypeBuilder) (t : IR.Class) : TypeBuilder =
+    mb.DefineNestedType(t.Identifier.TypeName.Name |> List.head, TypeAttributes.Class ||| TypeAttributes.NestedPublic)
 let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
-    mb.DefineType(m.Identifier.ToString())
+    mb.DefineType(m.Identifier.ToString(), TypeAttributes.Class ||| TypeAttributes.Public)
 
 let generateAssembly 
     (assemblyBuilder : AssemblyBuilder) 
@@ -351,18 +356,12 @@ let generateAssembly
     let moduleBuilder = createModuleBuilder assemblyBuilder setEntryPoint
     let externalTypes = getExternalTypes referencedAssemblies
     let defineModuleType = defineModuleType moduleBuilder
-    let defineClassType = defineClassType moduleBuilder
 
     let typeBuilders =
         modules 
-        |> List.map (fun m ->
-                    m.Identifier, defineModuleType m )
-        |> List.append
-                (modules
-                |> List.collect (fun m ->
-                    m.Classes 
-                    |> List.map (fun c -> c.Identifier, defineClassType c)))
-                        
+        |> List.collect (fun m ->
+                    let moduleTypeBuilder = defineModuleType m
+                    (m.Identifier, moduleTypeBuilder) :: (m.Classes |> List.map (fun c -> c.Identifier, defineClassType moduleTypeBuilder c)))
         |> Map.ofList
 
     let typesLookupTable = {
@@ -455,9 +454,14 @@ let generateAssembly
                 )
                 )
 
-    let completeTypes = 
+    let moduleIds = modules |> List.map (fun m -> m.Identifier)
+    let (moduleTypeBuilders, classTypeBuilders) = 
         filledTypeBuilders
-        |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType()))
+        |> List.partition (fun t ->  moduleIds |> List.contains (fst t))
+
+    let completeTypes = 
+        (moduleTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))
+      @ (classTypeBuilders |> List.map (snd  >> (fun tb -> tb.TypeBuilder.CreateType())))
 
     if setEntryPoint
     then completeTypes 

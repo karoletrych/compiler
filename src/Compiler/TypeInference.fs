@@ -482,7 +482,6 @@ let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerRes
             Identifier = c.Identifier; 
             Functions = functions; 
             BaseClass = c.BaseClass; 
-            ImplementedInterfaces = c.ImplementedInterfaces; 
             Fields = fields
             Constructors = ctor 
         } )

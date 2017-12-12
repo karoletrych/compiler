@@ -175,10 +175,6 @@ let private resolveFunction resolveStatement resolveType (func : Function<AstExp
 
 let private resolveClass resolveTypeSpec resolveExpression resolveStatement resolveFunction clas =
     let baseClass = Result.mapOption resolveTypeSpec clas.BaseClass
-    let interfaces =
-        clas.ImplementedInterfaces 
-        |> List.map resolveTypeSpec 
-        |> Result.merge
     let properties = clas.Fields 
                      |> List.map (fun p -> 
                             let init = p.Initializer |> Result.mapOption resolveExpression; 
@@ -216,16 +212,15 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
         clas.Functions 
        |> List.map resolveFunction
        |> Result.merge
-    (fun baseClass interfaces fields constructor functionDeclarations -> 
+    (fun baseClass fields constructor functionDeclarations -> 
     {
         Identifier = clas.Identifier
         BaseClass = baseClass
-        ImplementedInterfaces = interfaces
         Fields = fields
         Constructors = constructor
         Functions = functionDeclarations
     })
-    <!> baseClass <*> interfaces <*> properties <*> constructors <*> functionDeclarations
+    <!> baseClass <*> properties <*> constructors <*> functionDeclarations
 
 let private resolveModuleFunction knownTypes (modul : Module<AstExpression>) = 
     let resolveTypeSpec = resolveTypeSpec knownTypes modul.Identifier
