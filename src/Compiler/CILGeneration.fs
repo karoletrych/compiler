@@ -191,9 +191,9 @@ let emitInstruction
     | other -> 
     other |> function
     | Add -> il.Emit(OpCodes.Add)
-    | CallMethod(t, methodRef) -> 
+    | CallMethod(t, methodRef, callee, args) -> 
         callMethod t methodRef
-    | CallLocalMethod(methodRef) -> 
+    | CallLocalMethod(methodRef, callee, args) -> 
         callMethod t methodRef
     | GetExternalField (t, fieldRef) ->
         let field = typesTable.FindField t fieldRef
