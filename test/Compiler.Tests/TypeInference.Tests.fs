@@ -13,7 +13,7 @@ open Compiler.TypeFinding
 let tests =
   let infer src =
     let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
-    [{Name = "test"; Code = src}]
+    [{Path = "test"; Code = src}]
     |> parseModules 
     >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
     >>= (fun modules -> inferTypes (modules, typesDictionary externals modules))

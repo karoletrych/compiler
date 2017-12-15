@@ -62,7 +62,7 @@ and Statement<'Expression> =
 | AssignmentStatement of Assignee<'Expression> * 'Expression
 | BreakStatement
 | CompositeStatement of Statement<'Expression> list
-| FunctionCallStatement of FunctionCall<'Expression>
+| LocalFunctionCallStatement of FunctionCall<'Expression>
 | IfStatement of 'Expression * Statement<'Expression> * Statement<'Expression> option
 | InstanceMemberFunctionCallStatement of 'Expression * FunctionCall<'Expression>
 | ReturnStatement of 'Expression option

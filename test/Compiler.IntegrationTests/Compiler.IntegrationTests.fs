@@ -26,7 +26,7 @@ let withCorrespondingOutput input =
     input, resultFiles |> List.find (fun f -> 
                         Path.GetFileNameWithoutExtension(f) = Path.GetFileNameWithoutExtension(input))
 
-let readFiles (input, output) = ({Name = input; Code = File.ReadAllText input}, File.ReadAllText output)
+let readFiles (input, output) = ({Path = input; Code = File.ReadAllText input}, File.ReadAllText output)
 let mscorlib = [Assembly.GetAssembly(typeof<obj>)]
 let compile input = compile [input] mscorlib
 let generateAssembly (irResult : CompilerResult<IR.Module list>)=
@@ -65,14 +65,16 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    if testName = "classes.ifr"
-    then ftestCase testName (fun _ -> 
-        let output = test()
-        Expect.equal output expectedOutput testName)
-    else testCase testName (fun _ -> 
-        let output = test()
-        Expect.equal output expectedOutput testName)
-    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    // if testName = "classes.ifr"
+    // then ftestCase testName (fun _ -> 
+    //     let output = test()
+    //     Expect.equal output expectedOutput testName)
+    // else testCase testName (fun _ -> 
+    //     let output = test()
+    //     Expect.equal output expectedOutput testName)
+
+    let output = test()
+    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 let allTests = 
     (testFiles 

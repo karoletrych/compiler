@@ -1,7 +1,6 @@
 module Compiler.IR
 
 open Ast
-open TypeInference
 
 
 type Module = 
@@ -64,8 +63,8 @@ and ILInstruction =
     | Br of int
     | Brfalse of int
     | Brtrue of int
-    | CallMethod of TypeIdentifier * MethodRef
-    | CallLocalMethod of MethodRef
+    | CallMethod of TypeIdentifier * MethodRef * ILInstruction list * ILInstruction list
+    | CallLocalMethod of MethodRef * ILInstruction list * ILInstruction list
     | GetExternalField of TypeIdentifier * FieldRef
     | Ldloc of string
     | Stloc of string

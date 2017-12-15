@@ -1,5 +1,5 @@
 module Date
 fun main : void
 {
-	System::Console:.WriteLine(System::DateTime:.MinValue.ToString());
+	System::Console:.WriteLine(System::DateTime:.MinValue.ToString(System::Globalization::CultureInfo:.InvariantCulture));
 }

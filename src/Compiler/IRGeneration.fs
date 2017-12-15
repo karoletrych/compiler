@@ -43,16 +43,20 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
             @ [Duplicate]
             @ [storeToIdentifier identifiers i]
     | BinaryExpression(e1, op, e2) ->
-        convertExpression e1 
-      @ convertExpression e2
-      @ match op with
+       match op with
         | ConditionalOr -> failwith "TODO:"
         | ConditionalAnd -> failwith  "TODO:"
         | Equal -> 
             let t = getType e1
             match t with
             | i when i = Identifier.int -> [Ceq]
-            | s when s = Identifier.string -> [CallMethod(Identifier.string, {MethodName = "op_Equality"; Parameters = [Identifier.string; Identifier.string]; Context = Static})]
+            | s when s = Identifier.string -> 
+                [CallMethod(Identifier.string, 
+                    {MethodName = "op_Equality"; 
+                    Parameters = [Identifier.string; Identifier.string]; 
+                    Context = Static},
+                    [], 
+                    convertExpression e1 @ convertExpression e2)]
         | NotEqual -> failwith "TODO:"
         | LessEqual -> [Cle]
         | Less -> [Clt]
@@ -67,15 +71,16 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         let (InferredTypeExpression(callee, calleeT)) = calleeExpression
         match mem with
         | MemberFunctionCall call ->
-            convertExpression calleeExpression 
-          @ (call.Arguments |> List.collect convertExpression)
-          @ [CallMethod(
-                calleeT,
+            [CallMethod(
+                        calleeT,
                         {
                             MethodName = call.Name
                             Parameters = call.Arguments |> List.map getType
                             Context = Instance
-                        })
+                        },
+                        convertExpression calleeExpression,
+                        (call.Arguments |> List.collect convertExpression)
+                        )
                         ]
         | MemberField(fieldName) -> 
             convertExpression calleeExpression @ [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false})]
@@ -87,7 +92,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
             Context = Instance
             }
         [NewObj(exprType, [])]
-      @ (list |> List.collect (fun elem -> [Duplicate] @ convertExpression elem @ [CallMethod(exprType, add elem)]))
+      @ (list |> List.collect (fun elem -> [Duplicate] @ convertExpression elem @ [CallMethod(exprType, add elem, [], [])]))
     | NewExpression(t, args) -> 
         (args |> List.collect convertExpression)
       @ [NewObj(Identifier.typeId t, args |> List.map getType)]
@@ -95,18 +100,23 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         match m with
         | MemberFunctionCall call ->
             let args = call.Arguments |> List.collect convertExpression
-            args 
-          @ [CallMethod(Identifier.typeId t, { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; Context = Static})]
+            [CallMethod(
+                Identifier.typeId t, 
+                { MethodName = call.Name; Parameters = call.Arguments |> List.map getType; Context = Static},
+                [],
+                args)]
         | MemberField f ->
               [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
     | UnaryExpression(_, _) -> failwith "Not Implemented"
     | LocalFunctionCallExpression(lfc) -> 
-        (lfc.Arguments |> List.collect convertExpression)
-        @ [CallLocalMethod {
+        [CallLocalMethod ({
                             MethodName = lfc.Name
                             Parameters = lfc.Arguments |> List.map getType
                             Context = context
-                           }]
+                           },
+                           [],
+                           (lfc.Arguments |> List.collect convertExpression))
+            ]
 
 let random = System.Random()
 let randomInt () = random.Next()
@@ -122,9 +132,7 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
         match s with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = (Identifier.typeId t)
-            (method.Arguments |> List.collect convertExpression)
-            @ 
-            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static})]
+            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static},[], (method.Arguments |> List.collect convertExpression))]
         | AssignmentStatement(assignee, expr) -> 
             match assignee with
             | MemberFieldAssignee (callee, i) -> failwith "TODO:"
@@ -137,13 +145,12 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
                     @ [storeToIdentifier identifiers i]
         | BreakStatement -> failwith "Not Implemented"
         | CompositeStatement(cs) -> cs |> List.collect generateIR
-        | FunctionCallStatement(lfc) -> 
-            (lfc.Arguments |> List.collect convertExpression)
-            @ [CallLocalMethod {
+        | LocalFunctionCallStatement(lfc) -> 
+            [CallLocalMethod ({
                             MethodName = lfc.Name
                             Parameters = lfc.Arguments |> List.map getType
                             Context = Static
-                           }]
+                           }, [LdargIdx 0s], (lfc.Arguments |> List.collect convertExpression))]
         | IfStatement(expr, s, elseS) ->
             let elseLabel = randomInt()
             let elseStatements = 
@@ -159,15 +166,13 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
             @ elseStatements
 
         | InstanceMemberFunctionCallStatement(calleeExpression, call) ->
-            convertExpression calleeExpression 
-            @ (call.Arguments |> List.collect convertExpression)
-            @ [CallMethod(
+            [CallMethod(
                 getType calleeExpression,
                         {
                             MethodName = call.Name
                             Parameters = call.Arguments |> List.map getType
                             Context = Instance
-                        })
+                        }, convertExpression calleeExpression, call.Arguments |> List.collect convertExpression)
                         ]
         | ReturnStatement(r) -> 
             match r with 
@@ -201,7 +206,7 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
     
     instructions @ if noRetInstruction instructions then [Ret] else []
 
-let private findLocalVariables body =
+let private findLocalVariables body : Variable list =
     let idFold acc _ = acc
     let valueDeclaration acc (name, _, expr) = {Name = name; Type = getType expr} :: acc
     let declarationWithInitialization acc (name,expr) = {Name =name; Type = getType expr} :: acc

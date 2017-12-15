@@ -10,30 +10,41 @@ let merge options =
                       then list |> List.map Option.get |> Some
                       else None
 
+let localTypeIsEqual specifiedType knownType =
+let typeIsEqual specifiedType knownType =
 let rec resolveTypeIdentifier 
     types
     (currentTypeId : TypeIdentifier)
     tId =
     let resolveTypeIdentifier = resolveTypeIdentifier types currentTypeId
-    let typesInCurrentNamespace =
+    let typesInCurrentModule =
         types
         |> List.filter 
-            (fun id -> id.Namespace = currentTypeId.Namespace)
+            (fun id -> id.Namespace = currentTypeId.Namespace && id.TypeName.Name |> List.tail = tId.TypeName.Name |> List.tail)
     // find fully qualified name
-    types 
-    |> List.tryFind (fun x -> x = tId)
+
+    tId.TypeName.GenericArguments 
+        |> List.map resolveTypeIdentifier
+        |> merge
+        |> Option.bind 
+            (fun generics ->
+                typesInCurrentModule 
+                |> List.tryFind(fun x -> localTypeIsEqual tId x)
+                |> Option.map (fun t ->
+                    {t with TypeName = {t.TypeName with GenericArguments = generics}}
+                ))
     // or look through locally visible types
     |> Option.orElse 
         (tId.TypeName.GenericArguments 
-                    |> List.map resolveTypeIdentifier
-                    |> merge
-                    |> Option.bind 
-                        (fun generics ->
-                            types 
-                            |> List.tryFind(fun x -> x.TypeName.Name.Head = tId.TypeName.Name.Head)
-                            |> Option.map (fun t ->
-                                {t with TypeName = {t.TypeName with GenericArguments = generics}}
-                            )))
+            |> List.map resolveTypeIdentifier
+            |> merge
+            |> Option.bind 
+                (fun generics ->
+                    types 
+                    |> List.tryFind(fun x -> typeIsEqual tId x)
+                    |> Option.map (fun t ->
+                        {t with TypeName = {t.TypeName with GenericArguments = generics}}
+                    )))
                         
 
 let private resolveTypeSpec 
@@ -100,7 +111,7 @@ let private resolveStatement resolveExpression resolveType statement =
         (args, generics)
         ||> Result.map2 (
             (fun args generics ->
-                FunctionCallStatement {Name = id; Arguments = args; GenericArguments = generics})) 
+                LocalFunctionCallStatement {Name = id; Arguments = args; GenericArguments = generics})) 
     let staticFunctionCall (t, (id, args, generics)) =
         let args = args |> List.map resolveExpression |> Result.merge
         let generics =  generics |> List.map resolveType |> Result.merge

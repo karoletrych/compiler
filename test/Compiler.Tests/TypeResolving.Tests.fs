@@ -11,7 +11,7 @@ open System.Reflection
 
 let resolve src = 
     let externals = externalTypes [Assembly.GetAssembly(typeof<obj>)]
-    [{Name = "test"; Code = src}]
+    [{Path = "test"; Code = src}]
     |> parseModules 
     >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
 
