@@ -271,7 +271,7 @@ module Statement =
             (Keyword.pWhile >>. Expression.pExpression) .>>. pStatement
             |>> fun (expression, statement) -> WhileStatement(expression, statement)
 
-    let pFunctionCallStatement = Expression.pFunctionCall |>>  FunctionCallStatement
+    let pFunctionCallStatement = Expression.pFunctionCall |>>  LocalFunctionCallStatement
     let pReturnStatement =
         Keyword.pReturn >>. opt Expression.pExpression 
         |>> fun expr -> ReturnStatement(expr)
@@ -306,7 +306,7 @@ module Statement =
                             | MemberFunctionCall functionCall -> preturn (InstanceMemberFunctionCallStatement (callee, functionCall))
                             | MemberField _ -> fail "given expression cannot be a statement"
                  | AssignmentExpression(assignee,e) -> preturn (AssignmentStatement (assignee, e))
-                 | LocalFunctionCallExpression fc -> preturn (FunctionCallStatement (fc))
+                 | LocalFunctionCallExpression fc -> preturn (LocalFunctionCallStatement (fc))
                  | _ -> fail "given expression cannot be a statement" )
 
     let pStaticFunctionCallStatement =

@@ -300,13 +300,13 @@ let rec private inferStatement
         |> Result.merge
         |> Result.map (CompositeStatement)
         |> withOldVariables
-    | FunctionCallStatement fc ->
+    | LocalFunctionCallStatement fc ->
         fc.Arguments 
         |> List.map annotate 
         |> Result.merge
         |> Result.map 
             (fun args -> 
-                FunctionCallStatement(
+                LocalFunctionCallStatement(
                     {
                      Name = fc.Name;
                      GenericArguments = fc.GenericArguments;

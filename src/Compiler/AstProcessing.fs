@@ -91,7 +91,7 @@ let rec statementCata
             whileStatement
             instanceFunctionCall
     match statement with
-    | FunctionCallStatement(call) ->
+    | LocalFunctionCallStatement(call) ->
         functionCall (call.Name, call.Arguments , call.GenericArguments)
     | StaticFunctionCallStatement(t, call) ->
         staticFunctionCall (t, (call.Name, call.Arguments, call.GenericArguments))
@@ -146,7 +146,7 @@ let rec statementFold
             whileStatement
             instanceFunctionCall
     match statement with
-    | FunctionCallStatement(call) ->
+    | LocalFunctionCallStatement(call) ->
         functionCall acc (call.Name, call.Arguments , call.GenericArguments)
     | StaticFunctionCallStatement(t, call) ->
         staticFunctionCall acc (t, (call.Name, call.Arguments, call.GenericArguments))
