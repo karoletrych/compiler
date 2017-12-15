@@ -11,6 +11,7 @@ let merge options =
                       else None
 
 let localTypeIsEqual specifiedType knownType =
+    specifiedType.Namespace |> List.isEmpty && specifiedType.TypeName.Name.Head = knownType.TypeName.Name.Head
 let typeIsEqual specifiedType knownType =
 let rec resolveTypeIdentifier 
     types
