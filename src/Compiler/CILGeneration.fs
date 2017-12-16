@@ -138,6 +138,13 @@ with
 type MethodBuilderState = {
     Labels : Map<int, Label>
 }
+type MethodInfo = {
+    ReturnType : TypeIdentifier
+    OwnerClassType : TypeIdentifier
+    Parameters : IR.Variable list
+    Variables : Map<string, LocalBuilder>
+    Context : Context
+}
 let private initialState = {Labels = Map.empty}
 
 let findField (typesTable : FilledTypeTable) t fieldRef = 
@@ -145,15 +152,13 @@ let findField (typesTable : FilledTypeTable) t fieldRef =
      | Property _ -> failwith "only fields are supported by InferLang"
      | Field f -> f
 
-let emitInstruction 
+let rec emitInstruction 
     (typesTable : FilledTypeTable) 
     (il : ILGenerator) 
-    (returnType : TypeIdentifier) 
-    (t : TypeIdentifier) 
-    (parameters : IR.Variable list) 
-    (variables : Map<string, LocalBuilder>)
-    (context : Context)
-    (acc : MethodBuilderState) =
+    (acc : MethodBuilderState)
+    (methodInfo : MethodInfo) 
+    (ilInstruction) : MethodBuilderState =
+    let emitInstruction = emitInstruction typesTable il acc methodInfo
     let useLabel foo (l : int) =
         let result =
             match acc.Labels.TryFind l with
@@ -163,7 +168,10 @@ let emitInstruction
                 label, acc.Labels.Add(l, label)
         foo (fst result)
         {acc with Labels = snd result}
-    let callMethod t methodRef = 
+    let callMethod t methodRef calleeInstructions argsInstructions = 
+        calleeInstructions |> List.iter (emitInstruction >> ignore)
+        argsInstructions |> List.iter (emitInstruction >> ignore)
+
         let methodInfo = typesTable.FindMethod t methodRef
         match methodRef.Context with
         | Static -> 
@@ -179,7 +187,7 @@ let emitInstruction
 
             il.Emit(OpCodes.Callvirt, methodInfo);
 
-    function
+    match ilInstruction with
     | Label(l) -> 
         l |> useLabel (fun label -> il.MarkLabel(label))
     | Br(l) -> 
@@ -192,9 +200,9 @@ let emitInstruction
     other |> function
     | Add -> il.Emit(OpCodes.Add)
     | CallMethod(t, methodRef, callee, args) -> 
-        callMethod t methodRef
+        callMethod t methodRef callee args
     | CallLocalMethod(methodRef, callee, args) -> 
-        callMethod t methodRef
+        callMethod methodInfo.OwnerClassType methodRef callee args
     | GetExternalField (t, fieldRef) ->
         let field = typesTable.FindField t fieldRef
         match field with
@@ -234,28 +242,28 @@ let emitInstruction
     | Ret        -> il.Emit(OpCodes.Ret)
     | RetValue(t)-> 
         let t = typesTable.FindType t
-        let returnT = typesTable.FindType returnType
+        let returnT = typesTable.FindType methodInfo.ReturnType
         if t.IsValueType && not returnT.IsValueType then il.Emit(OpCodes.Box, t)
         il.Emit(OpCodes.Ret)
     | Starg(i)   -> il.Emit(OpCodes.Starg, i)
     | Stloc(i)   -> 
-        il.Emit(OpCodes.Stloc, variables.[i])
+        il.Emit(OpCodes.Stloc, methodInfo.Variables.[i])
     | Ldloc(local) -> 
-        il.Emit(OpCodes.Ldloc, variables.[local])
+        il.Emit(OpCodes.Ldloc, methodInfo.Variables.[local])
     | Ldarg argName ->
-        let argIndex = parameters |> List.findIndex (fun arg -> arg.Name = argName)
-        match context with
+        let argIndex = methodInfo.Parameters |> List.findIndex (fun arg -> arg.Name = argName)
+        match methodInfo.Context with
         | Static -> il.Emit(OpCodes.Ldarg, argIndex)
         | Instance -> il.Emit(OpCodes.Ldarg, argIndex + 1)
         // TODO: Inherited properties
     | Ldfld(field) -> 
-        let field = findField typesTable t {FieldName = field; IsStatic = false}
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
         il.Emit(OpCodes.Ldfld , field)
     | Stfld(field) -> 
-        let field = findField typesTable t {FieldName = field; IsStatic = false}
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
         il.Emit(OpCodes.Stfld , field)
     | Stsfld(field) -> 
-        let field = findField typesTable t {FieldName = field; IsStatic = true}
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = true}
         il.Emit(OpCodes.Stfld , field)
     | LdargIdx(idx) -> il.Emit(OpCodes.Ldarg, idx)
     | Br(_) -> failwith "covered above"
@@ -280,12 +288,15 @@ let private fillMethodBody
                 emitInstruction 
                     typesTable 
                     il 
-                    method.ReturnType 
-                    t 
-                    method.Parameters 
-                    variables
-                    method.Context
-                    state instr)
+                    state 
+                    {
+                        ReturnType = method.ReturnType 
+                        OwnerClassType = t 
+                        Parameters = method.Parameters 
+                        Variables = variables
+                        Context = method.Context
+                    }
+                    instr)
         initialState
     
 let private defineMethod 
@@ -435,8 +446,19 @@ let fillTypes (modules : Module list) (typesLookupTable : TypeTable) =
 
         c.Body
         |> List.fold 
-            (fun state i -> 
-                emitInstruction filledTypesTable il Identifier.``void`` t c.Parameters variables Instance state i)
+            (fun state instruction -> 
+                emitInstruction 
+                    filledTypesTable 
+                    il 
+                    state
+                    {
+                        ReturnType = Identifier.``void`` 
+                        OwnerClassType = t 
+                        Parameters = c.Parameters
+                        Variables = variables
+                        Context = Instance
+                    }
+                    instruction)
             initialState |> ignore
     modules 
         |> List.iter (fun m ->

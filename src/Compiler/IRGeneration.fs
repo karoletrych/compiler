@@ -284,7 +284,8 @@ let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseTy
     let identifiers = 
         (fields |> List.map (fun f -> (f.Name, Field)))
         |> Map.ofList
-    let instructions = [LdargIdx 0s; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
+    let instructions = 
+        [LdargIdx 0s; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
     { 
         Parameters = []
         Body = instructions @ if noRetInstruction instructions then [Ret] else []
