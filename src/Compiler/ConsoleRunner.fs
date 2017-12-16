@@ -38,17 +38,22 @@ let writeOutputMessage errors =
     printfn "%s" (toString errors)
 
 let baseDirectory =
-    Uri (Environment.CurrentDirectory + string Path.DirectorySeparatorChar ) 
+    Environment.CurrentDirectory + string Path.DirectorySeparatorChar
+
+let makeRelativePath path= 
+    path
+    |>Uri 
+    |> (fun file -> 
+                    Uri.UnescapeDataString(
+                        (Uri baseDirectory).MakeRelativeUri(file)
+                            .ToString()
+                            .Replace('/', Path.DirectorySeparatorChar))
+    )
 let getInputFiles () =
     printfn "No input files specified. Searching for .ifr files:"
     let files = 
-        Directory.GetFiles(Environment.CurrentDirectory, "*.ifr", SearchOption.AllDirectories)
-        |> Array.map (Uri >> (fun file -> 
-                                Uri.UnescapeDataString(
-                                    baseDirectory.MakeRelativeUri(file)
-                                        .ToString()
-                                        .Replace('/', Path.DirectorySeparatorChar))
-                            ))
+        Directory.GetFiles(baseDirectory, "*.ifr", SearchOption.AllDirectories)
+        |> Array.map makeRelativePath
         |> Array.toList
     files |> List.map (fun f -> printfn "%s" f) |> ignore
     files 
@@ -90,10 +95,10 @@ let main argv =
         
         let sourceFiles =
             sourcePaths 
-            |> List.map (fun name -> 
+            |> List.map (fun filePath -> 
             {
-                Name = Path.GetFileNameWithoutExtension(name)
-                Code = File.ReadAllText name
+                Path = Path.ChangeExtension(filePath, null)
+                Code = File.ReadAllText filePath
             })
 
         let referencedAssemblies =

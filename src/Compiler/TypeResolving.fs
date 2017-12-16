@@ -3,7 +3,7 @@ module Compiler.TypeResolving
 open CompilerResult
 open AstProcessing
 open Ast
-let merge options = 
+let mergeOptions options = 
     match options with
             | [] -> Some []
             | list -> if list |> List.forall Option.isSome
@@ -11,8 +11,14 @@ let merge options =
                       else None
 
 let localTypeIsEqual specifiedType knownType =
-    specifiedType.Namespace |> List.isEmpty && specifiedType.TypeName.Name.Head = knownType.TypeName.Name.Head
+    specifiedType.TypeName.Name.Head = knownType.TypeName.Name.Head
 let typeIsEqual specifiedType knownType =
+    let equals1 = specifiedType = knownType
+    let equals2 = 
+        specifiedType.Namespace = (knownType.TypeName.Name |> List.tail) @ knownType.Namespace && 
+        List.head specifiedType.TypeName.Name = List.head knownType.TypeName.Name
+    equals1 || equals2
+
 let rec resolveTypeIdentifier 
     types
     (currentTypeId : TypeIdentifier)
@@ -21,32 +27,18 @@ let rec resolveTypeIdentifier
     let typesInCurrentModule =
         types
         |> List.filter 
-            (fun id -> id.Namespace = currentTypeId.Namespace && id.TypeName.Name |> List.tail = tId.TypeName.Name |> List.tail)
-    // find fully qualified name
-
+            (fun id -> id.Namespace = currentTypeId.Namespace)
     tId.TypeName.GenericArguments 
         |> List.map resolveTypeIdentifier
-        |> merge
+        |> mergeOptions
         |> Option.bind 
             (fun generics ->
                 typesInCurrentModule 
                 |> List.tryFind(fun x -> localTypeIsEqual tId x)
+                |> Option.orElse (types |> List.tryFind(fun x -> typeIsEqual tId x))
                 |> Option.map (fun t ->
                     {t with TypeName = {t.TypeName with GenericArguments = generics}}
                 ))
-    // or look through locally visible types
-    |> Option.orElse 
-        (tId.TypeName.GenericArguments 
-            |> List.map resolveTypeIdentifier
-            |> merge
-            |> Option.bind 
-                (fun generics ->
-                    types 
-                    |> List.tryFind(fun x -> typeIsEqual tId x)
-                    |> Option.map (fun t ->
-                        {t with TypeName = {t.TypeName with GenericArguments = generics}}
-                    )))
-                        
 
 let private resolveTypeSpec 
     types

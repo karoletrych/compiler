@@ -7,7 +7,7 @@ open FParsec
 open System.Text.RegularExpressions
 
 type SourceFile = {
-    Name : string 
+    Path : string 
     Code : string
 }
 
@@ -92,17 +92,17 @@ module Types =
     let pNonGenericType = pNonGenericTypeSpec |>> fun t -> ({Name = t; GenericArgs = []})
 
     let convertToFullyQualifiedType =
-        let rec qualifiers acc types =
+        let rec segments acc types =
             match types with
             | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
             | head :: tail -> 
                 match head with
                 | {Name = identifier; GenericArgs = []}
-                    -> qualifiers (identifier::acc) tail 
+                    -> segments (acc @ [identifier]) tail 
                 | _
-                    -> fail "No generic type is allowed as namespace qualifier"
+                    -> fail "No generic type is allowed as namespace segment"
             | [] -> fail "Should not happen..."
-        qualifiers [] 
+        segments [] 
 
     let pQualifiedType = 
                 sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
@@ -436,7 +436,6 @@ let parseModules (source : SourceFile list) =
                 |Some s -> (s.Split([|"::"|], StringSplitOptions.None) |> List.ofArray)
             Module.create moduleId program.Declarations)
     source
-    |> List.map (fun s -> (s.Name, parse s.Code))
-    |> List.map buildModule
+    |> List.map ((fun s -> (s.Path, parse s.Code)) >> buildModule)
     |> Result.merge
     
