@@ -96,6 +96,16 @@ Target "BuildDebug" (fun _ ->
     )
 )
 
+Target "IntegrationTest" (fun () ->
+    let args = getBuildParam "args"
+    ExecProcessAndReturnMessages  (fun info ->
+        info.FileName <- "test/Compiler.IntegrationTests/bin/Debug/net461/Compiler.IntegrationTests.exe"
+        info.WorkingDirectory <- "test/Compiler.IntegrationTests/bin/Debug/net461/"
+        info.Arguments <- args) TimeSpan.MaxValue
+    |> printfn "%A"
+     
+)
+
 Target "Zip" (fun _ ->
     let zipPath = releaseDir + "Compiler." + version + ".zip" 
 
@@ -118,6 +128,10 @@ Target "Zip" (fun _ ->
 
 "RestoreSrc"
  ==> "BuildDebug"
+
+"BuildDebug"
+ ==> "IntegrationTest"
+
 
 "BuildRelease"
   ==> "Zip"

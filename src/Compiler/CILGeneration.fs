@@ -170,21 +170,21 @@ let rec emitInstruction
         {acc with Labels = snd result}
     let callMethod t methodRef calleeInstructions argsInstructions = 
         calleeInstructions |> List.iter (emitInstruction >> ignore)
+        let typeInfo = typesTable.FindType t
+        if typeInfo.IsValueType
+        then
+            let loc = il.DeclareLocal(typeInfo)
+            il.Emit(OpCodes.Stloc, loc);
+            il.Emit(OpCodes.Ldloca, loc);
+
         argsInstructions |> List.iter (emitInstruction >> ignore)
 
         let methodInfo = typesTable.FindMethod t methodRef
-        match methodRef.Context with
-        | Static -> 
-            il.Emit(OpCodes.Call, methodInfo)
-        | Instance -> 
-            let typeInfo = typesTable.FindType t
-            if typeInfo.IsValueType then
-                let loc = il.DeclareLocal(typeInfo)
-                il.Emit(OpCodes.Stloc, loc);
-                il.Emit(OpCodes.Ldloca, loc);
-                // https://msdn.microsoft.com/en-us/library/system.reflection.emit.opcodes.constrained(v=vs.110).aspx
-                il.Emit(OpCodes.Constrained, typeInfo);
 
+        if methodRef.Context = Static || typeInfo.IsValueType
+        then
+            il.Emit(OpCodes.Call, methodInfo)
+        else
             il.Emit(OpCodes.Callvirt, methodInfo);
 
     match ilInstruction with
