@@ -69,7 +69,7 @@ and ILInstruction =
     | Ldloc of string
     | Stloc of string
     | Ldarg of string
-    | LdargIdx of int16
+    | LdThis
     | Starg of string
     | Ldfld of string
     | Stfld of string

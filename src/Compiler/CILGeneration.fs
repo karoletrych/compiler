@@ -168,9 +168,13 @@ let rec emitInstruction
                 label, acc.Labels.Add(l, label)
         foo (fst result)
         {acc with Labels = snd result}
-    let callMethod t methodRef calleeInstructions argsInstructions = 
-        calleeInstructions |> List.iter (emitInstruction >> ignore)
+    let callMethod t (methodRef : MethodRef) calleeInstructions argsInstructions = 
         let typeInfo = typesTable.FindType t
+
+        if methodRef.Context = Instance
+            then
+                calleeInstructions |> List.iter (emitInstruction >> ignore)
+
         if typeInfo.IsValueType
         then
             let loc = il.DeclareLocal(typeInfo)
@@ -265,7 +269,7 @@ let rec emitInstruction
     | Stsfld(field) -> 
         let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = true}
         il.Emit(OpCodes.Stfld , field)
-    | LdargIdx(idx) -> il.Emit(OpCodes.Ldarg, idx)
+    | LdThis -> il.Emit(OpCodes.Ldarg_0)
     | Br(_) -> failwith "covered above"
     | Brfalse(_) -> failwith "covered above"
     | Brtrue(_) -> failwith "covered above"

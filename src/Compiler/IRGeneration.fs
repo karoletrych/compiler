@@ -12,7 +12,7 @@ type DataStorage =
 
 let loadFromIdentifier identifiers (id : string) =
     match identifiers |> Map.find id with
-    | Field -> [LdargIdx 0s; Ldfld(id)]
+    | Field -> [LdThis; Ldfld(id)]
     | Argument -> [Ldarg(id)]
     | LocalVariable -> [Ldloc(id)]
 let storeToIdentifier identifiers (id : string) =
@@ -37,36 +37,37 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         | IdentifierAssignee i -> 
             match storeToIdentifier identifiers i with
             | Stfld f -> 
-                [LdargIdx 0s] @ convertExpression expr @ [Stfld f]
+                [LdThis] @ convertExpression expr @ [Stfld f]
             | _ -> 
             convertExpression expr
             @ [Duplicate]
             @ [storeToIdentifier identifiers i]
     | BinaryExpression(e1, op, e2) ->
+       let args = convertExpression e1 @ convertExpression e2 
        match op with
         | ConditionalOr -> failwith "TODO:"
         | ConditionalAnd -> failwith  "TODO:"
         | Equal -> 
             let t = getType e1
             match t with
-            | i when i = Identifier.int -> [Ceq]
+            | i when i = Identifier.int -> args @ [Ceq]
             | s when s = Identifier.string -> 
                 [CallMethod(Identifier.string, 
                     {MethodName = "op_Equality"; 
                     Parameters = [Identifier.string; Identifier.string]; 
                     Context = Static},
                     [], 
-                    convertExpression e1 @ convertExpression e2)]
+                    args)]
         | NotEqual -> failwith "TODO:"
-        | LessEqual -> [Cle]
-        | Less -> [Clt]
-        | GreaterEqual -> [Cge]
-        | Greater -> [Cge]
-        | Plus -> [Add]
-        | Minus -> [Sub]
-        | Multiplication-> [Mul]
-        | Division -> [Div]
-        | Remainder -> [Rem]
+        | LessEqual -> args @ [Cle]
+        | Less -> args @ [Clt]
+        | GreaterEqual -> args @ [Cge]
+        | Greater -> args @ [Cge]
+        | Plus -> args @ [Add]
+        | Minus -> args @ [Sub]
+        | Multiplication-> args @ [Mul]
+        | Division -> args @ [Div]
+        | Remainder -> args @ [Rem]
     | InstanceMemberExpression(calleeExpression, mem) -> 
         let (InferredTypeExpression(callee, calleeT)) = calleeExpression
         match mem with
@@ -139,18 +140,21 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
             | IdentifierAssignee i -> 
                 match storeToIdentifier identifiers i with
                 | Stfld f -> 
-                    [LdargIdx 0s] @ convertExpression expr @ [Stfld f]
+                    [LdThis] @ convertExpression expr @ [Stfld f]
                 | _ ->
                     convertExpression expr
                     @ [storeToIdentifier identifiers i]
         | BreakStatement -> failwith "Not Implemented"
         | CompositeStatement(cs) -> cs |> List.collect generateIR
         | LocalFunctionCallStatement(lfc) -> 
-            [CallLocalMethod ({
+            [CallLocalMethod 
+                        ({
                             MethodName = lfc.Name
                             Parameters = lfc.Arguments |> List.map getType
                             Context = Static
-                           }, [LdargIdx 0s], (lfc.Arguments |> List.collect convertExpression))]
+                           }, 
+                           [LdThis], 
+                           (lfc.Arguments |> List.collect convertExpression))]
         | IfStatement(expr, s, elseS) ->
             let elseLabel = randomInt()
             let elseStatements = 
@@ -250,7 +254,7 @@ let fieldInitializers identifiers =
         List.collect (fun f -> 
                 f.Initializer 
                 |> Option.map (fun initializer -> 
-                        [LdargIdx 0s] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
+                        [LdThis] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
                     )
                 |> function
                    | Some o -> o
@@ -273,7 +277,7 @@ let private buildConstructor (fields : Field<InferredTypeExpression> list) baseT
     { 
         Parameters = ctor.Parameters 
                      |> List.map (fun p -> { Name = fst p; Type = Identifier.typeId (snd p) })
-        Body = [LdargIdx 0s]
+        Body = [LdThis]
                @ baseInitialiserArgs
                @ [CallConstructor(baseType, baseArgTypes)]
                @ convertStatements Static identifiers (CompositeStatement ctor.Body)
@@ -285,7 +289,7 @@ let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseTy
         (fields |> List.map (fun f -> (f.Name, Field)))
         |> Map.ofList
     let instructions = 
-        [LdargIdx 0s; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
+        [LdThis; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
     { 
         Parameters = []
         Body = instructions @ if noRetInstruction instructions then [Ret] else []

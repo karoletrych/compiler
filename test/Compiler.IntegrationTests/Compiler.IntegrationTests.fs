@@ -65,16 +65,16 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    if testName = "date.ifr"
-    then ftestCase testName (fun _ -> 
-        let output = test()
-        Expect.equal output expectedOutput testName)
-    else testCase testName (fun _ -> 
-        let output = test()
-        Expect.equal output expectedOutput testName)
+    // if testName = "date.ifr"
+    // then ftestCase testName (fun _ -> 
+    //     let output = test()
+    //     Expect.equal output expectedOutput testName)
+    // else testCase testName (fun _ -> 
+    //     let output = test()
+    //     Expect.equal output expectedOutput testName)
 
-    // let output = test()
-    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    let output = test()
+    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 let allTests = 
     (testFiles 
