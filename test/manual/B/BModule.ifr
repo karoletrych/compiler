@@ -1,0 +1,7 @@
+class BClass
+{
+	construct
+	{
+		System::Console:.WriteLine("B is constructed");
+	}
+}
