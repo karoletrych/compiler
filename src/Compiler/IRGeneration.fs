@@ -157,6 +157,7 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
                            (lfc.Arguments |> List.collect convertExpression))]
         | IfStatement(expr, s, elseS) ->
             let elseLabel = randomInt()
+            let endLabel = randomInt()
             let elseStatements = 
                 elseS 
                 |> Option.map generateIR
@@ -166,8 +167,10 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
             convertExpression expr 
             @ [Brfalse elseLabel]
             @ generateIR s 
+            @ [Br endLabel]
             @ [Label elseLabel]
             @ elseStatements
+            @ [Label endLabel]
 
         | InstanceMemberFunctionCallStatement(calleeExpression, call) ->
             [CallMethod(
