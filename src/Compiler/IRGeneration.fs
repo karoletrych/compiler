@@ -62,7 +62,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         | LessEqual -> args @ [Cle]
         | Less -> args @ [Clt]
         | GreaterEqual -> args @ [Cge]
-        | Greater -> args @ [Cge]
+        | Greater -> args @ [Cgt]
         | Plus -> args @ [Add]
         | Minus -> args @ [Sub]
         | Multiplication-> args @ [Mul]
