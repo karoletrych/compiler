@@ -51,7 +51,7 @@ module Result =
         | Success x -> x
         | Failure errors -> failwith (sprintf "get called on CompilerResult being Failure %s" (toString errors))
     let getErrors = function
-        | Success x -> failwith "getErrors called on CompilerResult being Success"
+        | Success _ -> failwith "getErrors called on CompilerResult being Success"
         | Failure errors -> errors
    
     let isFailure = function

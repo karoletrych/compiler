@@ -3,7 +3,6 @@ open IR
 open Ast
 open TypeInference
 open AstProcessing
-open Compiler.Types
 
 type DataStorage =
 | Field

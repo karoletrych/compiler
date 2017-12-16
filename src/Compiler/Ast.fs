@@ -12,7 +12,7 @@ and Declaration<'Expression> =
 and Class<'Expression> = {
     Name : string
     BaseClass : TypeSpec option
-    Properties : Field<'Expression> list
+    Fields : Field<'Expression> list
     Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
 }
@@ -28,6 +28,7 @@ and Field<'Expression> = {
   Type : TypeSpec
   Name : string
   Initializer : 'Expression option
+  ReadOnly : bool
 }
 
 and Constructor<'Expression> = {
@@ -276,7 +277,7 @@ module Module =
                              }
                      }
                 BaseClass = c.BaseClass
-                Fields = c.Properties
+                Fields = c.Fields
                 Constructors = c.Constructors
                 Functions = c.Functions
             })

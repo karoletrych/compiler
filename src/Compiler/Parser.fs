@@ -52,8 +52,8 @@ module Keyword =
     let nonAlphanumericWs = nextCharSatisfiesNot (isAsciiLetter) >>. spaces
     let pFun = skipString "fun" .>> nonAlphanumericWs
     let pReturn = skipString "return" .>> nonAlphanumericWs
-    let pVar = skipString "var" .>> nonAlphanumericWs
-    let pVal = skipString "val" .>> nonAlphanumericWs
+    let pVar = skipString "var" .>> nonAlphanumericWs |>> (fun () -> false)
+    let pVal = skipString "val" .>> nonAlphanumericWs |>> (fun () -> true)
     let pIf = skipString "if" .>> nonAlphanumericWs
     let pElse = skipString "else" .>> nonAlphanumericWs
     let pClass = skipString "class" .>> nonAlphanumericWs
@@ -380,14 +380,15 @@ module Class =
                 pBaseCall
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Body = body})
-        let property = 
-             pipe3
-                (Keyword.pVal >>. pIdentifier)
+        let field = 
+             pipe4
+                (Keyword.pVar <|> Keyword.pVal)
+                pIdentifier
                 (Char.colon >>. Types.pTypeSpec)
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun name t initializer -> { Name = name; Type = t; Initializer = initializer})
+                (fun readonly name t initializer -> { ReadOnly = readonly; Name = name; Type = t; Initializer = initializer})
         tuple3
-            (many property)
+            (many field)
             (many pConstructor)
             (many Function.pFunctionDeclaration)
 
@@ -397,11 +398,11 @@ module Class =
             pInheritanceDeclaration
             (between Char.leftBrace Char.rightBrace pClassBody)
             (fun name inheritanceDeclaration body ->
-            let properties, constructors, functions = body
+            let fields, constructors, functions = body
             {
                 Name = name;
                 BaseClass = inheritanceDeclaration;
-                Properties = properties;
+                Fields = fields;
                 Constructors = constructors;
                 Functions = functions;
             })

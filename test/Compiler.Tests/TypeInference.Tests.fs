@@ -30,7 +30,15 @@ let tests =
                 return result;
             }"
             
-        Expect.equal inference (Result.succeed []) ""
+        Expect.equal inference 
+                (Result.failure 
+                    (CannotInferBinaryExpressionType
+                         ({Namespace = ["System"];
+                       TypeName = {Name = ["Int32"];
+                               GenericArguments = [];};},{
+                        Namespace = ["System"];
+                       TypeName = {Name = ["Single"];
+                                   GenericArguments = [];};})))""
     testCase "recursive type inference fails" <| fun _ ->
         let inference = infer "
                 fun factorial (n : int) : int
@@ -40,7 +48,15 @@ let tests =
                     else
                         return n * factorial(n-1);
                 }"
-        Expect.equal inference (Result.succeed []) ""
+        Expect.equal inference 
+            (Failure [FunctionTypeCannotBeInferred
+                 ("factorial",[{Namespace = ["System"];
+                                TypeName = {Name = ["Int32"];
+                                            GenericArguments = [];};}]);
+               FunctionTypeCannotBeInferred
+                 ("factorial",[{Namespace = ["System"];
+                                TypeName = {Name = ["Int32"];
+                                            GenericArguments = [];};}])]) ""
     testCase "basic types" <| fun _ ->
         let inference = infer @"
                 fun main 
@@ -50,16 +66,16 @@ let tests =
                     val weight = 65.1;
                     val arr = [1;2;3; ""string""; name; age; weight];
                 }"
-        Expect.equal inference (Result.succeed [])  ""
+        Expect.isTrue (inference |> Result.isSuccess) ""
     testCase "classes" <| fun _ ->
         let inference = infer @"
              class A
              {
              }
-             class B extends A
+             class B : A
              {
              }
-             class C extends A
+             class C : A
              {
              }
 
@@ -74,5 +90,5 @@ let tests =
                   42];
              }
              "
-        Expect.equal inference (Result.succeed []) ""
+        Expect.isTrue (inference |> Result.isSuccess) ""
 ]

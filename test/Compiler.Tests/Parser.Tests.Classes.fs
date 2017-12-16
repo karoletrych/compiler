@@ -14,55 +14,50 @@ let tests =
         }
         "
       isOk (parse source) ""
-    // testCase "class with fields" <| fun _ ->
-    //   let source = "
-    //     class A
-    //     {
-    //         val a : A = new A()
-    //         var i : int = 3
-    //         var f : float = 3
-    //     }
-    //     "
-    //   isOk (parse source) ""
-    // testCase "class with functions" <| fun _ ->
-    //   let source = "
-    //     class A
-    //     {
-    //         var i : int
+    testCase "class with fields" <| fun _ ->
+      let source = "
+        class A
+        {
+            val a : A = new A()
+            var i : int = 3
+            var f : float = 3
+        }
+        "
+      isOk (parse source) ""
+    testCase "class with functions" <| fun _ ->
+      let source = "
+        class A
+        {
+            var i : int
 
-    //         fun increment
-    //         {
-    //             i = i + 1;
-    //         }
+            fun increment
+            {
+                i = i + 1;
+            }
 
-    //         fun getI
-    //         {
-    //             return i;
-    //         }
-    //     }
-    //     class B {
-    //         fun useClassA
-    //         {
-    //             val a = new A();
-    //             a.increment();
-    //             a.increment();
-    //             a.increment();
-    //             if a.getI() == 3
-    //                 return true;
-    //             return false;
-    //         }
-    //     }
-    //     "
-    //   isOk (parse source) ""
+            fun getI
+            {
+                return i;
+            }
+        }
+        class B {
+            fun useClassA
+            {
+                val a = new A();
+                a.increment();
+                a.increment();
+                a.increment();
+                if a.getI() == 3
+                    return true;
+                return false;
+            }
+        }
+        "
+      isOk (parse source) ""
     
-    testCase "generic class" <| fun _ ->
-      let source = "class A<T>{}"
-      isOk (parse source) ""
-    testCase "generic class with 2 type parameters" <| fun _ ->
-      let source = "class A<T, V>{}"
-      isOk (parse source) ""
-    testCase "generic class with inheritance and base constructor call" <| fun _ ->
-      let source = "class B<T, V>
+
+    testCase "class with base constructor call" <| fun _ ->
+      let source = "class B
                     {
                         val _tValue : T
                         val _vValue : V
@@ -73,7 +68,7 @@ let tests =
                             _vValue = vValue;
                         }
                     }
-                    class A<T> extends B<T, int>
+                    class A : B
                     {
                         val _tValue : T
                         val _number : int
@@ -85,8 +80,8 @@ let tests =
                         }
                     }"
       isOk (parse source) ""
-    testCase "class extending class and implementing interfaces" <| fun _ ->
-      let source = "class B<T, V>
+    testCase "class extending class" <| fun _ ->
+      let source = "class B
     {
         val _tValue : T
         val _vValue : V
@@ -97,7 +92,7 @@ let tests =
             _vValue = vValue;
         }
     }
-    class A<T> extends B<T, int>
+    class A : B
     {
         val _tValue : T
         val _number : int
@@ -109,9 +104,9 @@ let tests =
         }
     }"
       isOk (parse source) ""
-    testCase "generic function declaration" <| fun _ ->
+    testCase "function declaration" <| fun _ ->
       let source = "
-          fun add<T,V,U> (t : T) (v : V) (u : U)
+          fun add (t : T) (v : V) (u : U)
           {
             return t+v+u;
           }

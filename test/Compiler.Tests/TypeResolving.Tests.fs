@@ -22,7 +22,24 @@ let tests =
         let scanResult = 
             @"fun main {System::Console:.WriteLine(""Hello, world!"");}" 
             |> resolve
-        Expect.equal scanResult (Result.succeed []) ""
+        Expect.equal scanResult (
+                Result.succeed 
+                    [{Identifier = {Namespace = [];
+                          TypeName = {Name = ["test"];
+                                      GenericArguments = [];};};
+                    Functions = [{
+                                   Name = "main";
+                                   Parameters = [];
+                                   ReturnType = None;
+                                   Body = [
+                                            StaticFunctionCallStatement(TypeIdentifier {Namespace = ["System"];
+                                                        TypeName = {Name = ["Console"];
+                                                                    GenericArguments = [];};},{
+                                                Name = "WriteLine";
+                                                 GenericArguments = [];
+                                                 Arguments =
+                                                  [AstExpression (LiteralExpression (StringLiteral "Hello, world!"))]
+                                                  })];}]; Classes = [];}]) ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
@@ -37,7 +54,7 @@ let tests =
                 class A
                 {
                 }
-                class B extends A
+                class B : A
                 {
                     fun main
                     {
@@ -47,6 +64,39 @@ let tests =
             
             "
             |> resolve
-        Expect.equal scanResult (Result.succeed []) ""
+        Expect.equal scanResult (Result.succeed 
+                [{Identifier = {Namespace = [];
+                      TypeName = {
+                                    Name = ["test"];
+                                  GenericArguments = [];};};
+        Functions = [];
+        Classes =
+                 [{Identifier = {Namespace = [];
+                                 TypeName = {Name = ["A"; "test"];
+                                             GenericArguments = [];};};
+                   BaseClass = None;
+                   Fields = [];
+                   Constructors = [];
+                   Functions = [];};
+                  {Identifier = {Namespace = [];
+                                 TypeName = {Name = ["B"; "test"];
+                                             GenericArguments = [];};};
+                   BaseClass = Some (TypeIdentifier {Namespace = [];
+                                                     TypeName = {Name = ["A"; "test"];
+                                                                 GenericArguments = [];};});
+                   Fields = [];
+                   Constructors = [];
+                   Functions =
+                    [{Name = "main";
+                      Parameters = [];
+                      ReturnType = None;
+                      Body =
+                       [StaticFunctionCallStatement
+                          (TypeIdentifier {Namespace = [];
+                                           TypeName = {Name = ["A"; "test"];
+                                                       GenericArguments = [];};},
+                           {Name = "Foo";
+                            GenericArguments = [];
+                            Arguments = [];})];}];}];}]) ""
 
     ]

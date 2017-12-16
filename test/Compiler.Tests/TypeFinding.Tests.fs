@@ -37,5 +37,5 @@ let tests =
                     }
                     " 
                     |> findTypes
-                Expect.equal (types |> Map.toList).Length 1533 ""
+                Expect.equal (types |> Map.toList).Length 1543 ""
     ]

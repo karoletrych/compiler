@@ -1,8 +1,9 @@
 module Compiler.SemanticCheck
 
-open Compiler.CompilerResult
+open CompilerResult
+open TypeInference
+open Ast
 
-// Czy typy value są przypisywane w konstruktorze.
 // Check whether if and while exoressions are of type Bool
 // Value declaration i variableDeclaration.FullDeclaration type matches expressionType
 // Declarations: variable was not defined
@@ -21,5 +22,15 @@ open Compiler.CompilerResult
 // if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 // sprawdzenie wywolan konstruktorow klas bazowych
 
-let semanticCheck modules =
+
+// let private checkStatement = 
+//     function
+//     | IfStatement(expr, stmt, elseStmt) ->
+//         if getType expr <> Identifier.bool
+//         then Result.failure 
+//     | WhileStatement(expr, stmts) ->
+// let private checkFunction (name, parameters, returnType, statements) = 
+
+
+let semanticCheck (modules : Ast.Module<InferredTypeExpression> list) =
     Result.succeed modules

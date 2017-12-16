@@ -455,7 +455,7 @@ let private inferConstructor knownTypes leastUpperBound (currentType : Types.Typ
             |> List.map (annotate)
             |> Result.merge
         )
-let inferProperty knownTypes leastUpperBound (currentType) (p : Ast.Field<AstExpression>) =
+let inferField knownTypes leastUpperBound (currentType) (field : Ast.Field<AstExpression>) =
     let lookupLocalVariable = 
         lookupLocalVariable 
             (currentType.Fields 
@@ -467,15 +467,15 @@ let inferProperty knownTypes leastUpperBound (currentType) (p : Ast.Field<AstExp
     let inferExpression = inferExpression Map.empty currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     Result.map
-        (fun init -> {Name = p.Name; Initializer = init; Type = p.Type})
-        (Result.mapOption annotate p.Initializer)
+        (fun init -> {Name = field.Name; Initializer = init; Type = field.Type; ReadOnly = field.ReadOnly})
+        (Result.mapOption annotate field.Initializer)
 
 let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerResult<ModuleClass<InferredTypeExpression>>=
     let leastUpperBound = leastUpperBoundIdentifier knownTypes
     let currentType = (knownTypes |> Map.find c.Identifier)
     let inferFunction = inferFunction knownTypes leastUpperBound currentType
     let inferConstructor = inferConstructor knownTypes leastUpperBound currentType
-    let inferField = inferProperty knownTypes leastUpperBound currentType
+    let inferField = inferField knownTypes leastUpperBound currentType
     Result.map3
         (fun functions fields ctor -> 
         {
