@@ -11,6 +11,8 @@ type Failure =
 | FieldNotFound of TypeIdentifier * string
 | CannotInferBinaryExpressionType of TypeIdentifier * TypeIdentifier
 | UndefinedVariable of string
+| NonBooleanExpressionInWhileStatement of TypeIdentifier
+| NonBooleanExpressionInIfStatement of TypeIdentifier
 
 let toString (errors : Failure list) = 
     let errorString x = 
@@ -30,6 +32,8 @@ let toString (errors : Failure list) =
             | FieldNotFound (t,name) -> "Type: " + t.ToString() + " FieldName: "+ name
             | CannotInferBinaryExpressionType (t1, t2) -> t1.ToString() + " " + t2.ToString()
             | UndefinedVariable v -> v.ToString()
+            | NonBooleanExpressionInWhileStatement(t) -> "Expected bool but was: " + t.ToString()
+            | NonBooleanExpressionInIfStatement(t) ->"Expected bool but was: " + t.ToString()
         failure + ": " + message
     errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))
 

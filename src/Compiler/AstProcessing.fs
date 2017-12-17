@@ -1,5 +1,6 @@
 module Compiler.AstProcessing
 open Compiler.Ast
+open System.Text.RegularExpressions
 
 let rec expressionCata 
     assignment
@@ -159,12 +160,17 @@ let rec statementFold
         | FullDeclaration(id, t, e) -> fullVariableDeclaration acc (id,t,e)
     | CompositeStatement(cs) ->
         let newAcc = composite acc
-        cs |> List.collect (recurse newAcc)
+        match cs with
+        | [] ->  newAcc
+        | cs -> cs |> List.collect (recurse newAcc)
     | ReturnStatement e -> returnStatement acc e
     | AssignmentStatement(e1, e2) -> assignment acc (e1, e2)
     | BreakStatement -> breakStatement acc
     | IfStatement (e,s,elseS) -> 
         let newAcc = ifStatement acc e
+        
+        newAcc 
+        @
         recurse 
             newAcc s 
             @ 
