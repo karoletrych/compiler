@@ -1,4 +1,4 @@
-# Inferro Lang
+# InferLang
 Compiler of a simple language targeting CLR.
 Main features are local type inference and nonnullable references.
 [![Build Status](https://travis-ci.org/karoletrych/compiler.svg?branch=master)](https://travis-ci.org/karoletrych/compiler)
