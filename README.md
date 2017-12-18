@@ -1,10 +1,9 @@
 # InferLang
-Compiler of a simple language targeting CLR.
-Main features are local type inference and nonnullable references.
+Compiler of a simple language featuring local type inference and targeting Common Language Runtime.
 [![Build Status](https://travis-ci.org/karoletrych/compiler.svg?branch=master)](https://travis-ci.org/karoletrych/compiler)
 ## Syntax
 ### Modules
-All code in Inferro is placed in modules.
+All code in InferLang is placed in modules.
 Module namespaces can be specified with ``module`` keyword.
 
     module ExampleModule
@@ -95,6 +94,5 @@ Closest common type of Dog and Cat is Animal so the return type will be inferred
         else if(animalType == "cat")
             return new Cat();
     }
-## Non-nullable references
 
 ## Setup and compiler usage
