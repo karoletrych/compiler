@@ -13,6 +13,7 @@ type Failure =
 | UndefinedVariable of string
 | NonBooleanExpressionInWhileStatement of TypeIdentifier
 | NonBooleanExpressionInIfStatement of TypeIdentifier
+| InvalidTypeInVariableDeclaration of name : string * t : TypeIdentifier * expected : TypeIdentifier
 
 let toString (errors : Failure list) = 
     let errorString x = 
@@ -34,6 +35,7 @@ let toString (errors : Failure list) =
             | UndefinedVariable v -> v.ToString()
             | NonBooleanExpressionInWhileStatement(t) -> "Expected bool but was: " + t.ToString()
             | NonBooleanExpressionInIfStatement(t) ->"Expected bool but was: " + t.ToString()
+            | InvalidTypeInVariableDeclaration(name, t, expected) -> "Variable: " + name + " Expected " + expected.ToString() + " but was " + t.ToString()
         failure + ": " + message
     errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))
 

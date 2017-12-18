@@ -48,4 +48,31 @@ let tests =
                                              TypeName = {Name = ["Int32"];
                                                      GenericArguments = [];};};
                    ]) ""
+        ftestCase "assignment of invalid type in variable declaration" <| fun _ ->
+            let semanticCheckResult = 
+                @"
+                fun main 
+                {
+                    var a : string = 3;
+                    val b : int = 4.0;
+                }
+                "
+                |> semanticCheck
+            Expect.equal 
+                semanticCheckResult 
+                (Failure  [
+                    InvalidTypeInVariableDeclaration
+                     ("b",{Namespace = ["System"];
+                           TypeName = {Name = ["Int32"];
+                                       GenericArguments = [];};},
+                      {Namespace = ["System"];
+                       TypeName = {Name = ["Single"];
+                                   GenericArguments = [];};});
+                   InvalidTypeInVariableDeclaration
+                     ("a",{Namespace = ["System"];
+                           TypeName = {Name = ["String"];
+                                       GenericArguments = [];};},
+                      {Namespace = ["System"];
+                       TypeName = {Name = ["Int32"];
+                                   GenericArguments = [];};})]) ""
     ]

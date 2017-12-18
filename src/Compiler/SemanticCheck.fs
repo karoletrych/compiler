@@ -73,8 +73,37 @@ let rec private checkStatements body =
     let ifStatement (s, elseS) = 
         let elseS = elseS |> Option.defaultValue initialState
         s + elseS
+    let valueDeclaration acc (name, t, expr) = 
+        let t = t |> Option.map Identifier.typeId
+        acc
+        |> ifNotTrueAddFailure
+            (t |> Option.isSome && t |> Option.get = getType expr)
+            (InvalidTypeInVariableDeclaration(name, t |> Option.get, getType expr))
+    let declarationWithInitialization acc (name, expr) =
+        acc
+    let declarationWithType acc (name, t) =
+        acc
+    let fullVariableDeclaration acc (name, t, expr) =
+        let t = Identifier.typeId t
+        acc
+        |> ifNotTrueAddFailure
+            (t = getType expr)
+            (InvalidTypeInVariableDeclaration(name, t, getType expr))
+
     statementFold
-        idFold idFold idFold idFold idFold idFold returnStatement idFold id ifExpression whileStatement idFold ifStatement
+        idFold 
+        idFold 
+        valueDeclaration 
+        declarationWithInitialization 
+        declarationWithType 
+        fullVariableDeclaration 
+        returnStatement 
+        idFold 
+        id 
+        ifExpression 
+        whileStatement 
+        idFold 
+        ifStatement
             initialState (CompositeStatement body) 
 
     // function
