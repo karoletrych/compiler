@@ -56,17 +56,45 @@ Classes can be created using ``class`` keyword. Example:
 
     class Animal 
     {
-        val _color : System::Drawing::Color
         val _noise : string
 
-        construct(color : System::Drawing::Color, noise : string)
+        construct (noise : string)
         {
-            _color = color;
             _noise = noise;
         }
 
         fun MakeNoise
+        {
+            System::Console:.WriteLine(_noise);
+        }
     }
+
+    class Dog : Animal
+    {
+        construct : ("Hau!")
+        {
+        }
+    }
+
+    class Cat : Animal
+    {
+        construct : ("Miau!")
+        {
+        }
+    }
+
+    class Duck : Animal
+    {
+        construct : ("")
+        {
+        }
+
+        fun MakeNoise
+        {
+            System::Console:.WriteLine("Kwak!");
+        }
+    }
+
 Class members need to be declared in the following order:
 
 1. Fields
