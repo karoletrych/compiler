@@ -218,6 +218,8 @@ let private findLocalVariables body : Variable list =
     let declarationWithInitialization acc (name,expr) = {Name =name; Type = getType expr} :: acc
     let declarationWithType acc (name, t) = {Name = name; Type = Identifier.typeId t} :: acc
     let fullVariableDeclaration acc (name, _, expr) = {Name = name; Type = getType expr} :: acc
+    let ifStatement (stmt, elseStmt) = 
+        stmt @ (elseStmt |> Option.defaultValue []) 
 
     let variables = 
         statementFold idFold idFold 
@@ -225,7 +227,7 @@ let private findLocalVariables body : Variable list =
             declarationWithInitialization 
             declarationWithType 
             fullVariableDeclaration 
-            id idFold idFold id idFold idFold idFold
+            idFold idFold id idFold idFold idFold ifStatement
                 [] (CompositeStatement body)
     variables
 

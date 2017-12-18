@@ -23,7 +23,7 @@ let semanticCheck src =
 let tests =
     testList "SemanticCheck.Tests" [
         ftestCase "non boolean type in if/while statements" <| fun _ ->
-            let checkResult = 
+            let semanticCheckResult = 
                 @"
                 fun main 
                 {
@@ -38,10 +38,14 @@ let tests =
                 }
                 "
                 |> semanticCheck
-            Expect.equal checkResult (Failure  [NonBooleanExpressionInWhileStatement {Namespace = ["System"];
-                                         TypeName = {Name = ["Int32"];
+            Expect.equal 
+                semanticCheckResult 
+                (Failure  [
+                    NonBooleanExpressionInIfStatement {Namespace = ["System"];
+                                          TypeName = {Name = ["String"];
+                                                      GenericArguments = [];};}
+                    NonBooleanExpressionInWhileStatement {Namespace = ["System"];
+                                             TypeName = {Name = ["Int32"];
                                                      GenericArguments = [];};};
-   NonBooleanExpressionInIfStatement {Namespace = ["System"];
-                                      TypeName = {Name = ["String"];
-                                                  GenericArguments = [];};}]) ""
+                   ]) ""
     ]

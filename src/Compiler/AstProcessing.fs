@@ -1,6 +1,5 @@
 module Compiler.AstProcessing
 open Compiler.Ast
-open System.Text.RegularExpressions
 
 let rec expressionCata 
     assignment
@@ -122,13 +121,13 @@ let rec statementFold
     declarationWithInitialization
     declarationWithType
     fullVariableDeclaration
-    composite
     returnStatement
     assignment
     breakStatement
-    ifStatement
+    ifExpression
     whileStatement
     instanceFunctionCall
+    ifStatement
     (acc : 'acc)
     statement = 
     let recurse = 
@@ -139,13 +138,13 @@ let rec statementFold
             declarationWithInitialization
             declarationWithType
             fullVariableDeclaration
-            composite
             returnStatement
             assignment  
             breakStatement
-            ifStatement
+            ifExpression
             whileStatement
             instanceFunctionCall
+            ifStatement
     match statement with
     | LocalFunctionCallStatement(call) ->
         functionCall acc (call.Name, call.Arguments , call.GenericArguments)
@@ -159,22 +158,14 @@ let rec statementFold
         | DeclarationWithType(id, t) -> declarationWithType acc (id, t)
         | FullDeclaration(id, t, e) -> fullVariableDeclaration acc (id,t,e)
     | CompositeStatement(cs) ->
-        let newAcc = composite acc
-        match cs with
-        | [] ->  newAcc
-        | cs -> cs |> List.collect (recurse newAcc)
+        cs 
+        |> List.fold recurse acc
     | ReturnStatement e -> returnStatement acc e
     | AssignmentStatement(e1, e2) -> assignment acc (e1, e2)
     | BreakStatement -> breakStatement acc
     | IfStatement (e,s,elseS) -> 
-        let newAcc = ifStatement acc e
-        
-        newAcc 
-        @
-        recurse 
-            newAcc s 
-            @ 
-            (elseS |> Option.map (recurse newAcc) |> Option.defaultValue [])
+        let newAcc = ifExpression acc e
+        ifStatement (recurse newAcc s, (elseS |> Option.map (recurse newAcc)))
     | InstanceMemberFunctionCallStatement(callee, mfc) -> instanceFunctionCall acc (callee, mfc)
     | WhileStatement(e, s) -> 
         let newAcc = whileStatement acc e

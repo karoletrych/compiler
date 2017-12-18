@@ -23,6 +23,19 @@ open AstProcessing
 // sprawdzenie wywolan konstruktorow klas bazowych
 // confilicting module, class, function, variable, field name
 
+type SemanticCheckState = {
+    LocalVariables : string list
+    Errors : Failure list
+}
+with static member (+) (s1,s2) = {
+        LocalVariables = s1.LocalVariables @ s2.LocalVariables
+        Errors = s1.Errors @ s2.Errors
+}
+
+let initialState = {
+    LocalVariables = []
+    Errors = []
+}
 
 let private checkExpression =
     function
@@ -41,11 +54,11 @@ let rec private checkStatements body =
     let ifNotTrueAddFailure predicate error acc = 
         if predicate
         then acc
-        else  Result.failure error :: acc
+        else {acc with Errors = error :: acc.Errors }
 
     let idFold acc _  = acc
 
-    let ifStatement acc expr = 
+    let ifExpression acc expr = 
         acc 
         |> ifNotTrueAddFailure 
             (getType expr = Identifier.bool) 
@@ -56,10 +69,13 @@ let rec private checkStatements body =
             (getType expr = Identifier.bool) 
             (NonBooleanExpressionInWhileStatement (getType expr))
     let returnStatement acc stmt =
-        []
+        acc
+    let ifStatement (s, elseS) = 
+        let elseS = elseS |> Option.defaultValue initialState
+        s + elseS
     statementFold
-        idFold idFold idFold idFold idFold idFold id returnStatement idFold id ifStatement whileStatement idFold
-            [] (CompositeStatement body) 
+        idFold idFold idFold idFold idFold idFold returnStatement idFold id ifExpression whileStatement idFold ifStatement
+            initialState (CompositeStatement body) 
 
     // function
     // | AssignmentStatement(_, _) -> failwith "Not Implemented"
@@ -71,23 +87,23 @@ let rec private checkStatements body =
     // | StaticFunctionCallStatement(_, _) -> failwith "Not Implemented"
     // | VariableDeclaration(_) -> failwith "Not Implemented"
     // | ValueDeclaration(_) -> failwith "Not Implemented"
-let private checkFunction (``function`` : Function<InferredTypeExpression>) = 
-    checkStatements ``function``.Body
-    |> Result.merge
-    |> Result.map (fun statements -> {Name = ``function``.Name; Body = statements; Parameters = ``function``.Parameters; ReturnType = ``function``.ReturnType})
+let private checkFunction (``function`` : Function<InferredTypeExpression>) : Failure list= 
+    (checkStatements ``function``.Body).Errors
 
 let private checkClass ``class`` =
-    Result.succeed ``class``
+    []
 
 let private checkModule (modul : Module<InferredTypeExpression>) =
-    let functions = modul.Functions 
-                    |> List.map checkFunction 
-                    |> Result.merge
-    let classes = modul.Classes
-                  |> List.map checkClass
-                  |> Result.merge
-    (functions, classes)
-    ||> Result.map2 (fun functions classes -> {Identifier = modul.Identifier; Functions = functions; Classes = classes})
+    let functionsErrors = modul.Functions 
+                          |> List.collect checkFunction 
+    let classesErrors = modul.Classes
+                        |> List.collect checkClass
+    let errors = (functionsErrors @ classesErrors) |> List.distinct
+    match errors with
+    | [] -> Result.succeed modul
+    | failures -> Failure failures
+                  
+    
 
 let semanticCheck (modules : Ast.Module<InferredTypeExpression> list) =
     modules |> List.map checkModule |> Result.merge

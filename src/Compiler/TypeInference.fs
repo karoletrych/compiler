@@ -394,8 +394,11 @@ let private inferReturnType leastUpperBound body =
         | Some r -> r :: acc
         | None -> acc
     let idFold acc _ = acc
+    let ifStatement (s, elseS) =
+        s @ (elseS |> Option.defaultValue [])
+
     statementFold
-        idFold idFold idFold idFold idFold idFold id addReturn idFold id idFold idFold idFold
+        idFold idFold idFold idFold idFold idFold addReturn idFold id idFold idFold idFold ifStatement
             [] (CompositeStatement body) 
     |> List.map getType
     |> function
