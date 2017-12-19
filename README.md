@@ -1,10 +1,9 @@
 # InferLang
-Compiler of a simple language targeting CLR.
-Main features are local type inference and nonnullable references.
+Compiler of a simple language featuring local type inference and targeting Common Language Runtime.
 [![Build Status](https://travis-ci.org/karoletrych/compiler.svg?branch=master)](https://travis-ci.org/karoletrych/compiler)
 ## Syntax
 ### Modules
-All code in Inferro is placed in modules.
+All code in InferLang is placed in modules.
 Module namespaces can be specified with ``module`` keyword.
 
     module ExampleModule
@@ -57,17 +56,45 @@ Classes can be created using ``class`` keyword. Example:
 
     class Animal 
     {
-        val _color : System::Drawing::Color
         val _noise : string
 
-        construct(color : System::Drawing::Color, noise : string)
+        construct (noise : string)
         {
-            _color = color;
             _noise = noise;
         }
 
         fun MakeNoise
+        {
+            System::Console:.WriteLine(_noise);
+        }
     }
+
+    class Dog : Animal
+    {
+        construct : ("Hau!")
+        {
+        }
+    }
+
+    class Cat : Animal
+    {
+        construct : ("Miau!")
+        {
+        }
+    }
+
+    class Duck : Animal
+    {
+        construct : ("")
+        {
+        }
+
+        fun MakeNoise
+        {
+            System::Console:.WriteLine("Kwak!");
+        }
+    }
+
 Class members need to be declared in the following order:
 
 1. Fields
@@ -95,6 +122,5 @@ Closest common type of Dog and Cat is Animal so the return type will be inferred
         else if(animalType == "cat")
             return new Cat();
     }
-## Non-nullable references
 
 ## Setup and compiler usage
