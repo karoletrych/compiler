@@ -29,8 +29,60 @@ let initialState = {
     LocalVariables = []
     Errors = []
 }
+let (|Field|_|) types (t : TypeIdentifier) name =
+    let t = types |> Map.tryFind t
+    match t with
+    | Some t ->
+        match (t.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
+        | Some f -> Some (Field f)
+        | None -> None
+    | None -> failwith "should fail in type inference"
+let (|Variable|_|) variables name =
+    match variables |> List.tryFind (fun v -> v.Name = name) with
+    | Some v -> Some (Variable v)
+    | None -> None
+let rec private checkAssignment types ownerType acc (assignee, expr) =
+    let acc = {acc with Errors = acc.Errors @ (checkExpression types ownerType acc (getExpression expr))}
+    match assignee with
+    | IdentifierAssignee name -> 
+        match name with
+        | Variable acc.LocalVariables v -> 
+            if v.IsReadOnly then
+                {acc with Errors = AssignmentToReadOnlyVariable(name) :: acc.Errors}
+            else if v.Type <> getType expr then
+                {acc with Errors = InvalidType(name, getType expr, v.Type) :: acc.Errors}
+            else acc
+        | Field types ownerType f -> 
+            match f.IsReadOnly with
+            | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
+            | false ->
+                match f.Type with
+                | GenericParameter _ -> failwith "not possible in InferLang"
+                | ConstructedType t -> 
+                    if t <> (getType expr) 
+                    then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
+                    else 
+                        acc
+        | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
+    | MemberFieldAssignee (assignee, name) ->
+        let t = getType assignee
+        match name with
+        | Field types t f -> 
+            match f.IsReadOnly with
+            | true -> 
+                {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
+            | false ->
+                match f.Type with
+                | GenericParameter _ -> failwith ""
+                | ConstructedType t -> 
+                    if t <> (getType expr) 
+                    then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
+                    else 
+                        {acc with Errors = UndefinedVariable name :: acc.Errors}
+        | _ ->
+            {acc with Errors = UndefinedVariable name :: acc.Errors}
 
-let private checkExpression (types : Map<TypeIdentifier, Types.Type>) =
+and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType acc =
     function
     | BinaryExpression(e1, op, e2) -> 
         let t = types.[getType e1]
@@ -46,7 +98,7 @@ let private checkExpression (types : Map<TypeIdentifier, Types.Type>) =
             if Option.isNone (t.Methods |> List.tryFind (fun m -> m.Name = (operatorMethodName op)))
             then [OperatorNotApplicableForGivenTypes(op, getType e1, getType e2)]
             else []
-    | AssignmentExpression(_, _) -> [] //TODO:
+    | AssignmentExpression(assignee, expr) -> (checkAssignment types ownerType acc (assignee, expr)).Errors
     | LocalFunctionCallExpression(_) -> []
     | IdentifierExpression(_) -> []
     | ListInitializerExpression(_) -> []
@@ -57,20 +109,8 @@ let private checkExpression (types : Map<TypeIdentifier, Types.Type>) =
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 
-    let (|Field|_|) (t : TypeIdentifier) name =
-        let t = types |> Map.tryFind t
-        match t with
-        | Some t ->
-            match (t.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
-            | Some f -> Some (Field f)
-            | None -> None
-        | None -> failwith "should fail in type inference"
-    let (|Variable|_|) variables name =
-        match variables |> List.tryFind (fun v -> v.Name = name) with
-        | Some v -> Some (Variable v)
-        | None -> None
-                
     let idFold acc _  = acc
+    let checkExpression = checkExpression types ownerType
 
     let ifExpression acc expr = 
         if getType expr <> Identifier.bool
@@ -97,14 +137,15 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
                 then
                     (InvalidType(name, t |> Option.get, getType expr)) :: acc.Errors
                 else
-                    acc.Errors) @ (checkExpression types (getExpression expr))
+                    acc.Errors) 
+                @ (checkExpression acc (getExpression expr))
             LocalVariables = {Name = name; IsReadOnly = true; Type = getType expr} :: acc.LocalVariables
         }
     let declarationWithInitialization acc (name, expr) = 
         { acc 
             with 
                 LocalVariables = {Name = name; IsReadOnly = false; Type = getType expr} :: acc.LocalVariables
-                Errors = acc.Errors @ (checkExpression types (getExpression expr))
+                Errors = acc.Errors @ (checkExpression acc (getExpression expr))
         }
     let declarationWithType acc (name, t) =
         { acc with LocalVariables = {Name = name; IsReadOnly = false; Type = Identifier.typeId t} :: acc.LocalVariables}
@@ -116,49 +157,11 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
                 then
                     (InvalidType(name, t, getType expr)) :: acc.Errors
                 else
-                    acc.Errors) @ (checkExpression types (getExpression expr))
+                    acc.Errors) @ (checkExpression acc (getExpression expr))
             LocalVariables = {Name = name; IsReadOnly = false; Type = t} :: acc.LocalVariables
         }
     let assignmentStatement (acc : SemanticCheckState) (assignee, expr) =
-        let acc = {acc with Errors = acc.Errors @ (checkExpression types (getExpression expr))}
-        match assignee with
-        | IdentifierAssignee name -> 
-            match name with
-            | Variable acc.LocalVariables v -> 
-                if v.IsReadOnly then
-                    {acc with Errors = AssignmentToReadOnlyVariable(name) :: acc.Errors}
-                else if v.Type <> getType expr then
-                    {acc with Errors = InvalidType(name, getType expr, v.Type) :: acc.Errors}
-                else acc
-            | Field ownerType f -> 
-                match f.IsReadOnly with
-                | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
-                | false ->
-                    match f.Type with
-                    | GenericParameter _ -> failwith "not possible in InferLang"
-                    | ConstructedType t -> 
-                        if t <> (getType expr) 
-                        then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
-                        else 
-                            acc
-            | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
-        | MemberFieldAssignee (assignee, name) ->
-            let t = getType assignee
-            match name with
-            | Field t f -> 
-                match f.IsReadOnly with
-                | true -> 
-                    {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
-                | false ->
-                    match f.Type with
-                    | GenericParameter _ -> failwith ""
-                    | ConstructedType t -> 
-                        if t <> (getType expr) 
-                        then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
-                        else 
-                            {acc with Errors = UndefinedVariable name :: acc.Errors}
-            | _ ->
-                {acc with Errors = UndefinedVariable name :: acc.Errors}
+        (checkAssignment types ownerType acc (assignee, expr))
 
     statementFold
         idFold 
