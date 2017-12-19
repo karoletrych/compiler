@@ -8,10 +8,6 @@ open System.Reflection.Emit
 open System
 open CompilerResult
 open CILGeneration
-open System
-open System.IO
-open System
-open System
 
 type OutputType = 
 | Exe
@@ -81,11 +77,17 @@ let main argv =
     try
         let args = argumentParser.Parse()
         let referencedDlls = args.GetResult (<@ReferencedDlls@>,[])
-        let outputPath = args.GetResult (<@Output@>, "Program.exe")
         let isExe = 
             match args.GetResult (<@OutputType@>, Exe) with
             | Exe -> true
             | Dll -> false
+        let outputPath = 
+            if args.Contains(<@Output@>)
+            then args.GetResult(<@Output@>)
+            else match isExe with
+                 | true -> "Program.exe"
+                 | false -> "Library.dll"
+        
         let printIR = args.Contains <@PrintIR@>
         let sourcePaths = 
             args.GetResult (<@SourceFiles@>, [])

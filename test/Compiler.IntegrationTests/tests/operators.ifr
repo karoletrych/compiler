@@ -1,0 +1,26 @@
+module Operators
+
+fun main
+{
+    if("AAA" == "AAA")
+        Console.WriteLine("test 1 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 2 passed");
+
+    if(3 + 2 == 5)
+        Console.WriteLine("test 3 passed");
+    if(3 - 2 == 1)
+        Console.WriteLine("test 4 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 5 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 6 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 7 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 8 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 9 passed");
+    if("AAA" + "BBB" == "AAABBB")
+        Console.WriteLine("test 10 passed");
+}

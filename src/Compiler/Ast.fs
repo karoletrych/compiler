@@ -107,8 +107,8 @@ and FunctionCall<'Expression> = {
     }
 
 and BinaryOperator =
-| ConditionalOr
-| ConditionalAnd
+| LogicalOr
+| LogicalAnd
 | Equal
 | NotEqual
 | LessEqual
@@ -291,8 +291,8 @@ module Module =
 let operatorMethodName =
     function
     | Plus -> "op_Addition"
-    | ConditionalOr -> "op_LogicalOr"
-    | ConditionalAnd -> "op_LogicalAnd"
+    | LogicalOr -> "op_LogicalOr"
+    | LogicalAnd -> "op_LogicalAnd"
     | Equal ->  "op_Equality"
     | NotEqual ->  "op_Inequality"
     | LessEqual ->  "op_LessThanOrEqual"

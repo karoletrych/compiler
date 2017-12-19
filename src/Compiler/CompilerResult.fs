@@ -13,7 +13,7 @@ type Failure =
 | UndefinedVariable of string
 | NonBooleanExpressionInWhileStatement of TypeIdentifier
 | NonBooleanExpressionInIfStatement of TypeIdentifier
-| InvalidTypeInVariableDeclaration of name : string * t : TypeIdentifier * expected : TypeIdentifier
+| InvalidType of name : string * t : TypeIdentifier * expected : TypeIdentifier
 | AssignmentToReadOnlyVariable of name : string
 | AssignmentToReadOnlyLocalField of name : string
 | AssignmentToReadOnlyFieldOnType of TypeIdentifier * string
@@ -41,7 +41,7 @@ let toString (errors : Failure list) =
             | UndefinedVariable v -> v.ToString()
             | NonBooleanExpressionInWhileStatement(t) -> "Expected bool but was: " + t.ToString()
             | NonBooleanExpressionInIfStatement(t) ->"Expected bool but was: " + t.ToString()
-            | InvalidTypeInVariableDeclaration(name, t, expected) -> "Variable: " + name + " Expected " + expected.ToString() + " but was " + t.ToString()
+            | InvalidType(name, t, expected) -> "Variable: " + name + " Expected " + expected.ToString() + " but was " + t.ToString()
             | AssignmentToReadOnlyVariable(name) -> name.ToString()
             | AssignmentToReadOnlyLocalField(name) -> name.ToString()
             | AssignmentToReadOnlyFieldOnType(t, name) -> "Type: " + t.ToString() + " Field: " + name

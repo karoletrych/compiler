@@ -62,21 +62,21 @@ let tests =
             Expect.equal 
                 semanticCheckResult 
                 (Failure  [
-                    InvalidTypeInVariableDeclaration
+                    InvalidType
                      ("b",{Namespace = ["System"];
                            TypeName = {Name = ["Int32"];
                                        GenericArguments = [];};},
                       {Namespace = ["System"];
                        TypeName = {Name = ["Single"];
                                    GenericArguments = [];};});
-                   InvalidTypeInVariableDeclaration
+                   InvalidType
                      ("a",{Namespace = ["System"];
                            TypeName = {Name = ["String"];
                                        GenericArguments = [];};},
                       {Namespace = ["System"];
                        TypeName = {Name = ["Int32"];
                                    GenericArguments = [];};})]) ""
-        testCase "assignment to variable of incompatible type" <| fun _ ->
+        testCase "declaration with initializer of incompatible type" <| fun _ ->
             let semanticCheckResult = 
                 @"
                 fun main 
@@ -89,14 +89,14 @@ let tests =
             Expect.equal 
                 semanticCheckResult 
                 (Failure  [
-                    InvalidTypeInVariableDeclaration
+                    InvalidType
                      ("b",{Namespace = ["System"];
                            TypeName = {Name = ["Int32"];
                                        GenericArguments = [];};},
                       {Namespace = ["System"];
                        TypeName = {Name = ["Single"];
                                    GenericArguments = [];};});
-                   InvalidTypeInVariableDeclaration
+                   InvalidType
                      ("a",{Namespace = ["System"];
                            TypeName = {Name = ["String"];
                                        GenericArguments = [];};},
@@ -164,9 +164,10 @@ let tests =
                          (Plus, {Namespace = [];
                                 TypeName = {Name = ["A"; "test"];
                                             GenericArguments = [];};},
-      {Namespace = [];
-       TypeName = {Name = ["A"; "test"];
-                   GenericArguments = [];};})]) ""
+                          {
+                            Namespace = [];
+                            TypeName = {Name = ["A"; "test"];
+                                   GenericArguments = [];};})]) ""
         testCase "entry point" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -176,4 +177,23 @@ let tests =
             Expect.equal 
                 semanticCheckResult 
                 (Failure  [NoEntryPointOrMoreThanOne]) ""
+        testCase "assignment of invalid type" <| fun _ ->
+            let semanticCheckResult = 
+                @"
+                fun main
+                {
+                    var a = ""123"";
+                    a = 3;
+                }
+                "
+                |> semanticCheck
+            Expect.equal 
+                semanticCheckResult 
+                (Failure [InvalidType
+     ("a",{Namespace = ["System"];
+           TypeName = {Name = ["Int32"];
+                       GenericArguments = [];};},
+      {Namespace = ["System"];
+       TypeName = {Name = ["String"];
+                   GenericArguments = [];};})]) ""
     ]

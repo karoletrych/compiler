@@ -29,7 +29,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         | BoolLiteral b -> [ (if b then LdcI4(1) else LdcI4(0)) ]
         | IntLiteral i -> [ LdcI4(i) ]
         | FloatLiteral f -> [ LdcR4(f) ]
-        | StringLiteral s -> [Ldstr(s)]
+        | StringLiteral s -> [ Ldstr(s) ]
     | AssignmentExpression(assignee, expr) -> 
         match assignee with
         | MemberFieldAssignee (callee, i) -> failwith "TODO:"
@@ -42,31 +42,32 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
             @ [Duplicate]
             @ [storeToIdentifier identifiers i]
     | BinaryExpression(e1, op, e2) ->
-       let args = convertExpression e1 @ convertExpression e2 
-       match op with
-        | ConditionalOr -> failwith "TODO:"
-        | ConditionalAnd -> failwith  "TODO:"
-        | Equal -> 
-            let t = getType e1
-            match t with
-            | i when i = Identifier.int -> args @ [Ceq]
-            | s when s = Identifier.string -> 
-                [CallMethod(Identifier.string, 
-                    {MethodName = "op_Equality"; 
-                    Parameters = [Identifier.string; Identifier.string]; 
+        let args = convertExpression e1 @ convertExpression e2 
+        let t = getType e1
+        match t with
+        | t when t = Identifier.int || t = Identifier.float || t = Identifier.double -> 
+            match op with
+            | Equal -> args @ [Ceq]
+            | NotEqual -> args @ [Ceq; LdcI4 0; Ceq]
+            | LogicalOr -> failwith "TODO:"
+            | LogicalAnd -> failwith  "TODO:"
+            | LessEqual -> args @ [Cle]
+            | Less -> args @ [Clt]
+            | GreaterEqual -> args @ [Cge]
+            | Greater -> args @ [Cgt]
+            | Plus -> args @ [Add]
+            | Minus -> args @ [Sub]
+            | Multiplication-> args @ [Mul]
+            | Division -> args @ [Div]
+            | Remainder -> args @ [Rem]
+        | _ ->
+            [CallMethod(t,
+                {
+                    MethodName = operatorMethodName op; 
+                    Parameters = [t; t]; 
                     Context = Static},
                     [], 
                     args)]
-        | NotEqual -> failwith "TODO:"
-        | LessEqual -> args @ [Cle]
-        | Less -> args @ [Clt]
-        | GreaterEqual -> args @ [Cge]
-        | Greater -> args @ [Cgt]
-        | Plus -> args @ [Add]
-        | Minus -> args @ [Sub]
-        | Multiplication-> args @ [Mul]
-        | Division -> args @ [Div]
-        | Remainder -> args @ [Rem]
     | InstanceMemberExpression(calleeExpression, mem) -> 
         let (InferredTypeExpression(callee, calleeT)) = calleeExpression
         match mem with
@@ -210,7 +211,10 @@ let rec private convertStatements isStatic identifiers statements : ILInstructio
     let instructions = 
         statements |> generateIR
     
-    instructions @ if noRetInstruction instructions then [Ret] else []
+    instructions 
+      @ if noRetInstruction instructions || instructions |> List.last <> Ret 
+        then [Ret] 
+        else []
 
 let private findLocalVariables body : Variable list =
     let idFold acc _ = acc
