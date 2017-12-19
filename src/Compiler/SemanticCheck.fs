@@ -4,14 +4,12 @@ open CompilerResult
 open TypeInference
 open Ast
 open AstProcessing
-open System.Net.NetworkInformation
 
-// Operator jest aplikowalny dla typu
-// Break -> no enclosing loop
+// TODO: Break -> no enclosing loop
 // TODO: Sprawdzanie cyklicznego dziedziczenia
 // TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 // TODO: sprawdzenie wywolan konstruktorow klas bazowych
-// confilicting module, class, function, variable, field name
+// TODO: confilicting module, class, function, variable, field name
 
 type LocalVariable = {
     Name : string
@@ -25,7 +23,6 @@ with static member (+) (s1,s2) = {
         LocalVariables = s1.LocalVariables @ s2.LocalVariables
         Errors = s1.Errors @ s2.Errors
 }
-
 let initialState = {
     LocalVariables = []
     Errors = []
@@ -35,16 +32,22 @@ let private checkExpression (types : Map<TypeIdentifier, Types.Type>) =
     function
     | BinaryExpression(e1, op, e2) -> 
         let t = types.[getType e1]
-        if not (t.Methods |> List.contains (fun m -> m.Name = (operatorMethodName op)))
-        then [OperatorNotDefinedForGivenTypes(op, getType e1, getType e2)]
-        else []
+        match t.Identifier with
+        | s when s = Identifier.string ->
+            if Option.isNone (t.Methods |> List.tryFind (fun m -> m.Name = "Concat"))
+            then [OperatorNotApplicableForGivenTypes(op, getType e1, getType e2)]
+            else []
+        | _ ->
+            if Option.isNone (t.Methods |> List.tryFind (fun m -> m.Name = (operatorMethodName op)))
+            then [OperatorNotApplicableForGivenTypes(op, getType e1, getType e2)]
+            else []
     | AssignmentExpression(_, _) -> [] //TODO:
     | LocalFunctionCallExpression(_) -> []
     | IdentifierExpression(_) -> []
     | ListInitializerExpression(_) -> []
     | LiteralExpression(_) -> []
     | InstanceMemberExpression(_, _) -> []
-    | NewExpression(_, _) -> //TODO: []
+    | NewExpression(_, _) -> [] //TODO: []
     | StaticMemberExpression(_, _) -> failwith "Not Implemented"
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
@@ -56,6 +59,7 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
             match (t.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
             | Some f -> Some (Field f)
             | None -> None
+        | None -> failwith "should fail in type inference"
     let (|Variable|_|) variables name =
         match variables |> List.tryFind (fun v -> v.Name = name) with
         | Some v -> Some (Variable v)
@@ -84,29 +88,34 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         let t = t |> Option.map Identifier.typeId
         {
             Errors = 
-                if (t |> Option.isSome && t |> Option.get <> getType expr)
+                (if (t |> Option.isSome && t |> Option.get <> getType expr)
                 then
                     (InvalidTypeInVariableDeclaration(name, t |> Option.get, getType expr)) :: acc.Errors
                 else
-                    acc.Errors
+                    acc.Errors) @ (checkExpression types (getExpression expr))
             LocalVariables = {Name = name; IsReadOnly = true} :: acc.LocalVariables
         }
     let declarationWithInitialization acc (name, expr) = 
-        { acc with LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables}
+        { acc 
+            with 
+                LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables
+                Errors = acc.Errors @ (checkExpression types (getExpression expr))
+        }
     let declarationWithType acc (name, t) =
         { acc with LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables}
     let fullVariableDeclaration acc (name, t, expr) =
         let t = Identifier.typeId t
         {
             Errors = 
-                if (t <> getType expr) 
+                (if (t <> getType expr) 
                 then
                     (InvalidTypeInVariableDeclaration(name, t, getType expr)) :: acc.Errors
                 else
-                    acc.Errors
+                    acc.Errors) @ (checkExpression types (getExpression expr))
             LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables
         }
     let assignmentStatement (acc : SemanticCheckState) (assignee, expr) =
+        let acc = {acc with Errors = acc.Errors @ (checkExpression types (getExpression expr))}
         match assignee with
         | IdentifierAssignee name -> 
             match name with

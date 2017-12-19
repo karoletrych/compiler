@@ -9,6 +9,7 @@ open Compiler.ReferencedAssembliesMetadata
 open Compiler.TypeInference
 open Compiler.TypeFinding
 open Compiler.SemanticCheck
+open Compiler.Ast
 
 
 let semanticCheck src = 
@@ -138,9 +139,10 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure [AssignmentToReadOnlyFieldOnType ({Namespace = [];
-                                     TypeName = {Name = ["A"; "test"];
-                                                 GenericArguments = [];};},"b");
+                (Failure [AssignmentToReadOnlyFieldOnType 
+                                        ({Namespace = [];
+                                             TypeName = {Name = ["A"; "test"];
+                                                         GenericArguments = [];};},"b");
    AssignmentToReadOnlyLocalField "b"]) ""                                   
         
         testCase "operator is applicable for type" <| fun _ ->
@@ -158,20 +160,13 @@ let tests =
             Expect.equal 
                 semanticCheckResult 
                 (Failure  [
-                    InvalidTypeInVariableDeclaration
-                     ("b",{Namespace = ["System"];
-                           TypeName = {Name = ["Int32"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Single"];
-                                   GenericArguments = [];};});
-                   InvalidTypeInVariableDeclaration
-                     ("a",{Namespace = ["System"];
-                           TypeName = {Name = ["String"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Int32"];
-                                   GenericArguments = [];};})]) ""
+                    OperatorNotApplicableForGivenTypes
+                         (Plus, {Namespace = [];
+                                TypeName = {Name = ["A"; "test"];
+                                            GenericArguments = [];};},
+      {Namespace = [];
+       TypeName = {Name = ["A"; "test"];
+                   GenericArguments = [];};})]) ""
         testCase "entry point" <| fun _ ->
             let semanticCheckResult = 
                 @"

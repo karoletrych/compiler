@@ -366,7 +366,7 @@ let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
 let defineTypes (assemblyBuilder : AssemblyBuilder) 
     (referencedAssemblies : Assembly list)
     (modules : IR.Module list) 
-    (setEntryPoint : bool)=
+    (setEntryPoint : bool) =
     let moduleBuilder = createModuleBuilder assemblyBuilder setEntryPoint
     let externalTypes = getExternalTypes referencedAssemblies
     let defineModuleType = defineModuleType moduleBuilder
