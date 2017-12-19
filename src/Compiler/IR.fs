@@ -74,9 +74,7 @@ and ILInstruction =
     | Ldfld of string
     | Stfld of string
     | Ceq
-    | Cge
     | Cgt
-    | Cle
     | Clt
     | Duplicate
     | Div
@@ -88,6 +86,8 @@ and ILInstruction =
     | Ldlen
     | Mul
     | Neg
+    | Or
+    | And
     | CallConstructor of TypeIdentifier * TypeIdentifier list
     | NewObj of TypeIdentifier * TypeIdentifier list
     | Pop

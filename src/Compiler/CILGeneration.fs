@@ -212,20 +212,15 @@ let rec emitInstruction
         match field with
         | Property p -> il.Emit(OpCodes.Call, p)
         | Field f -> 
-                     match fieldRef.IsStatic with
-                     | true -> il.Emit(OpCodes.Ldsfld, f)
-                     | false -> il.Emit(OpCodes.Ldfld, f)
+                match fieldRef.IsStatic with
+                | true -> il.Emit(OpCodes.Ldsfld, f)
+                | false -> il.Emit(OpCodes.Ldfld, f)
     | Ceq        -> il.Emit(OpCodes.Ceq)
-    | Cge        -> il.Emit(OpCodes.Clt)
-                    il.Emit(OpCodes.Ldc_I4_0)
-                    il.Emit(OpCodes.Ceq)
     | Cgt        -> il.Emit(OpCodes.Cgt)
-    | Cle        -> il.Emit(OpCodes.Cgt)
-                    // TODO: other types than int
-                    il.Emit(OpCodes.Ldc_I4_0)
-                    il.Emit(OpCodes.Ceq)
     | Clt        -> il.Emit(OpCodes.Clt)
-    | Duplicate        -> il.Emit(OpCodes.Dup)
+    | And        -> il.Emit(OpCodes.And)
+    | Or         -> il.Emit(OpCodes.Or)
+    | Duplicate  -> il.Emit(OpCodes.Dup)
     | Div        -> il.Emit(OpCodes.Div)
     | LdcI4(i)  -> il.Emit(OpCodes.Ldc_I4, i)
     | LdcR8(r)  -> il.Emit(OpCodes.Ldc_R8, r)
@@ -262,10 +257,10 @@ let rec emitInstruction
         // TODO: Inherited properties
     | Ldfld(field) -> 
         let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
-        il.Emit(OpCodes.Ldfld , field)
+        il.Emit(OpCodes.Ldfld, field)
     | Stfld(field) -> 
         let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
-        il.Emit(OpCodes.Stfld , field)
+        il.Emit(OpCodes.Stfld, field)
     | Stsfld(field) -> 
         let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = true}
         il.Emit(OpCodes.Stfld , field)

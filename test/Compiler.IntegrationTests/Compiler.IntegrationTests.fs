@@ -59,22 +59,23 @@ let getTestData =
     >> fun (input, expectedOutput) -> 
             (fun () ->
                 input 
+
                 |> compile
                 |> generateAssembly 
                 |> execute),          expectedOutput
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    // if testName = "classes.ifr"
-    // then ftestCase testName (fun _ -> 
-    //     let output = test()
-    //     Expect.equal output expectedOutput testName)
-    // else testCase testName (fun _ -> 
-    //     let output = test()
-    //     Expect.equal output expectedOutput testName)
+    if testName = "dictionary.ifr"
+    then ftestCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
+    else testCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
 
-    let output = test()
-    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    // let output = test()
+    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 let allTests = 
     (testFiles 

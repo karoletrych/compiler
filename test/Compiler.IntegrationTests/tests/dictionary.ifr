@@ -1,4 +1,6 @@
 fun main
 {
+    var list = ["123"; "321"];
+    var list2 = [1;2;3];
 
 }

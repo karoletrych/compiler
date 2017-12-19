@@ -49,11 +49,11 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
             match op with
             | Equal -> args @ [Ceq]
             | NotEqual -> args @ [Ceq; LdcI4 0; Ceq]
-            | LogicalOr -> failwith "TODO:"
-            | LogicalAnd -> failwith  "TODO:"
-            | LessEqual -> args @ [Cle]
+            | LogicalOr -> [Or]
+            | LogicalAnd -> [And]
+            | LessEqual -> args @ [Clt; LdcI4 0; Ceq]
             | Less -> args @ [Clt]
-            | GreaterEqual -> args @ [Cge]
+            | GreaterEqual -> args @ [Cgt; LdcI4 0; Ceq]
             | Greater -> args @ [Cgt]
             | Plus -> args @ [Add]
             | Minus -> args @ [Sub]
