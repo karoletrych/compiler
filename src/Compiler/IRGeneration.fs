@@ -107,7 +107,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                 args)]
         | MemberField f ->
               [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
-    | UnaryExpression(_, _) -> failwith "Not Implemented"
+    | UnaryExpression(op, e) -> failwith "Not Implemented"
     | LocalFunctionCallExpression(lfc) -> 
         [CallLocalMethod ({
                             MethodName = lfc.Name

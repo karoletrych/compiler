@@ -43,12 +43,14 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             FieldName = dotnetField.Name
             Type = createTypeRef dotnetField.FieldType
             IsStatic = dotnetField.IsStatic
+            IsReadOnly = dotnetField.IsInitOnly || dotnetField.IsLiteral
         }
     let createFieldFromProperty (dotnetProperty : PropertyInfo) =
         {
             FieldName = dotnetProperty.Name
             Type = createTypeRef dotnetProperty.PropertyType
             IsStatic = dotnetProperty.GetMethod.IsStatic
+            IsReadOnly = not dotnetProperty.CanWrite
         }
     {
         BaseType = 

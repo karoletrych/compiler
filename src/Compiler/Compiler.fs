@@ -12,14 +12,14 @@ open IRGeneration
 
 let compile 
     source
-    referencedAssemblies =
+    referencedAssemblies 
+    isExe =
 
     let externalTypes = externalTypes referencedAssemblies
-
     source 
     |> parseModules
     >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
     >>= (fun modules -> inferTypes (modules, typesDictionary externalTypes modules))
-    >>= semanticCheck 
+    >>= semanticCheck isExe
     |> Result.map generateIR
     

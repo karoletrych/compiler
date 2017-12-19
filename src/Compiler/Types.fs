@@ -46,4 +46,5 @@ and Field = {
     Type : TypeRef 
     FieldName : string 
     IsStatic : bool 
+    IsReadOnly : bool
 }

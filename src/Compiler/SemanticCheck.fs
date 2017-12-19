@@ -4,19 +4,21 @@ open CompilerResult
 open TypeInference
 open Ast
 open AstProcessing
+open System.Net.NetworkInformation
 
 // Operator jest aplikowalny dla typu
-// Value is not being assigned after initialization
-// Invalid argument
 // Break -> no enclosing loop
-// No entry point (main)
-// Sprawdzanie cyklicznego dziedziczenia
-// if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
-// sprawdzenie wywolan konstruktorow klas bazowych
+// TODO: Sprawdzanie cyklicznego dziedziczenia
+// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
+// TODO: sprawdzenie wywolan konstruktorow klas bazowych
 // confilicting module, class, function, variable, field name
 
+type LocalVariable = {
+    Name : string
+    IsReadOnly : bool
+}
 type SemanticCheckState = {
-    LocalVariables : string list
+    LocalVariables : LocalVariable list
     Errors : Failure list
 }
 with static member (+) (s1,s2) = {
@@ -29,37 +31,50 @@ let initialState = {
     Errors = []
 }
 
-let private checkExpression =
+let private checkExpression (types : Map<TypeIdentifier, Types.Type>) =
     function
-    | BinaryExpression(e1,op,e2) -> Result.succeed (BinaryExpression(e1,op,e2))
-    | AssignmentExpression(_, _) -> failwith "Not Implemented"
-    | LocalFunctionCallExpression(_) -> failwith "Not Implemented"
-    | IdentifierExpression(_) -> failwith "Not Implemented"
-    | ListInitializerExpression(_) -> failwith "Not Implemented"
-    | LiteralExpression(_) -> failwith "Not Implemented"
-    | InstanceMemberExpression(_, _) -> failwith "Not Implemented"
-    | NewExpression(_, _) -> failwith "Not Implemented"
+    | BinaryExpression(e1, op, e2) -> 
+        let t = types.[getType e1]
+        if not (t.Methods |> List.contains (fun m -> m.Name = (operatorMethodName op)))
+        then [OperatorNotDefinedForGivenTypes(op, getType e1, getType e2)]
+        else []
+    | AssignmentExpression(_, _) -> [] //TODO:
+    | LocalFunctionCallExpression(_) -> []
+    | IdentifierExpression(_) -> []
+    | ListInitializerExpression(_) -> []
+    | LiteralExpression(_) -> []
+    | InstanceMemberExpression(_, _) -> []
+    | NewExpression(_, _) -> //TODO: []
     | StaticMemberExpression(_, _) -> failwith "Not Implemented"
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
-let rec private checkStatements body = 
-    let ifNotTrueAddFailure predicate error acc = 
-        if predicate
-        then acc
-        else {acc with Errors = error :: acc.Errors }
-
+let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 
+    let (|Field|_|) (t : TypeIdentifier) name =
+        let t = types |> Map.tryFind t
+        match t with
+        | Some t ->
+            match (t.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
+            | Some f -> Some (Field f)
+            | None -> None
+    let (|Variable|_|) variables name =
+        match variables |> List.tryFind (fun v -> v.Name = name) with
+        | Some v -> Some (Variable v)
+        | None -> None
+                
     let idFold acc _  = acc
 
     let ifExpression acc expr = 
-        acc 
-        |> ifNotTrueAddFailure 
-            (getType expr = Identifier.bool) 
-            (NonBooleanExpressionInIfStatement (getType expr))
+        if getType expr <> Identifier.bool
+        then
+            {acc with Errors = (NonBooleanExpressionInIfStatement (getType expr)) :: acc.Errors}
+        else
+            acc
     let whileStatement acc expr = 
-        acc
-        |> ifNotTrueAddFailure 
-            (getType expr = Identifier.bool) 
-            (NonBooleanExpressionInWhileStatement (getType expr))
+        if getType expr <> Identifier.bool
+        then
+            {acc with Errors = (NonBooleanExpressionInWhileStatement (getType expr)) :: acc.Errors}
+        else
+            acc
     let returnStatement acc stmt =
         acc
     let ifStatement (s, elseS) = 
@@ -67,20 +82,53 @@ let rec private checkStatements body =
         s + elseS
     let valueDeclaration acc (name, t, expr) = 
         let t = t |> Option.map Identifier.typeId
-        acc
-        |> ifNotTrueAddFailure
-            (t |> Option.isSome && t |> Option.get = getType expr)
-            (InvalidTypeInVariableDeclaration(name, t |> Option.get, getType expr))
-    let declarationWithInitialization acc (name, expr) =
-        acc
+        {
+            Errors = 
+                if (t |> Option.isSome && t |> Option.get <> getType expr)
+                then
+                    (InvalidTypeInVariableDeclaration(name, t |> Option.get, getType expr)) :: acc.Errors
+                else
+                    acc.Errors
+            LocalVariables = {Name = name; IsReadOnly = true} :: acc.LocalVariables
+        }
+    let declarationWithInitialization acc (name, expr) = 
+        { acc with LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables}
     let declarationWithType acc (name, t) =
-        acc
+        { acc with LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables}
     let fullVariableDeclaration acc (name, t, expr) =
         let t = Identifier.typeId t
-        acc
-        |> ifNotTrueAddFailure
-            (t = getType expr)
-            (InvalidTypeInVariableDeclaration(name, t, getType expr))
+        {
+            Errors = 
+                if (t <> getType expr) 
+                then
+                    (InvalidTypeInVariableDeclaration(name, t, getType expr)) :: acc.Errors
+                else
+                    acc.Errors
+            LocalVariables = {Name = name; IsReadOnly = false} :: acc.LocalVariables
+        }
+    let assignmentStatement (acc : SemanticCheckState) (assignee, expr) =
+        match assignee with
+        | IdentifierAssignee name -> 
+            match name with
+            | Variable acc.LocalVariables v -> 
+                if v.IsReadOnly then
+                    {acc with Errors = AssignmentToReadOnlyVariable(name) :: acc.Errors}
+                else acc
+            | Field ownerType f -> 
+                if f.IsReadOnly then
+                    {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
+                else acc
+            | _ ->
+                {acc with Errors = UndefinedVariable name :: acc.Errors}
+        | MemberFieldAssignee (assignee, name) ->
+            let t = getType assignee
+            match name with
+            | Field t f -> 
+                if f.IsReadOnly then
+                    {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
+                else acc
+            | _ ->
+                {acc with Errors = UndefinedVariable name :: acc.Errors}
 
     statementFold
         idFold 
@@ -90,41 +138,44 @@ let rec private checkStatements body =
         declarationWithType 
         fullVariableDeclaration 
         returnStatement 
-        idFold 
+        assignmentStatement 
         id 
         ifExpression 
         whileStatement 
         idFold 
         ifStatement
             initialState (CompositeStatement body) 
+ 
+let private checkFunction (ownerType, types) (``function`` : Function<InferredTypeExpression>) : Failure list= 
+    (checkStatements (ownerType, types) ``function``.Body).Errors
 
-    // function
-    // | AssignmentStatement(_, _) -> failwith "Not Implemented"
-    // | BreakStatement -> failwith "Not Implemented"
-    // | CompositeStatement(_) -> failwith "Not Implemented"
-    // | LocalFunctionCallStatement(_) -> failwith "Not Implemented"
-    // | InstanceMemberFunctionCallStatement(_, _) -> failwith "Not Implemented"
-    // | ReturnStatement(_) -> failwith "Not Implemented"
-    // | StaticFunctionCallStatement(_, _) -> failwith "Not Implemented"
-    // | VariableDeclaration(_) -> failwith "Not Implemented"
-    // | ValueDeclaration(_) -> failwith "Not Implemented"
-let private checkFunction (``function`` : Function<InferredTypeExpression>) : Failure list= 
-    (checkStatements ``function``.Body).Errors
+let private checkClass types ``class`` =
+    ``class``.Functions
+    |> List.collect (checkFunction (``class``.Identifier, types))
 
-let private checkClass ``class`` =
-    []
-
-let private checkModule (modul : Module<InferredTypeExpression>) =
-    let functionsErrors = modul.Functions 
-                          |> List.collect checkFunction 
-    let classesErrors = modul.Classes
-                        |> List.collect checkClass
+let private checkModule types (modul : Module<InferredTypeExpression>) =
+    let functionsErrors = 
+        modul.Functions 
+        |> List.collect (checkFunction (modul.Identifier, types))
+    let classesErrors = 
+        modul.Classes
+        |> List.collect (checkClass types)
     let errors = (functionsErrors @ classesErrors) |> List.distinct
     match errors with
     | [] -> Result.succeed modul
     | failures -> Failure failures
                   
-    
+let singleEntryPointExists (modules : Module<InferredTypeExpression> list)=
+    let entryPoints =
+            modules
+            |> List.collect (fun m -> m.Functions |> List.where (fun f -> f.Name = "main"))
+    entryPoints |> List.length = 1
 
-let semanticCheck (modules : Ast.Module<InferredTypeExpression> list) =
-    modules |> List.map checkModule |> Result.merge
+let semanticCheck 
+    checkForEntryPoint
+    (modules : Ast.Module<InferredTypeExpression> list, types : Map<TypeIdentifier, Types.Type>) =
+
+    if checkForEntryPoint && not (singleEntryPointExists modules)
+    then Result.failure (NoEntryPointOrMoreThanOne)
+    else
+        modules |> List.map (checkModule types) |> Result.merge

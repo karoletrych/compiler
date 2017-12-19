@@ -189,7 +189,7 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
                                     Name = p.Name;
                                     Initializer = i;
                                     Type = t
-                                    ReadOnly = p.ReadOnly
+                                    IsReadOnly = p.IsReadOnly
                                 }) 
                                 init 
                                 t

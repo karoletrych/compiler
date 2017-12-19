@@ -386,7 +386,7 @@ module Class =
                 pIdentifier
                 (Char.colon >>. Types.pTypeSpec)
                 (opt (Char.equals >>. Expression.pExpression))
-                (fun readonly name t initializer -> { ReadOnly = readonly; Name = name; Type = t; Initializer = initializer})
+                (fun readonly name t initializer -> { IsReadOnly = readonly; Name = name; Type = t; Initializer = initializer})
         tuple3
             (many field)
             (many pConstructor)

@@ -18,7 +18,7 @@ open System.IO
 let appReferences = !! "/**/*.fsproj"
 let srcAppReferences = !! "/src/**/*.fsproj"
 let releaseDir  = "./release/"
-let version = "0.1"
+let version = "0.2"
 let buildDir = "./src/Compiler/bin/Release/"
 
 let buildDirs = 

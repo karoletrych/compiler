@@ -59,14 +59,11 @@ let getInputFiles () =
     files 
     
 
-let generateOutputFile (outputPath, outputType, referencedAssemblies) modules =
+let generateOutputFile (outputPath, isExe, referencedAssemblies) modules =
     let assemblyBuilder = 
         AppDomain.CurrentDomain.DefineDynamicAssembly(
             AssemblyName(Path.GetFileNameWithoutExtension(outputPath)), AssemblyBuilderAccess.RunAndSave)
-    let isExe = 
-        match outputType with
-        | Exe -> true
-        | Dll -> false
+    
  
     do generateAssembly assemblyBuilder referencedAssemblies modules isExe
     do assemblyBuilder.Save(Path.GetFileName(outputPath))
@@ -85,14 +82,16 @@ let main argv =
         let args = argumentParser.Parse()
         let referencedDlls = args.GetResult (<@ReferencedDlls@>,[])
         let outputPath = args.GetResult (<@Output@>, "Program.exe")
-        let outputType = args.GetResult (<@OutputType@>, Exe)
+        let isExe = 
+            match args.GetResult (<@OutputType@>, Exe) with
+            | Exe -> true
+            | Dll -> false
         let printIR = args.Contains <@PrintIR@>
         let sourcePaths = 
             args.GetResult (<@SourceFiles@>, [])
             |> function
                | [] ->  getInputFiles ()
                | paths -> validateFilePaths paths; paths
-        
         let sourceFiles =
             sourcePaths 
             |> List.map (fun filePath -> 
@@ -107,11 +106,12 @@ let main argv =
         compile 
             sourceFiles
             referencedAssemblies
+            isExe
             |> Result.either
                 (
                     fun modules -> 
                         if printIR then File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "ir.fsx"), (sprintf "%A" modules))
-                        generateOutputFile (outputPath, outputType, referencedAssemblies) modules
+                        generateOutputFile (outputPath, isExe, referencedAssemblies) modules
                 )
                 writeOutputMessage 
     with

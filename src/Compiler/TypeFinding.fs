@@ -46,7 +46,10 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
             DeclaredConstructors = declaredType.Constructors |> List.map createConstructor;
             Fields = declaredType.Fields 
                      |> List.map (fun field -> 
-                         ({FieldName = field.Name; Type = Identifier.fromTypeSpec field.Type |> ConstructedType; IsStatic = false}))
+                         ({FieldName = field.Name; 
+                           Type = Identifier.fromTypeSpec field.Type |> ConstructedType; 
+                           IsStatic = false
+                           IsReadOnly = field.IsReadOnly}))
             Identifier = declaredType.Identifier;
             GenericParameters = []
             ImplementedInterfaces = []

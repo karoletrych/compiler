@@ -14,6 +14,12 @@ type Failure =
 | NonBooleanExpressionInWhileStatement of TypeIdentifier
 | NonBooleanExpressionInIfStatement of TypeIdentifier
 | InvalidTypeInVariableDeclaration of name : string * t : TypeIdentifier * expected : TypeIdentifier
+| AssignmentToReadOnlyVariable of name : string
+| AssignmentToReadOnlyLocalField of name : string
+| AssignmentToReadOnlyFieldOnType of TypeIdentifier * string
+| NoEntryPointOrMoreThanOne
+| OperatorNotDefinedForGivenTypes of BinaryOperator * TypeIdentifier * TypeIdentifier
+
 
 let toString (errors : Failure list) = 
     let errorString x = 
@@ -36,6 +42,10 @@ let toString (errors : Failure list) =
             | NonBooleanExpressionInWhileStatement(t) -> "Expected bool but was: " + t.ToString()
             | NonBooleanExpressionInIfStatement(t) ->"Expected bool but was: " + t.ToString()
             | InvalidTypeInVariableDeclaration(name, t, expected) -> "Variable: " + name + " Expected " + expected.ToString() + " but was " + t.ToString()
+            | AssignmentToReadOnlyVariable(name) -> name.ToString()
+            | AssignmentToReadOnlyLocalField(name) -> name.ToString()
+            | AssignmentToReadOnlyFieldOnType(t, name) -> "Type: " + t.ToString() + " Field: " + name
+            | NoEntryPointOrMoreThanOne -> ""
         failure + ": " + message
     errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))
 

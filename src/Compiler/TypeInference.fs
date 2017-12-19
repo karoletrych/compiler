@@ -470,7 +470,7 @@ let inferField knownTypes leastUpperBound (currentType) (field : Ast.Field<AstEx
     let inferExpression = inferExpression Map.empty currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     Result.map
-        (fun init -> {Name = field.Name; Initializer = init; Type = field.Type; ReadOnly = field.ReadOnly})
+        (fun init -> {Name = field.Name; Initializer = init; Type = field.Type; IsReadOnly = field.IsReadOnly})
         (Result.mapOption annotate field.Initializer)
 
 let private inferClass knownTypes (c : ModuleClass<AstExpression>) : CompilerResult<ModuleClass<InferredTypeExpression>>=
@@ -517,3 +517,4 @@ let inferTypes (modules : Module<AstExpression> list, knownTypes : Map<TypeIdent
     modules
     |> List.map (inferModule knownTypes)
     |> Result.merge
+    |> Result.map (fun modules -> modules, knownTypes)

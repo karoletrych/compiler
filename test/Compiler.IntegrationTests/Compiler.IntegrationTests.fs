@@ -28,7 +28,7 @@ let withCorrespondingOutput input =
 
 let readFiles (input, output) = ({Path = input; Code = File.ReadAllText input}, File.ReadAllText output)
 let mscorlib = [Assembly.GetAssembly(typeof<obj>)]
-let compile input = compile [input] mscorlib
+let compile input = compile [input] mscorlib true
 let generateAssembly (irResult : CompilerResult<IR.Module list>)=
     let ir = irResult.Value
     File.WriteAllText(Path.Combine(exePath, "ir.fsx"),(sprintf "%A" ir))
@@ -59,7 +59,7 @@ let getTestData =
     >> fun (input, expectedOutput) -> 
             (fun () ->
                 input 
-                |> compile 
+                |> compile
                 |> generateAssembly 
                 |> execute),          expectedOutput
 

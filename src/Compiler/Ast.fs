@@ -28,7 +28,7 @@ and Field<'Expression> = {
   Type : TypeSpec
   Name : string
   Initializer : 'Expression option
-  ReadOnly : bool
+  IsReadOnly : bool
 }
 
 and Constructor<'Expression> = {
@@ -287,3 +287,19 @@ module Module =
             Classes = classes
         }
     let createDefault declarations = create (["DEFAULT"]) declarations 
+
+let operatorMethodName =
+    function
+    | Plus -> "op_Addition"
+    | ConditionalOr -> "op_LogicalOr"
+    | ConditionalAnd -> "op_LogicalAnd"
+    | Equal ->  "op_Equality"
+    | NotEqual ->  "op_Inequality"
+    | LessEqual ->  "op_LessThanOrEqual"
+    | Less ->  "op_LessThan"
+    | GreaterEqual ->  "op_GreaterThanOrEqual"
+    | Greater ->  "op_GreaterThan"
+    | Minus ->  "op_Subtraction"
+    | Multiplication ->  "op_Multiply"
+    | Division ->  "op_Division"
+    | Remainder ->  "op_Modulus"
