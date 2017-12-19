@@ -135,19 +135,20 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
                 | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
                 | false ->
                     match f.Type with
-                    | GenericParameter _ -> failwith "not possible"
+                    | GenericParameter _ -> failwith "not possible in InferLang"
                     | ConstructedType t -> 
                         if t <> (getType expr) 
                         then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
                         else 
-                            {acc with Errors = UndefinedVariable name :: acc.Errors}
+                            acc
+            | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
         | MemberFieldAssignee (assignee, name) ->
             let t = getType assignee
             match name with
             | Field t f -> 
                 match f.IsReadOnly with
                 | true -> 
-                    {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
+                    {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
                 | false ->
                     match f.Type with
                     | GenericParameter _ -> failwith ""
