@@ -89,25 +89,28 @@ with
             t
             |> function
             | :? TypeBuilder ->
+                // constructed type is being defined in InferLang
                 let tb = this.FilledTypeBuilders.[tId]
                 let constructorBuilder = 
                     tb.ConstructorBuilders 
                     |> Map.find argTypes
                 constructorBuilder :> ConstructorInfo
             | externalT ->
-                if tId.GenericArgumentsNumber <> 0 
+                if tId.GenericArgumentsNumber = 0 
+                    // external nongeneric type
                     then
+                        externalT.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
+                    // external generic type
+                    else
                         let t = findGenericTypeDefinition this.ExternalTypes tId 
                         let constructorRef = t.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
                         TypeBuilder.GetConstructor(externalT, constructorRef)
-                    else
-                        externalT.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
 
         member this.FindField tId fieldRef = 
             let bindingFlags =
-                    match fieldRef.IsStatic with
-                    | true -> BindingFlags.Static ||| BindingFlags.Public
-                    | false -> BindingFlags.Instance ||| BindingFlags.Public
+                match fieldRef.IsStatic with
+                | true -> BindingFlags.Static ||| BindingFlags.Public
+                | false -> BindingFlags.Instance ||| BindingFlags.Public
                 
             let t = this.FindType tId
             t
@@ -148,9 +151,9 @@ type MethodInfo = {
 let private initialState = {Labels = Map.empty}
 
 let findField (typesTable : FilledTypeTable) t fieldRef = 
-     match typesTable.FindField t fieldRef with
-     | Property _ -> failwith "only fields are supported by InferLang"
-     | Field f -> f
+    match typesTable.FindField t fieldRef with
+    | Property _ -> failwith "only fields are supported by InferLang"
+    | Field f -> f
 
 let rec emitInstruction 
     (typesTable : FilledTypeTable) 

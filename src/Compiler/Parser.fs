@@ -11,8 +11,6 @@ type SourceFile = {
     Code : string
 }
 
-//TODO: unify places of constructing union cases (in parser declaration vs in usage)
-
 let removeComments input =  
     let blockComments = @"/\*(.*?)\*/";
     let lineComments = @"//(.*?)\r?\n";
@@ -23,15 +21,13 @@ let removeComments input =
             else ""),
             RegexOptions.Multiline)
 
+/// maps optional list into parser returning elements of this list or empty list if none
 let toList = 
     function
     | Some (args) -> preturn args
     | None -> preturn [] 
 
-
-let emptyListIfNone2 x = 
-    Option.toList x |> preturn
-
+/// terminal symbol parsers. Consume single symbol and whitespaces after it.
 module Char =
     let leftBrace = skipChar '{' .>> spaces
     let rightBrace = skipChar '}' .>> spaces
@@ -49,7 +45,9 @@ module Char =
     let rightSquareBracket = skipChar ']' .>> spaces
 
 module Keyword =
+    /// consumes nonalphanumeric characters
     let nonAlphanumericWs = nextCharSatisfiesNot (isAsciiLetter) >>. spaces
+
     let pFun = skipString "fun" .>> nonAlphanumericWs
     let pReturn = skipString "return" .>> nonAlphanumericWs
     let pVar = skipString "var" .>> nonAlphanumericWs |>> (fun () -> false)
@@ -63,6 +61,8 @@ module Keyword =
     let pExtends = skipString "extends" .>> nonAlphanumericWs
     let pModule = skipString "module" .>> nonAlphanumericWs
     let pWhile = skipString "while" .>> nonAlphanumericWs
+
+    /// list of above keywords. Used for checking restricted identifiers
     let keywords = [ 
         "fun"
         "return"
@@ -79,18 +79,28 @@ module Keyword =
         "while"
     ]
 
+/// Identifier parser and reference to its implementation. 
+/// Used for recursive implementation of pIdentifier i.e. pIdentifier is defined in terms of itself.
 let pIdentifier, pIdentifierImpl = createParserForwardedToRef<string, _>() 
 
 module Types =
     let pTypeSpec, pTypeSpecImpl = createParserForwardedToRef()
     let pNonGenericTypeSpec = pIdentifier 
+    /// <T (,V)* >
     let pGenericArguments =  between Char.leftAngleBracket Char.rightAngleBracket (sepBy1 pTypeSpec Char.comma)
-    let pGenericType =
-         pNonGenericTypeSpec 
-             .>>. pGenericArguments
-             |>> (fun (name, types) -> {Name = name; GenericArgs = types})
-    let pNonGenericType = pNonGenericTypeSpec |>> fun t -> ({Name = t; GenericArgs = []})
 
+    /// generic type spec consists of nonGenericTypeSpec followed by arguments. 
+    let pGenericType =
+        pNonGenericTypeSpec .>>. pGenericArguments
+        |>> (fun (name, types) -> {Name = name; GenericArgs = types})
+        /// ^ build appropriate AST record out of generic type spec parts 
+    let pNonGenericType = 
+        pNonGenericTypeSpec 
+        |>> fun t -> ({Name = t; GenericArgs = []})
+
+    /// validates typespec consisting of namespace and type name at the end
+    /// fails if it contains generic segment not at the last position f. e.
+    /// Foo::Bar<string>::End 
     let convertToFullyQualifiedType =
         let rec segments acc types =
             match types with
@@ -101,14 +111,19 @@ module Types =
                     -> segments (acc @ [identifier]) tail 
                 | _
                     -> fail "No generic type is allowed as namespace segment"
-            | [] -> fail "Should not happen..."
+            | [] -> fail "Should not happen"
         segments [] 
 
+    /// type consisting of namespace segments and type name separated by ::
+    /// it consumes either generic and nongeneric parts and validates it later in "convertToFullyQualifiedType"
+    /// it is built this way because this construction A::B::C::D is left recursive
     let pQualifiedType = 
-                sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
-                      >>= convertToFullyQualifiedType
+            sepBy (attempt pGenericType <|> pNonGenericType) Char.doubleColon
+                >>= convertToFullyQualifiedType
     let pCustomType = pQualifiedType |>> CustomTypeSpec
-    let builtInTypesParsers =
+
+    /// dictionary of parsers of builtin typespecs. Parsers return appropriate AST terminal nodes.
+    let builtInTypesParsersDict =
         [ 
             ("bool", stringReturn "bool" Bool);
             ("char", stringReturn "char" Char);
@@ -120,8 +135,14 @@ module Types =
             ("obj", stringReturn "obj" Object);
         ]
         |> Map.ofList
-    pTypeSpecImpl := choice(attempt pCustomType :: (builtInTypesParsers |> Map.toList |> List.map (snd >> fun p -> p |>> fun bits -> bits |> BuiltInTypeSpec) )) .>> spaces
+    let builtInTypeSpecParsers =
+        builtInTypesParsersDict |> Map.toList |> List.map (snd >> fun p -> p |>> fun bits -> bits |> BuiltInTypeSpec)
+    
+    /// assignment of implementation of typeSpec parser
+    pTypeSpecImpl := 
+        choice(attempt pCustomType :: builtInTypeSpecParsers) .>> spaces
 
+/// identifier can start from _ and can contain it inside
 let isAsciiIdStart    = fun c -> isAsciiLetter c || c = '_'
 let isAsciiIdContinue = fun c -> isAsciiLetter c || isDigit c || c = '_'
 let identifier =
@@ -133,21 +154,26 @@ let identifier =
         normalizeBeforeValidation = true,
         allowAllNonAsciiCharsInPreCheck = true))
 
+let builtInTypesKeywords = Types.builtInTypesParsersDict |> Map.toSeq |> Seq.map fst
+
+/// identifier is not allowed to be a keyword nor to be called like builtin type spec
 pIdentifierImpl := identifier .>> spaces
 >>= (fun id -> 
     if not (List.contains id Keyword.keywords)
-     && not (Types.builtInTypesParsers |> Map.toSeq |> Seq.map fst |> Seq.contains (id))
+         && not (builtInTypesKeywords |> Seq.contains (id))
     then preturn id 
     else fail ("Identifier cannot be a keyword: " + id))
 
 module Expression = 
+    /// Parser for expressions. 
+    /// Parser combinators like in other places cannot be used due to expression being left recursive.
     let opp = new OperatorPrecedenceParser<AstExpression,_,_>()
     let pExpression = opp.ExpressionParser
     let pArgumentList = sepBy pExpression Char.comma
     let pFunctionCall = 
         pipe3
             pIdentifier
-            ((opt Types.pGenericArguments) >>= toList)
+            (opt Types.pGenericArguments >>= toList)
             (between Char.leftParen Char.rightParen pArgumentList)
             (fun name genericArgs args -> {Name = name; GenericArguments = genericArgs; Arguments = args})
 
@@ -156,6 +182,7 @@ module Expression =
         |>> LocalFunctionCallExpression
         |>> AstExpression
     module Literal =
+        /// string literal consists of characters not being quotation mark surrounded by quotation marks
         let pStringLiteral = 
             (between (pstring "\"") 
                 (pstring "\"") 
@@ -168,7 +195,6 @@ module Expression =
         let pBoolParser = (pstring "true" >>% BoolLiteral true) <|> (pstring "false" >>% BoolLiteral false)
         let pLiteralExpression = choice [pBoolParser; attempt pIntLiteral; pFloatLiteral; pStringLiteral] |>> LiteralExpression
         
-
     let pParenthesizedExpression = 
         between Char.leftParen Char.rightParen pExpression
     let pIdentifierExpression = 
@@ -176,6 +202,9 @@ module Expression =
             |>> fun id -> IdentifierExpression(id)
             |>> AstExpression
 
+    /// out of any two expressions assumes that the first on is an identifier or member field
+    /// throws exception when it is not
+    /// creates assignment expression out of the assignee and expression being assigned
     let createAssignmentExpr x y = 
         let (AstExpression e) = x
         let x = 
@@ -184,11 +213,11 @@ module Expression =
             | InstanceMemberExpression (e,i) -> 
                 match i with
                 | MemberField i -> MemberFieldAssignee (e, i)
-                | MemberFunctionCall _ -> failwith "unexpected"
-            | _ -> failwith "unexpected"
+                | MemberFunctionCall _ -> failwith "assignee have to be either identifier or member field"
+            | _ -> failwith "assignee have to be either identifier or member field"
         AssignmentExpression(x,y)
 
-    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> (createAssignmentExpr x y) |> AstExpression))
+    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> createAssignmentExpr x y |> AstExpression))
     opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, LogicalOr, y) |> AstExpression))
     opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y) |> AstExpression))
     opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y) |> AstExpression))
@@ -206,9 +235,8 @@ module Expression =
     opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x) |> AstExpression)) 
     opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x) |> AstExpression)) 
 
-    let instanceMemberExpr = 
-        attempt (pFunctionCallExpression) <|> (pIdentifierExpression)
-
+    /// assumes second expression is either member field or member function call
+    /// creates MemberExpression out of first expression and above member
     let createMemberExpr x y = 
         let (AstExpression e) = y
         match e with
@@ -217,10 +245,12 @@ module Expression =
         | _ -> failwith "parser internal error"
         |> fun instanceMember -> InstanceMemberExpression(x, instanceMember)
 
+    let instanceMemberExpr = attempt (pFunctionCallExpression) <|> (pIdentifierExpression)
+
     opp.AddOperator(
         InfixOperator(
             ".", 
-            lookAhead (spaces .>> (instanceMemberExpr)),
+            lookAhead (spaces .>> instanceMemberExpr), /// parses only these expressions where part after dot is functioncall or identifier
             9,
             Associativity.Left,
             fun x y -> (createMemberExpr x y) |> AstExpression)
@@ -233,7 +263,7 @@ module Expression =
         Char.colonDot >>. pFunctionCall
         |>> MemberFunctionCall
 
-    let pStaticField : Parser<Member<AstExpression>, unit> =
+    let pStaticField =
         Char.colonDot >>. pIdentifier
         |>> MemberField
     
@@ -285,9 +315,9 @@ module Statement =
             variableDeclaration >>=
                 (fun (varName, t, expr)
                     -> match (varName, t, expr) with
-                       | (name, Some t, Some expr) -> preturn (FullDeclaration(name, t, expr))
+                       | (name, Some t, Some initializer) -> preturn (FullDeclaration(name, t, initializer))
                        | (name, Some t, None) -> preturn (DeclarationWithType(name, t))
-                       | (name, None, Some expr) -> preturn (DeclarationWithInitialization(name, expr))
+                       | (name, None, Some initializer) -> preturn (DeclarationWithInitialization(name, initializer))
                        | (_, None, None) -> fail "Implicitly typed variable must be initialized")
         )  
     let pLocalValueDeclarationStatement = 
@@ -296,6 +326,7 @@ module Statement =
             (opt (Char.colon >>. Types.pTypeSpec))
             (Char.equals >>. Expression.pExpression)
 
+    /// parser of expression which can also be statements (function call, assignment, local function call)
     let expressionStatement =
         Expression.pExpression
         >>= (fun expr ->
@@ -311,9 +342,10 @@ module Statement =
 
     let pStaticFunctionCallStatement =
         attempt Types.pCustomType .>>.
-        ((Char.colonDot >>. Expression.pFunctionCall) )
+        (Char.colonDot >>. Expression.pFunctionCall)
         |>> StaticFunctionCallStatement
 
+    /// statement consisting of another statements (block of code)
     let compositeStatement = 
         between 
             Char.leftBrace Char.rightBrace
@@ -336,7 +368,6 @@ module Statement =
     
 module Function = 
     let parameter =
-        //TODO: add immutable parameters parsing
         Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. Types.pTypeSpec) .>> Char.rightParen 
     let parametersList =
         many parameter
@@ -354,12 +385,12 @@ module Function =
             parametersList 
             returnType
             body 
-            (fun a b c e 
+            (fun name parameters ret body 
                 -> {
-                    Name = a;
-                    Parameters = b;
-                    ReturnType = c;
-                    Body = e
+                    Name = name;
+                    Parameters = parameters;
+                    ReturnType = ret;
+                    Body = body
                 }
             )
 
@@ -367,11 +398,11 @@ module Function =
 module Class =
     let pClassName = Types.pNonGenericTypeSpec
     let pInheritanceDeclaration = 
-        opt (Char.colon >>. Types.pQualifiedType |>> CustomTypeSpec ) 
+        opt (Char.colon >>. Types.pQualifiedType |>> CustomTypeSpec) 
     
     let pClassBody = 
-        let pConstructor =
-            let pBaseCall =
+        let pConstructor = // construct(a : int, b : float) : (a, b)
+            let pBaseCall =  
                 opt (Char.colon >>. (between Char.leftParen Char.rightParen 
                         (sepBy1 Expression.pExpression Char.comma))) 
                     >>= toList
@@ -409,12 +440,15 @@ module Class =
 
 let pDeclaration = 
     choice[
-        (Function.pFunctionDeclaration) |>> FunctionDeclaration;
+        Function.pFunctionDeclaration |>> FunctionDeclaration
         Class.pClass |>> ClassDeclaration
         ]
 let moduleIdentifier = opt (Keyword.pModule >>. pIdentifier)
-let pProgramFile = spaces >>. moduleIdentifier .>>. many pDeclaration 
-                   |>> (fun (mi,decls) -> {ModuleIdentifier = mi; Declarations = decls})
+
+/// source file consists of optional module identifier ("module A::B") followed by class and function declarations
+let pProgramFile = 
+    spaces >>. moduleIdentifier .>>. many pDeclaration 
+    |>> (fun (mi,decls) -> {ModuleIdentifier = mi; Declarations = decls})
 
 let parseProgramFile =
     removeComments >> run pProgramFile
@@ -424,6 +458,7 @@ let parse =
     parseProgramFile 
     >>
     function
+    /// FParsec parsing result is mapped into CompilerResult
     | ParserResult.Success(result, _, _) -> Result.succeed result 
     | ParserResult.Failure(message, error, state) -> Result.failure (SyntaxError ((message, error, state).ToString()))
 
@@ -432,9 +467,11 @@ let parseModules (source : SourceFile list) =
         programFile 
         |> Result.map (fun program ->
             let moduleId = 
+                /// depending on whether module identifier was specified gives module 
+                /// either the specified moduleId or one based on path
                 match program.ModuleIdentifier with
-                |None -> (fileName.Split(Path.DirectorySeparatorChar) |> List.ofArray)
-                |Some s -> (s.Split([|"::"|], StringSplitOptions.None) |> List.ofArray)
+                | None -> fileName.Split(Path.DirectorySeparatorChar) |> List.ofArray
+                | Some s -> s.Split([|"::"|], StringSplitOptions.None) |> List.ofArray
             Module.create moduleId program.Declarations)
     source
     |> List.map ((fun s -> (s.Path, parse s.Code)) >> buildModule)
