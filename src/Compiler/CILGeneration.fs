@@ -6,7 +6,7 @@ open Ast
 
 let findGenericTypeDefinition (types : Map<TypeIdentifier, System.Type>) id =
    types
-   |> Map.pick (fun k v -> if k.Namespace = id.Namespace && k.TypeName.Name = id.TypeName.Name  && k.GenericArgumentsNumber = id.GenericArgumentsNumber then Some v else None)
+   |> Map.pick (fun k v -> if k.Namespace = id.Namespace && k.TypeName.Name = id.TypeName.Name  && List.length k.TypeName.GenericArguments = List.length id.TypeName.GenericArguments then Some v else None)
 
 type TypeBuilderWrapper = {
     MethodBuilders : Map<IR.MethodRef, MethodBuilder>
@@ -19,18 +19,18 @@ type TypeTable = {
     TypeBuilders : Map<TypeIdentifier, TypeBuilder>
     ExternalTypes : Map<TypeIdentifier, System.Type>
 }
-with member this.FindType id : System.Type = 
-            match id.TypeName.GenericArguments with
-            | [] ->
-                this.TypeBuilders 
-                |> Map.tryFind id 
-                |> function 
-                   | Some t -> t :> System.Type
-                   | None -> (this.ExternalTypes |> Map.find id)
-            | generics ->
-                let t = findGenericTypeDefinition this.ExternalTypes id
-                let genericArgs = generics |> List.map this.FindType
-                t.MakeGenericType(genericArgs |> List.toArray)
+let rec findType this id : System.Type = 
+    match id.TypeName.GenericArguments with
+    | [] ->
+        this.TypeBuilders 
+        |> Map.tryFind id 
+        |> function 
+           | Some t -> t :> System.Type
+           | None -> (this.ExternalTypes |> Map.find id)
+    | generics ->
+        let t = findGenericTypeDefinition this.ExternalTypes id
+        let genericArgs = generics |> List.map (findType this)
+        t.MakeGenericType(genericArgs |> List.toArray)
                 
  
 type Field = 
@@ -41,102 +41,103 @@ type FilledTypeTable = {
     FilledTypeBuilders : Map<TypeIdentifier, TypeBuilderWrapper>
     ExternalTypes : Map<TypeIdentifier, System.Type>
 }
-with 
-        member this.FindType id : System.Type = 
-            match id.TypeName.GenericArguments with
-            | [] ->
-                this.FilledTypeBuilders 
-                |> Map.tryFind id 
-                |> function 
-                   | Some t -> t.TypeBuilder :> System.Type 
-                   | None -> (this.ExternalTypes |> Map.find id)
-            | generics ->
-                let t = findGenericTypeDefinition this.ExternalTypes id
-                let genericArgs = generics |> List.map this.FindType
-                t.MakeGenericType(genericArgs |> List.toArray)
-        member this.FindMethod tId (methodRef : MethodRef) = 
-            let bindingFlags =
-                match methodRef.Context with
-                | Static -> BindingFlags.Static ||| BindingFlags.Public
-                | Instance -> BindingFlags.Instance ||| BindingFlags.Public
-            let t = this.FindType tId
-            t
-            |> function
-                | :? TypeBuilder ->
-                    let tb = this.FilledTypeBuilders.[tId]
-                    let methodBuilder = tb.MethodBuilders |> Map.tryFind methodRef |> Option.map (fun m -> m :> MethodInfo)
-                    match methodBuilder with
-                    | Some m -> m
-                    | None -> 
-                        let baseClassMethod = this.FindMethod (Identifier.fromDotNet tb.TypeBuilder.BaseType) methodRef
-                        baseClassMethod
-                | externalT ->
-                    if tId.GenericArgumentsNumber <> 0 
-                    then
-                        let t = findGenericTypeDefinition this.ExternalTypes tId 
-                        let methodRef = t.GetMethod(methodRef.MethodName)
-                        //TODO: ^^^ only name?
-                        TypeBuilder.GetMethod(externalT, methodRef)
-                    else
-                        externalT.GetMethod(methodRef.MethodName,
-                                             bindingFlags,
-                                             null,
-                                             methodRef.Parameters 
-                                                |> List.map(this.FindType) |> List.toArray,
-                                             null)
-        member this.FindConstructor (tId : TypeIdentifier) (argTypes : TypeIdentifier list) : ConstructorInfo=
-            let t = this.FindType tId
-            t
-            |> function
-            | :? TypeBuilder ->
-                // constructed type is being defined in InferLang
-                let tb = this.FilledTypeBuilders.[tId]
-                let constructorBuilder = 
-                    tb.ConstructorBuilders 
-                    |> Map.find argTypes
-                constructorBuilder :> ConstructorInfo
-            | externalT ->
-                if tId.GenericArgumentsNumber = 0 
-                    // external nongeneric type
-                    then
-                        externalT.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
-                    // external generic type
-                    else
-                        let t = findGenericTypeDefinition this.ExternalTypes tId 
-                        let constructorRef = t.GetConstructor(argTypes |> List.map this.FindType |> List.toArray)
-                        TypeBuilder.GetConstructor(externalT, constructorRef)
+let isBeingBuilt (t : System.Type)  =
+    match t with
+    | :? TypeBuilder -> true
+    | _ -> false
 
-        member this.FindField tId fieldRef = 
-            let bindingFlags =
-                match fieldRef.IsStatic with
-                | true -> BindingFlags.Static ||| BindingFlags.Public
-                | false -> BindingFlags.Instance ||| BindingFlags.Public
-                
-            let t = this.FindType tId
-            t
-            |> function
-                | :? TypeBuilder ->
-                    let tb = this.FilledTypeBuilders.[tId]
-                    let fieldBuilder = tb.FieldBuilders |> Map.tryFind fieldRef.FieldName |> Option.map (fun m -> m :> FieldInfo)
-                    match fieldBuilder with
-                    | Some f -> Field f
-                    | None -> 
-                        let baseClassMethod = this.FindField (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
-                        baseClassMethod
-                | externalT ->
-                    if tId.GenericArgumentsNumber <> 0 
-                    then
-                        let unconstructedT = findGenericTypeDefinition this.ExternalTypes tId 
-                        let dotnetField = unconstructedT.GetField(fieldRef.FieldName)
-                        match dotnetField with
-                        | null -> 
-                            let tProperty = unconstructedT.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod
-                            Property (TypeBuilder.GetMethod(externalT, tProperty))
-                        | f -> Field (TypeBuilder.GetField(externalT, f))
-                    else
-                        match externalT.GetField(fieldRef.FieldName) with
-                        | null -> Property (externalT.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod)
-                        | f -> Field f
+let rec findFilledType this id : System.Type = 
+    match id.TypeName.GenericArguments with
+    | [] ->
+        this.FilledTypeBuilders 
+        |> Map.tryFind id 
+        |> function 
+           | Some t -> t.TypeBuilder :> System.Type 
+           | None -> (this.ExternalTypes |> Map.find id)
+    | generics ->
+        let t = findGenericTypeDefinition this.ExternalTypes id
+        let genericArgs = generics |> List.map (findFilledType this)
+        t.MakeGenericType(genericArgs |> List.toArray)
+let rec findMethod this tId (methodRef : MethodRef) = 
+    let bindingFlags =
+        match methodRef.Context with
+        | Static -> BindingFlags.Static ||| BindingFlags.Public
+        | Instance -> BindingFlags.Instance ||| BindingFlags.Public
+    let t = findFilledType this tId
+    match isBeingBuilt t with 
+    | true ->
+        let tb = this.FilledTypeBuilders.[tId]
+        let methodBuilder = tb.MethodBuilders |> Map.tryFind methodRef |> Option.map (fun m -> m :> MethodInfo)
+        match methodBuilder with
+        | Some m -> m
+        | None -> 
+            let baseClassMethod = findMethod this (Identifier.fromDotNet tb.TypeBuilder.BaseType) methodRef
+            baseClassMethod
+    | false ->
+        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        then
+            let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
+            let methodRef = unboundType.GetMethod(methodRef.MethodName)
+            //TODO: ^^^ only name?
+            TypeBuilder.GetMethod(t, methodRef)
+        else
+            t.GetMethod(methodRef.MethodName,
+                                bindingFlags,
+                                null,
+                                methodRef.Parameters 
+                                    |> List.map(findFilledType this) |> List.toArray,
+                                null)
+let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list) : ConstructorInfo =
+    let t = findFilledType this tId
+    match isBeingBuilt t with
+    | true ->
+        // constructed type is being defined in InferLang
+        let tb = this.FilledTypeBuilders.[tId]
+        let constructorBuilder = 
+            tb.ConstructorBuilders 
+            |> Map.find argTypes
+        constructorBuilder :> ConstructorInfo
+    | false ->
+        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        // external nongeneric type
+        then
+            let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
+            let constructorRef = unboundType.GetConstructor(argTypes |> List.map (findFilledType this) |> List.toArray)
+            TypeBuilder.GetConstructor(t, constructorRef)
+        // external generic type
+        else
+            t.GetConstructor(argTypes |> List.map (findFilledType this) |> List.toArray)
+
+let rec findFieldOrProperty this tId fieldRef = 
+    let bindingFlags =
+        match fieldRef.IsStatic with
+        | true -> BindingFlags.Static ||| BindingFlags.Public
+        | false -> BindingFlags.Instance ||| BindingFlags.Public
+        
+    let t = findFilledType this tId
+    match isBeingBuilt t with
+    | true ->
+        let tb = this.FilledTypeBuilders.[tId]
+        let fieldBuilder = tb.FieldBuilders |> Map.tryFind fieldRef.FieldName |> Option.map (fun m -> m :> FieldInfo)
+        match fieldBuilder with
+        | Some f -> Field f
+        | None -> 
+            let baseClassMethod = (findFieldOrProperty this) (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
+            baseClassMethod
+    | false ->
+        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        then
+            let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
+            let dotnetField = unboundType.GetField(fieldRef.FieldName)
+            match dotnetField with
+            | null -> 
+                let tProperty = unboundType.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod
+                Property (TypeBuilder.GetMethod(t, tProperty))
+            | f -> Field (TypeBuilder.GetField(t, f))
+        else
+            match t.GetField(fieldRef.FieldName) with
+            | null -> Property (t.GetProperty(fieldRef.FieldName, bindingFlags).GetMethod)
+            | f -> Field f
                     
 type MethodBuilderState = {
     Labels : Map<int, Label>
@@ -150,8 +151,8 @@ type MethodInfo = {
 }
 let private initialState = {Labels = Map.empty}
 
-let findField (typesTable : FilledTypeTable) t fieldRef = 
-    match typesTable.FindField t fieldRef with
+let findField (typesTable : FilledTypeTable) (t : TypeIdentifier) fieldRef = 
+    match findFieldOrProperty typesTable t fieldRef with
     | Property _ -> failwith "only fields are supported by InferLang"
     | Field f -> f
 
@@ -172,7 +173,7 @@ let rec emitInstruction
         foo (fst result)
         {acc with Labels = snd result}
     let callMethod t (methodRef : MethodRef) calleeInstructions argsInstructions = 
-        let typeInfo = typesTable.FindType t
+        let typeInfo = findFilledType typesTable t
 
         if methodRef.Context = Instance
             then
@@ -186,7 +187,7 @@ let rec emitInstruction
 
         argsInstructions |> List.iter (emitInstruction >> ignore)
 
-        let methodInfo = typesTable.FindMethod t methodRef
+        let methodInfo = findMethod typesTable t methodRef
 
         if methodRef.Context = Static || typeInfo.IsValueType
         then
@@ -211,7 +212,7 @@ let rec emitInstruction
     | CallLocalMethod(methodRef, callee, args) -> 
         callMethod methodInfo.OwnerClassType methodRef callee args
     | GetExternalField (t, fieldRef) ->
-        let field = typesTable.FindField t fieldRef
+        let field = findFieldOrProperty typesTable t fieldRef
         match field with
         | Property p -> il.Emit(OpCodes.Call, p)
         | Field f -> 
@@ -234,17 +235,17 @@ let rec emitInstruction
     | Sub      -> il.Emit(OpCodes.Sub)
     | Neg        -> il.Emit(OpCodes.Neg)
     | CallConstructor(t, argTypes) -> 
-        let constructorInfo = typesTable.FindConstructor t argTypes
+        let constructorInfo = findConstructor typesTable t argTypes
         il.Emit(OpCodes.Call, constructorInfo)
     | NewObj(t, argTypes) -> 
-        let constructorInfo = typesTable.FindConstructor t argTypes
+        let constructorInfo = findConstructor typesTable t argTypes
         il.Emit(OpCodes.Newobj, constructorInfo)
     | Pop        -> il.Emit(OpCodes.Pop)
     | Rem        -> il.Emit(OpCodes.Rem)
     | Ret        -> il.Emit(OpCodes.Ret)
     | RetValue(t)-> 
-        let t = typesTable.FindType t
-        let returnT = typesTable.FindType methodInfo.ReturnType
+        let t = findFilledType typesTable t
+        let returnT = findFilledType typesTable methodInfo.ReturnType
         if t.IsValueType && not returnT.IsValueType then il.Emit(OpCodes.Box, t)
         il.Emit(OpCodes.Ret)
     | Starg(i)   -> il.Emit(OpCodes.Starg, i)
@@ -282,7 +283,7 @@ let private fillMethodBody
     let il = methodBuilder.GetILGenerator()
     let variables = 
         method.LocalVariables
-        |> List.map (fun v -> (v.Name, il.DeclareLocal(typesTable.FindType v.Type)))
+        |> List.map (fun v -> (v.Name, il.DeclareLocal(findFilledType typesTable v.Type)))
         |> Map.ofList
     method.Body
     |> List.fold 
@@ -317,9 +318,9 @@ let private defineMethod
                 ||| attr
                 ||| MethodAttributes.HideBySig,
             CallingConventions.Standard,
-            types.FindType(method.ReturnType),
+            findType types (method.ReturnType),
             method.Parameters 
-                |> List.map (fun p -> types.FindType(p.Type))
+                |> List.map (fun p -> findType types (p.Type))
                 |> List.toArray
             )
 
@@ -339,7 +340,7 @@ let private fillTypesInTable
     |> Map.ofList
 
 let fillBaseType (typesLookupTable : TypeTable) (typeBuilder : TypeBuilder) (c : IR.Class) =
-    let t = typesLookupTable.FindType(c.BaseClass)
+    let t = findType typesLookupTable (c.BaseClass)
     typeBuilder.SetParent(t)
 
 let createModuleBuilder (assemblyBuilder : AssemblyBuilder) setEntryPoint = 
@@ -406,12 +407,12 @@ let fillTypes (modules : Module list) (typesLookupTable : TypeTable) =
                         MethodBuilders = methodBuilders
                         TypeBuilder = typeBuilder
                         FieldBuilders = c.Fields 
-                                        |> List.map (fun (p : IR.Variable) -> p.Name, typeBuilder.DefineField(p.Name, typesLookupTable.FindType(p.Type), FieldAttributes.Public))
+                                        |> List.map (fun (p : IR.Variable) -> p.Name, typeBuilder.DefineField(p.Name, findType typesLookupTable (p.Type), FieldAttributes.Public))
                                         |> Map.ofList
                         ConstructorBuilders = 
                                 c.Constructors 
                                 |> List.map (fun ctor -> 
-                                    let argTypes = ctor.Parameters |> List.map (fun p -> typesLookupTable.FindType p.Type)
+                                    let argTypes = ctor.Parameters |> List.map (fun p -> findType typesLookupTable p.Type)
                                     ctor.Parameters |> List.map (fun p -> p.Type), typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, argTypes |> Array.ofList))
                                 |> Map.ofList
                     }
@@ -443,7 +444,7 @@ let fillTypes (modules : Module list) (typesLookupTable : TypeTable) =
         let il = cb.GetILGenerator()
         let variables = 
             c.LocalVariables
-            |> List.map (fun v -> (v.Name, il.DeclareLocal(filledTypesTable.FindType v.Type)))
+            |> List.map (fun v -> (v.Name, il.DeclareLocal(findFilledType filledTypesTable v.Type)))
             |> Map.ofList
 
         c.Body

@@ -162,9 +162,7 @@ and TypeIdentifier = {
     Namespace : string list
     TypeName : TypeName
 } 
-with member x.GenericArgumentsNumber = 
-        x.TypeName.GenericArguments |> List.length
-     override ti.ToString() =
+with override ti.ToString() =
         match ti.Namespace with
         | [] -> ""
         | ns -> 

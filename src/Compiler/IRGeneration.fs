@@ -60,6 +60,21 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
             | Multiplication-> args @ [Mul]
             | Division -> args @ [Div]
             | Remainder -> args @ [Rem]
+        | t when t = Identifier.string ->
+            match op with
+            | Plus -> [CallMethod(t,{ MethodName = "Concat"; 
+                        Parameters = [t; t]; 
+                        Context = Static},
+                            [], 
+                            args)]
+            | _ -> [CallMethod(
+                        t,
+                        {
+                            MethodName = operatorMethodName op; 
+                            Parameters = [t; t]; 
+                            Context = Static},
+                            [], 
+                            args)]
         | _ ->
             [CallMethod(t,
                 {
