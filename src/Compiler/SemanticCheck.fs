@@ -56,13 +56,14 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
             match f.IsReadOnly with
             | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
             | false ->
-                match f.Type with
+                match f.TypeRef with
                 | GenericParameter _ -> failwith "not possible in InferLang"
                 | ConstructedType t -> 
                     if t <> (getType expr) 
                     then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
                     else 
                         acc
+                | GenericTypeDefinition(_) -> failwith "not possible"
         | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
     | MemberFieldAssignee (assignee, name) ->
         let t = getType assignee
@@ -72,7 +73,7 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
             | true -> 
                 {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
             | false ->
-                match f.Type with
+                match f.TypeRef with
                 | GenericParameter _ -> failwith ""
                 | ConstructedType t -> 
                     if t <> (getType expr) 
@@ -204,7 +205,7 @@ let singleEntryPointExists (modules : Module<InferredTypeExpression> list)=
             |> List.collect (fun m -> m.Functions |> List.where (fun f -> f.Name = "main"))
     entryPoints |> List.length = 1
 
-let semanticCheck 
+let check 
     checkForEntryPoint
     (modules : Ast.Module<InferredTypeExpression> list, types : Map<TypeIdentifier, Types.Type>) =
 

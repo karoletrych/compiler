@@ -1,0 +1,16 @@
+module EnumerateDictionary
+
+fun main
+{
+    val dict = new System::Collections::Generic::Dictionary<int,string>();
+    dict.Add(1, "one");
+    dict.Add(2, "two");
+    dict.Add(4, "four");
+
+    val enumerator = dict.GetEnumerator();
+    while(enumerator.MoveNext())
+    {
+        System::Console:.WriteLine(enumerator.Current.Key);
+        System::Console:.WriteLine(enumerator.Current.Value);
+    }
+}

@@ -139,11 +139,6 @@ and  Namespace = {
     Parts : string list
 }
 
-and TypeName = {
-    Name : string list
-    GenericArguments : TypeIdentifier list
-}
-
 and Module<'Expression> = {
     Identifier : TypeIdentifier
     Functions : Function<'Expression> list
@@ -160,33 +155,48 @@ and ModuleClass<'Expression> = {
 
 and TypeIdentifier = {
     Namespace : string list
-    TypeName : TypeName
+    Name : string
+    GenericArguments : TypeIdentifier list
+    DeclaringType : TypeIdentifier option
 } 
 with override ti.ToString() =
+        let getName tId =
+            let rec getNameRec tId =
+                match tId.DeclaringType with
+                | Some t -> getNameRec t @ [t.Name]
+                | None -> [tId.Name]
+            (
+            getNameRec tId 
+            |> List.toArray 
+            |> (fun segments -> System.String.Join("+", segments))
+            )
+            
+
+
         match ti.Namespace with
         | [] -> ""
         | ns -> 
             (ns |> List.rev |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
-      + (ti.TypeName.Name |> List.rev |> List.toArray |> (fun parts -> System.String.Join("+",  parts)))
-      + if List.isEmpty ti.TypeName.GenericArguments
+      + getName ti
+      + if List.isEmpty ti.GenericArguments
         then ""
-        else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
+        else "[" + (ti.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
 
 module Identifier = 
     let rec fromDotNet (t : System.Type) = {
         Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
-        TypeName = 
-        {
-            Name =  [ (
-                        if t.Name.Contains("`") 
-                        then t.Name.Substring(0, t.Name.LastIndexOf("`"))
-                        else t.Name) ]
-            GenericArguments = 
-                if t.IsGenericTypeDefinition 
-                then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet 
-                else []
-        }
+        Name =  t.Name
+        GenericArguments = 
+            if t.IsGenericType
+            then t.GetGenericArguments() 
+                |> List.ofArray  
+                |> List.map fromDotNet 
+            else []
+        DeclaringType = 
+            if not t.IsGenericParameter && t.IsNested && not (t.DeclaringType |> isNull)
+            then Some (fromDotNet t.DeclaringType)
+            else None 
     } 
 
     let object = fromDotNet typeof<obj> 
@@ -199,12 +209,10 @@ module Identifier =
     let ``void`` = fromDotNet typeof<System.Void>
     let listOf t = 
         let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
-        { objList 
-            with TypeName = 
-                            {
-                            Name = objList.TypeName.Name;
-                            GenericArguments = [t]
-                            }}
+        { 
+            objList 
+            with GenericArguments = [t]
+        }
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
@@ -221,11 +229,9 @@ module Identifier =
         | CustomTypeSpec (ns, cts) -> 
         {
             Namespace = ns |> List.rev
-            TypeName = 
-            {
-                Name = cts |>  (fun t -> [t.Name]);
-                GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
-            }
+            Name = cts.Name + if List.isEmpty cts.GenericArgs then "" else "`" + (List.length cts.GenericArgs).ToString()
+            GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
+            DeclaringType = None
         }
         | TypeIdentifier(i) -> i
 
@@ -234,22 +240,23 @@ module Identifier =
         | TypeIdentifier ti  -> ti
         | BuiltInTypeSpec(_) -> failwith "Invalid operation"
         | CustomTypeSpec _ -> failwith "Invalid operation"
-    let equalWithoutGeneric t1 t2 = 
-        t1.Namespace = t2.Namespace && t1.TypeName.Name = t2.TypeName.Name
-    let withoutGenerics t1 = 
-        {Namespace = t1.Namespace; TypeName = {Name = t1.TypeName.Name; GenericArguments = []}}
-
-
+    let rec equalWithoutGeneric t1 t2 = 
+        t1.Namespace = t2.Namespace
+     && t1.Name = t2.Name
+     && match (t1.DeclaringType, t2.DeclaringType) with
+                        | Some t1DeclaringType, Some t2DeclaringType -> equalWithoutGeneric t1DeclaringType t2DeclaringType
+                        | None, None -> true
+                        | _ -> false
+    
 module Module =
     let create (moduleNamespace : string list) declarations =
         let nspace = moduleNamespace |> List.rev
         let identifier = 
             {
                 Namespace = nspace.Tail;
-                TypeName = {
-                            Name = [nspace.Head];
-                            GenericArguments = []
-                           }
+                Name = nspace.Head;
+                GenericArguments = [];
+                DeclaringType = None;
             }
         let functions = 
             declarations 
@@ -259,20 +266,18 @@ module Module =
                     | _ -> None)
         let classes = 
             declarations 
-            |> List.choose (fun m ->
-                match m with
+            |> List.choose (fun declaration ->
+                match declaration with
                 | ClassDeclaration c -> Some c
                 | _ -> None)
             |> List.map (fun c -> 
             {
                 Identifier = 
-                    {identifier 
-                        with TypeName = 
-                             {
-                                identifier.TypeName 
-                                with Name = 
-                                        c.Name :: identifier.TypeName.Name
-                             }
+                    {
+                        Name = c.Name
+                        DeclaringType = Some identifier
+                        GenericArguments = []
+                        Namespace = nspace.Tail
                      }
                 BaseClass = c.BaseClass
                 Fields = c.Fields

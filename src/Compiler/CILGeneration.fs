@@ -6,7 +6,10 @@ open Ast
 
 let findGenericTypeDefinition (types : Map<TypeIdentifier, System.Type>) id =
    types
-   |> Map.pick (fun k v -> if k.Namespace = id.Namespace && k.TypeName.Name = id.TypeName.Name  && List.length k.TypeName.GenericArguments = List.length id.TypeName.GenericArguments then Some v else None)
+   |> Map.pick (fun k v -> 
+                    if Identifier.equalWithoutGeneric k id
+                    then Some v 
+                    else None)
 
 type TypeBuilderWrapper = {
     MethodBuilders : Map<IR.MethodRef, MethodBuilder>
@@ -20,7 +23,7 @@ type TypeTable = {
     ExternalTypes : Map<TypeIdentifier, System.Type>
 }
 let rec findType this id : System.Type = 
-    match id.TypeName.GenericArguments with
+    match id.GenericArguments with
     | [] ->
         this.TypeBuilders 
         |> Map.tryFind id 
@@ -46,18 +49,27 @@ let isBeingBuilt (t : System.Type)  =
     | :? TypeBuilder -> true
     | _ -> false
 
+///  returns concatenated list of generic arguments of a type and its declaring types
+let rec findGenericArgumentsOfDeclaringTypes tId = 
+    (
+    match tId.DeclaringType with
+    | Some declaringTypeId -> findGenericArgumentsOfDeclaringTypes declaringTypeId
+    | None -> []
+    ) @ tId.GenericArguments
+    
 let rec findFilledType this id : System.Type = 
-    match id.TypeName.GenericArguments with
+    let genericArgs = findGenericArgumentsOfDeclaringTypes id
+    match genericArgs with
     | [] ->
         this.FilledTypeBuilders 
         |> Map.tryFind id 
         |> function 
            | Some t -> t.TypeBuilder :> System.Type 
-           | None -> (this.ExternalTypes |> Map.find id)
+           | None -> this.ExternalTypes |> Map.find id
     | generics ->
-        let t = findGenericTypeDefinition this.ExternalTypes id
+        let unboundType = findGenericTypeDefinition this.ExternalTypes id
         let genericArgs = generics |> List.map (findFilledType this)
-        t.MakeGenericType(genericArgs |> List.toArray)
+        unboundType.MakeGenericType(genericArgs |> List.toArray)
 let rec findMethod this tId (methodRef : MethodRef) = 
     let bindingFlags =
         match methodRef.Context with
@@ -74,7 +86,7 @@ let rec findMethod this tId (methodRef : MethodRef) =
             let baseClassMethod = findMethod this (Identifier.fromDotNet tb.TypeBuilder.BaseType) methodRef
             baseClassMethod
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericArguments)) && tId.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
             let methodRef = unboundType.GetMethod(methodRef.MethodName)
@@ -98,7 +110,7 @@ let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list)
             |> Map.find argTypes
         constructorBuilder :> ConstructorInfo
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericArguments)) && tId.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
         // external nongeneric type
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
@@ -125,7 +137,7 @@ let rec findFieldOrProperty this tId fieldRef =
             let baseClassMethod = (findFieldOrProperty this) (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
             baseClassMethod
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericArguments)) && tId.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
             let dotnetField = unboundType.GetField(fieldRef.FieldName)
@@ -258,7 +270,6 @@ let rec emitInstruction
         match methodInfo.Context with
         | Static -> il.Emit(OpCodes.Ldarg, argIndex)
         | Instance -> il.Emit(OpCodes.Ldarg, argIndex + 1)
-        // TODO: Inherited properties
     | Ldfld(field) -> 
         let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
         il.Emit(OpCodes.Ldfld, field)
@@ -358,7 +369,7 @@ let getExternalTypes =
     >> Map.ofList
 
 let defineClassType (mb : TypeBuilder) (t : IR.Class) : TypeBuilder =
-    mb.DefineNestedType(t.Identifier.TypeName.Name |> List.head, TypeAttributes.Class ||| TypeAttributes.NestedPublic)
+    mb.DefineNestedType(t.Identifier.Name, TypeAttributes.Class ||| TypeAttributes.NestedPublic)
 let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
     mb.DefineType(m.Identifier.ToString(), TypeAttributes.Class ||| TypeAttributes.Public)
 

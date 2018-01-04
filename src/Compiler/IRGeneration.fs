@@ -123,7 +123,10 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                 args)]
         | MemberField f ->
               [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
-    | UnaryExpression(op, e) -> failwith "Not Implemented"
+    | UnaryExpression(op, _) -> 
+        match op with
+        | Negate -> [Neg]
+        | LogicalNegate -> [LdcI4 0; Ceq]
     | LocalFunctionCallExpression(lfc) -> 
         [CallLocalMethod ({
                             MethodName = lfc.Name

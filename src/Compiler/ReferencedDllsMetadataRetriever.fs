@@ -1,23 +1,28 @@
-module Compiler.ReferencedAssembliesMetadata
+module Compiler.ReferencedDllsMetadataRetriever
 
 open System.Reflection
 open Ast
 open Types
 open FSharpx.Collections
+open System.Diagnostics
 let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type = 
     let createGenericParameterInfo (dotnetType : System.Type) = 
         let position = dotnetType.GenericParameterPosition
         let declared = 
             if dotnetType.DeclaringMethod |> isNull
             then
-                Class (Identifier.fromDotNet dotnetType.DeclaringType)
+                Class 
             else
-                Method ((Identifier.fromDotNet dotnetType.DeclaringMethod.DeclaringType), dotnetType.DeclaringMethod.Name)
+                Method 
         (declared, position)
     let createTypeRef (dotnetType : System.Type) : TypeRef= 
-        if dotnetType.IsGenericParameter
-        then GenericParameter (createGenericParameterInfo dotnetType)
-        else ConstructedType (Identifier.fromDotNet dotnetType)
+        if dotnetType.ContainsGenericParameters
+        then
+            GenericTypeDefinition (Identifier.fromDotNet dotnetType)
+        else
+            if dotnetType.IsGenericParameter
+            then GenericParameter (createGenericParameterInfo dotnetType)
+            else ConstructedType (Identifier.fromDotNet dotnetType)
     let createParameter (dotnetParameter : ParameterInfo) = 
         {
             Type = createTypeRef dotnetParameter.ParameterType
@@ -41,17 +46,19 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
     let createField (dotnetField : FieldInfo) =
         {
             FieldName = dotnetField.Name
-            Type = createTypeRef dotnetField.FieldType
+            TypeRef = createTypeRef dotnetField.FieldType
             IsStatic = dotnetField.IsStatic
             IsReadOnly = dotnetField.IsInitOnly || dotnetField.IsLiteral
         }
     let createFieldFromProperty (dotnetProperty : PropertyInfo) =
         {
             FieldName = dotnetProperty.Name
-            Type = createTypeRef dotnetProperty.PropertyType
+            TypeRef = createTypeRef dotnetProperty.PropertyType
             IsStatic = dotnetProperty.GetMethod.IsStatic
             IsReadOnly = not dotnetProperty.CanWrite
         }
+    if dotnetType.Name = "Enumerator" && dotnetType.DeclaringType.Name = "Dictionary`2"
+    then Debugger.Break()
     {
         BaseType = 
             if dotnetType.BaseType <> null then 
@@ -84,6 +91,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             |> Array.toList 
             |> List.map createTypeFromDotNetType
         IsStatic = dotnetType.IsAbstract && dotnetType.IsSealed
+        IsGenericParameter = dotnetType.IsGenericParameter
     }
 let withNames = List.map (fun c -> (c.Identifier, c))
 let typesFromAssembly (assembly : Assembly)= 
@@ -93,8 +101,8 @@ let typesFromAssembly (assembly : Assembly)=
         |> withNames
         |> Map.ofList
 
-let externalTypes referencedAssemblies = 
-    let types = //TODO: if there are 2 types with the same TypeIdentifier second one is chosen
+let getExternalTypes referencedAssemblies = 
+    let types = 
         referencedAssemblies 
         |> List.fold (fun state assembly -> Map.union state (typesFromAssembly assembly)) Map.empty 
     types

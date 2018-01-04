@@ -12,17 +12,19 @@ type Type =
         Methods : Function list
         Fields : Field list 
         NestedTypes : Type list
+        IsGenericParameter : bool
     }
     member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
 
 and TypeRef =
 | ConstructedType of TypeIdentifier
 | GenericParameter of GenericParameterInfo
+| GenericTypeDefinition of TypeIdentifier
 
 and GenericParameterInfo = GenericTypeDeclarationPlace * int
 and GenericTypeDeclarationPlace =
-| Class of TypeIdentifier
-| Method of TypeIdentifier * string
+| Class 
+| Method 
 
 
 and Function = { 
@@ -43,7 +45,7 @@ and Parameter = {
 }
 
 and Field = { 
-    Type : TypeRef 
+    TypeRef : TypeRef 
     FieldName : string 
     IsStatic : bool 
     IsReadOnly : bool

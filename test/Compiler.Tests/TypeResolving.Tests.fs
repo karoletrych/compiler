@@ -5,15 +5,15 @@ open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
 open Compiler.TypeIdentifiersFinding
-open Compiler.ReferencedAssembliesMetadata
+open Compiler.ReferencedDllsMetadataRetriever
 open System.Reflection
 
 
 let resolve src = 
-    let externals = externalTypes [Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
+    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
 
 [<Tests>]
 let tests =
@@ -25,16 +25,18 @@ let tests =
         Expect.equal scanResult (
                 Result.succeed 
                     [{Identifier = {Namespace = [];
-                          TypeName = {Name = ["test"];
-                                      GenericArguments = [];};};
+                          Name = "test";
+                                      GenericArguments = [];
+                                      DeclaringType = None};
                     Functions = [{
                                    Name = "main";
                                    Parameters = [];
                                    ReturnType = None;
                                    Body = [
                                             StaticFunctionCallStatement(TypeIdentifier {Namespace = ["System"];
-                                                        TypeName = {Name = ["Console"];
-                                                                    GenericArguments = [];};},{
+                                                        Name = "Console";
+                                                         GenericArguments = [];
+                                                         DeclaringType = None;},{
                                                 Name = "WriteLine";
                                                  GenericArguments = [];
                                                  Arguments =
@@ -66,24 +68,27 @@ let tests =
             |> resolve
         Expect.equal scanResult (Result.succeed 
                 [{Identifier = {Namespace = [];
-                      TypeName = {
-                                    Name = ["test"];
-                                  GenericArguments = [];};};
+                                  Name = "test";
+                                  GenericArguments = [];
+                                  DeclaringType = None};
         Functions = [];
         Classes =
                  [{Identifier = {Namespace = [];
-                                 TypeName = {Name = ["A"; "test"];
-                                             GenericArguments = [];};};
+                                 Name = "A";
+                                 GenericArguments = []
+                                 DeclaringType = None;};
                    BaseClass = None;
                    Fields = [];
                    Constructors = [];
                    Functions = [];};
                   {Identifier = {Namespace = [];
-                                 TypeName = {Name = ["B"; "test"];
-                                             GenericArguments = [];};};
+                                 Name = "B";
+                                 GenericArguments = [];
+                                 DeclaringType = None};
                    BaseClass = Some (TypeIdentifier {Namespace = [];
-                                                     TypeName = {Name = ["A"; "test"];
-                                                                 GenericArguments = [];};});
+                                                     Name = "A";
+                                                      GenericArguments = [];
+                                                      DeclaringType = None});
                    Fields = [];
                    Constructors = [];
                    Functions =
@@ -93,8 +98,10 @@ let tests =
                       Body =
                        [StaticFunctionCallStatement
                           (TypeIdentifier {Namespace = [];
-                                           TypeName = {Name = ["A"; "test"];
-                                                       GenericArguments = [];};},
+                                           Name = "A";
+                                           GenericArguments = [];
+                                           DeclaringType = None
+                                           },
                            {Name = "Foo";
                             GenericArguments = [];
                             Arguments = [];})];}];}];}]) ""
