@@ -91,7 +91,6 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             |> Array.toList 
             |> List.map createTypeFromDotNetType
         IsStatic = dotnetType.IsAbstract && dotnetType.IsSealed
-        IsGenericParameter = dotnetType.IsGenericParameter
     }
 let withNames = List.map (fun c -> (c.Identifier, c))
 let typesFromAssembly (assembly : Assembly)= 

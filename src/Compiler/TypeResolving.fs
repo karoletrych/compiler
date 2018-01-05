@@ -42,15 +42,15 @@ let rec resolveTypeIdentifier
                 |> List.filter (fun id -> 
                     id.Namespace = currentTypeId.Namespace && id.DeclaringType = Some currentTypeId)
 
-    tId.GenericArguments 
-        |> List.map resolveTypeIdentifier
+    tId.GenericParameters 
+        |> List.map (getGenericArgument >> resolveTypeIdentifier >> Option.map (fun tArg -> genericArgument tArg (tArg.ToString())))
         |> mergeOptions
         |> Option.bind (fun generics ->
                 typesInLocalScope 
                 |> List.tryFind(fun x -> localTypeIsEqual (tId, x))
                 |> Option.orElse (types |> List.tryFind(fun x -> typeIsEqual (tId, x)))
                 |> Option.map (fun t ->
-                    {t with GenericArguments = generics}
+                    {t with GenericParameters = generics}
                 ))
 
 let private resolveTypeSpec 

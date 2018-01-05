@@ -35,12 +35,14 @@ let tests =
                     (CannotInferBinaryExpressionType
                          ({Namespace = ["System"];
                        Name = "Int32";
-                               GenericArguments = [];
-                               DeclaringType = None},{
+                               GenericParameters = [];
+                               DeclaringType = None;
+                               IsGenericParameter = false},{
                         Namespace = ["System"];
                         Name = "Single";
-                                   GenericArguments = [];
-                                   DeclaringType = None})))""
+                                   GenericParameters = [];
+                                   DeclaringType = None;
+                               IsGenericParameter = false})))""
     testCase "recursive type inference fails" <| fun _ ->
         let inference = infer "
                 fun factorial (n : int) : int
@@ -54,13 +56,15 @@ let tests =
             (Failure [FunctionTypeCannotBeInferred
                  ("factorial",[{Namespace = ["System"];
                                 Name = "Int32";
-                                            GenericArguments = [];
-                                            DeclaringType = None}]);
+                                            GenericParameters = [];
+                                            DeclaringType = None;
+                               IsGenericParameter = false}]);
                FunctionTypeCannotBeInferred
                  ("factorial",[{Namespace = ["System"];
                                Name = "Int32";
-                                            GenericArguments = [];
-                                            DeclaringType = None}])]) ""
+                                            GenericParameters = [];
+                                            DeclaringType = None;
+                               IsGenericParameter = false}])]) ""
     testCase "basic types" <| fun _ ->
         let inference = infer @"
                 fun main 

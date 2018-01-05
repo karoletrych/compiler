@@ -4,9 +4,7 @@ open Expecto
 open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeIdentifiersFinding
 open Compiler.ReferencedDllsMetadataRetriever
-open System.Reflection
 
 
 let resolve src = 
@@ -26,8 +24,9 @@ let tests =
                 Result.succeed 
                     [{Identifier = {Namespace = [];
                           Name = "test";
-                                      GenericArguments = [];
-                                      DeclaringType = None};
+                                      GenericParameters = [];
+                                      DeclaringType = None;
+                                      IsGenericParameter = false};
                     Functions = [{
                                    Name = "main";
                                    Parameters = [];
@@ -35,8 +34,9 @@ let tests =
                                    Body = [
                                             StaticFunctionCallStatement(TypeIdentifier {Namespace = ["System"];
                                                         Name = "Console";
-                                                         GenericArguments = [];
-                                                         DeclaringType = None;},{
+                                                         GenericParameters = [];
+                                                         DeclaringType = None;
+                                                         IsGenericParameter = false},{
                                                 Name = "WriteLine";
                                                  GenericArguments = [];
                                                  Arguments =
@@ -69,26 +69,30 @@ let tests =
         Expect.equal scanResult (Result.succeed 
                 [{Identifier = {Namespace = [];
                                   Name = "test";
-                                  GenericArguments = [];
-                                  DeclaringType = None};
+                                  GenericParameters = [];
+                                  DeclaringType = None;
+                                  IsGenericParameter = false};
         Functions = [];
         Classes =
                  [{Identifier = {Namespace = [];
                                  Name = "A";
-                                 GenericArguments = []
-                                 DeclaringType = None;};
+                                 GenericParameters = []
+                                 DeclaringType = None;
+                                 IsGenericParameter = false};
                    BaseClass = None;
                    Fields = [];
                    Constructors = [];
                    Functions = [];};
                   {Identifier = {Namespace = [];
                                  Name = "B";
-                                 GenericArguments = [];
-                                 DeclaringType = None};
+                                 GenericParameters = [];
+                                 DeclaringType = None
+                                 IsGenericParameter = false};
                    BaseClass = Some (TypeIdentifier {Namespace = [];
                                                      Name = "A";
-                                                      GenericArguments = [];
-                                                      DeclaringType = None});
+                                                      GenericParameters = [];
+                                                      DeclaringType = None
+                                                     IsGenericParameter = false});
                    Fields = [];
                    Constructors = [];
                    Functions =
@@ -99,8 +103,9 @@ let tests =
                        [StaticFunctionCallStatement
                           (TypeIdentifier {Namespace = [];
                                            Name = "A";
-                                           GenericArguments = [];
+                                           GenericParameters = [];
                                            DeclaringType = None
+                                           IsGenericParameter = false
                                            },
                            {Name = "Foo";
                             GenericArguments = [];

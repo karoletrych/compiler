@@ -6,11 +6,10 @@ open Ast
 open AstProcessing
 open Types
 
-// TODO: Break -> no enclosing loop
 // TODO: Sprawdzanie cyklicznego dziedziczenia
-// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 // TODO: sprawdzenie wywolan konstruktorow klas bazowych
 // TODO: confilicting module, class, function, variable, field name
+// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 
 type LocalVariable = {
     Name : string

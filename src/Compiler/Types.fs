@@ -12,7 +12,6 @@ type Type =
         Methods : Function list
         Fields : Field list 
         NestedTypes : Type list
-        IsGenericParameter : bool
     }
     member x.BaseTypes = Option.toList x.BaseType @ x.ImplementedInterfaces
 

@@ -59,7 +59,6 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                     @ baseType.Methods
             NestedTypes = []
             IsStatic = false
-            IsGenericParameter = false
         }
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
@@ -75,7 +74,6 @@ let moduleType (modul : Module<AstExpression>) classes : Types.Type =
         Methods = modul.Functions |> List.map (createFunctionSignature true)
         NestedTypes = classes
         IsStatic = true
-        IsGenericParameter = false
     }
 let find externalTypes (modules : Module<AstExpression> list) =
     let withNames (types : Type list) = 

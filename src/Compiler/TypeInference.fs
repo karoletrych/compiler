@@ -31,7 +31,7 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
         | [] -> [] 
-        | b -> b @ (b |> List.collect (fun t -> (allAncestors t)))
+        | b -> b @ (b |> List.collect allAncestors)
 
     let children allNodes parentNode = 
                 allNodes 
@@ -63,6 +63,9 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
         |> fst
         |> List.last
 
+
+
+
 let private findFunction (t, (name, args : TypeIdentifier list, generics), isStatic) = 
         t.Methods 
         |> List.tryFind 
@@ -76,9 +79,10 @@ let private findFunction (t, (name, args : TypeIdentifier list, generics), isSta
 let private findFunctionTypeInClass t ((name, args : TypeIdentifier list, generics), isStatic) : CompilerResult<TypeRef> =
     let matchingFunction = findFunction (t, (name, args, generics), isStatic)
     match matchingFunction with
-    | Some f -> match f.ReturnType with
-                | Some ret -> Result.succeed ret
-                | None -> failwith "external function should always have a type"
+    | Some f -> 
+        match f.ReturnType with
+        | Some ret -> Result.succeed ret
+        | None -> failwith "external function should always have a type"
     | None -> Result.failure (FunctionNotFound(t.Identifier, name, args, generics))
 
 let private findLocalFunctionType otherLocalFunctions ((name, args), _) : CompilerResult<TypeIdentifier> =
@@ -86,39 +90,54 @@ let private findLocalFunctionType otherLocalFunctions ((name, args), _) : Compil
     | Some ret -> Result.succeed ret
     | None -> Result.failure (FunctionTypeCannotBeInferred(name, args))
 
+let getGenericArgument types number genericParameter calleeType = 
+    match genericParameter.DeclarationPlace with
+    | ParameterizedType ->
+        let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v calleeType)
+        let (GenericArgument arg) = matchedType.GenericParameters.[number].DeclarationPlace
+        arg
+    | OtherType t ->
+        let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v t)
+        let (GenericArgument arg) = matchedType.GenericParameters.[number].DeclarationPlace
+        arg
+    | GenericArgument t ->
+        failwith "unexpected"
 
-let rec substitute (boundDeclaringTypes : List<TypeIdentifier>) unboundTypeId =
-    let sub tId = 
-        match boundDeclaringTypes |> List.tryFind (fun v -> Identifier.equalWithoutGeneric v tId) with
-        | Some matching -> 
-            {tId with GenericArguments = matching.GenericArguments}
-        | None ->
-            tId
-    match unboundTypeId.DeclaringType with
-    | Some dt -> 
-        {sub unboundTypeId with DeclaringType = Some (substitute boundDeclaringTypes dt)}
-    | None ->
-        sub unboundTypeId
-
+let rec bindGenericParameters (boundDeclaringTypes : List<TypeIdentifier>) unboundTypeId calleeType : TypeIdentifier =
+    {
+        unboundTypeId with
+            GenericParameters = 
+                unboundTypeId.GenericParameters 
+                |> List.mapi 
+                    (fun i genericParameter -> 
+                        {
+                            Name = genericParameter.Name;
+                            DeclarationPlace = GenericArgument (getGenericArgument boundDeclaringTypes i genericParameter calleeType)
+                        })
+    }
 
 let getReturnType (calleeType : TypeIdentifier) returnTRef =
     match returnTRef with
-    | GenericParameter (declarationPlace, position) ->
-        match declarationPlace with
-        | Class _ ->
-            Result.succeed calleeType.GenericArguments.[position]
-        | Method _ -> Result.failure (NotSupported "Usage of generic methods is not supported yet")
     | ConstructedType(t) -> 
         Result.succeed t
+    | GenericParameter (declarationPlace, position) ->
+        match declarationPlace with
+        | Class ->
+            Result.succeed 
+                (
+                match calleeType.GenericParameters.[position].DeclarationPlace with
+                | GenericArgument tArg -> tArg
+                | _ -> failwith "not expected")
+        | Method -> Result.failure (NotSupported "Usage of generic methods is not supported yet")
     | GenericTypeDefinition unboundT ->
         let rec substituteGenericArgsIdentifier unboundT =
-            let rec allDeclaringTypes t =
+            let rec allEnclosingTypes t =
                 t :: 
                     match t.DeclaringType with 
-                    | Some dt -> allDeclaringTypes dt
+                    | Some dt -> allEnclosingTypes dt
                     | None -> []
-            let boundDeclaringTypes = allDeclaringTypes calleeType    
-            substitute boundDeclaringTypes unboundT
+            let boundEnclosingTypes = allEnclosingTypes calleeType    
+            bindGenericParameters boundEnclosingTypes unboundT calleeType
         let gtd = substituteGenericArgsIdentifier unboundT
         Result.succeed gtd
         
