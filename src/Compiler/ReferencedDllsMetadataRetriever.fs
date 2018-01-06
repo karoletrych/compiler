@@ -16,12 +16,11 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
                 Method 
         (declared, position)
     let createTypeRef (dotnetType : System.Type) : TypeRef= 
-        if dotnetType.ContainsGenericParameters
-        then
-            GenericTypeDefinition (Identifier.fromDotNet dotnetType)
+        if dotnetType.IsGenericParameter
+        then GenericParameter (createGenericParameterInfo dotnetType)
         else
-            if dotnetType.IsGenericParameter
-            then GenericParameter (createGenericParameterInfo dotnetType)
+            if dotnetType.ContainsGenericParameters
+            then GenericTypeDefinition (Identifier.fromDotNet dotnetType)
             else ConstructedType (Identifier.fromDotNet dotnetType)
     let createParameter (dotnetParameter : ParameterInfo) = 
         {
@@ -57,8 +56,8 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             IsStatic = dotnetProperty.GetMethod.IsStatic
             IsReadOnly = not dotnetProperty.CanWrite
         }
-    if dotnetType.Name = "Enumerator" && dotnetType.DeclaringType.Name = "Dictionary`2"
-    then Debugger.Break()
+    // if dotnetType.Name = "Enumerator" && dotnetType.DeclaringType.Name = "Dictionary`2"
+    // then Debugger.Break()
     {
         BaseType = 
             if dotnetType.BaseType <> null then 

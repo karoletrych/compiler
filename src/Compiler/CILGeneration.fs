@@ -180,6 +180,7 @@ let rec emitInstruction
                 label, acc.Labels.Add(l, label)
         foo (fst result)
         {acc with Labels = snd result}
+
     let callMethod t (methodRef : MethodRef) calleeInstructions argsInstructions = 
         let typeInfo = findFilledType typesTable t
 
@@ -215,18 +216,39 @@ let rec emitInstruction
     | other -> 
     other |> function
     | Add -> il.Emit(OpCodes.Add)
-    | CallMethod(t, methodRef, callee, args) -> 
-        callMethod t methodRef callee args
-    | CallLocalMethod(methodRef, callee, args) -> 
-        callMethod methodInfo.OwnerClassType methodRef callee args
-    | GetExternalField (t, fieldRef) ->
+    | CallMethod(t, methodRef, calleeInstructions, argsInstructions) -> 
+        callMethod t methodRef calleeInstructions argsInstructions
+    | CallLocalMethod(methodRef, calleeInstructions, argsInstructions) -> 
+        callMethod methodInfo.OwnerClassType methodRef calleeInstructions argsInstructions
+    | GetExternalField (t, fieldRef, calleeInstructions) ->
         let field = findFieldOrProperty typesTable t fieldRef
         match field with
-        | Property p -> il.Emit(OpCodes.Call, p)
+        | Property p -> 
+            match fieldRef.IsStatic with
+            | true -> 
+                il.Emit(OpCodes.Call, p)
+            | false -> 
+                calleeInstructions |> List.iter (emitInstruction >> ignore)
+                let typeInfo = findFilledType typesTable t
+                if typeInfo.IsValueType
+                then
+                    let loc = il.DeclareLocal(typeInfo)
+                    il.Emit(OpCodes.Stloc, loc);
+                    il.Emit(OpCodes.Ldloca, loc);
+                il.Emit(OpCodes.Call, p)
+                
         | Field f -> 
-                match fieldRef.IsStatic with
-                | true -> il.Emit(OpCodes.Ldsfld, f)
-                | false -> il.Emit(OpCodes.Ldfld, f)
+            match fieldRef.IsStatic with
+            | true -> il.Emit(OpCodes.Ldsfld, f)
+            | false -> 
+                calleeInstructions |> List.iter (emitInstruction >> ignore)
+                let typeInfo = findFilledType typesTable t
+                if typeInfo.IsValueType
+                then
+                    let loc = il.DeclareLocal(typeInfo)
+                    il.Emit(OpCodes.Stloc, loc);
+                    il.Emit(OpCodes.Ldloca, loc);
+                il.Emit(OpCodes.Ldfld, f)
     | Ceq        -> il.Emit(OpCodes.Ceq)
     | Cgt        -> il.Emit(OpCodes.Cgt)
     | Clt        -> il.Emit(OpCodes.Clt)

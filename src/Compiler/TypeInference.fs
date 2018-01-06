@@ -139,6 +139,7 @@ let getReturnType (calleeType : TypeIdentifier) returnTRef =
             let boundEnclosingTypes = allEnclosingTypes calleeType    
             bindGenericParameters boundEnclosingTypes unboundT calleeType
         let gtd = substituteGenericArgsIdentifier unboundT
+        let gtd = gtd
         Result.succeed gtd
         
  

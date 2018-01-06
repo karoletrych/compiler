@@ -213,9 +213,13 @@ module Identifier =
             then t.GetGenericArguments() 
                 |> List.ofArray  
                 |> List.map (fun parameter -> 
-                                if parameter.DeclaringType = t
-                                then {Name = parameter.Name; DeclarationPlace = ParameterizedType}
-                                else {Name = parameter.Name; DeclarationPlace = OtherType (fromDotNet parameter.DeclaringType)})
+                                if (isNull parameter.DeclaringType)
+                                then
+                                    {Name = parameter.Name; DeclarationPlace = GenericArgument (fromDotNet parameter)}
+                                else
+                                    if parameter.DeclaringType = t
+                                    then {Name = parameter.Name; DeclarationPlace = ParameterizedType}
+                                    else {Name = parameter.Name; DeclarationPlace = OtherType (fromDotNet parameter.DeclaringType)})
             else []
         DeclaringType = 
             if not (t.DeclaringType |> isNull)

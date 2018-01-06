@@ -65,7 +65,7 @@ and ILInstruction =
     | Brtrue of int
     | CallMethod of TypeIdentifier * MethodRef * ILInstruction list * ILInstruction list
     | CallLocalMethod of MethodRef * ILInstruction list * ILInstruction list
-    | GetExternalField of TypeIdentifier * FieldRef
+    | GetExternalField of TypeIdentifier * FieldRef * ILInstruction list
     | Ldloc of string
     | Stloc of string
     | Ldarg of string

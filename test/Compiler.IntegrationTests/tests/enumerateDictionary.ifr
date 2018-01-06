@@ -10,7 +10,7 @@ fun main
     val enumerator = dict.GetEnumerator();
     while(enumerator.MoveNext())
     {
-        System::Console:.WriteLine(enumerator.Current.Key);
-        System::Console:.WriteLine(enumerator.Current.Value);
+        System::Console:.WriteLine(enumerator.Current.ToString());
     }
+    enumerator.Dispose();
 }

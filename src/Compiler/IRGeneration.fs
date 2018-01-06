@@ -99,7 +99,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                         )
                         ]
         | MemberField(fieldName) -> 
-            convertExpression calleeExpression @ [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false})]
+             [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false}, convertExpression calleeExpression)]
     | IdentifierExpression(i) -> loadFromIdentifier identifiers i
     | ListInitializerExpression(list) ->
         let add param = {
@@ -122,7 +122,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                 [],
                 args)]
         | MemberField f ->
-              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
+              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true }, []);]
     | UnaryExpression(op, _) -> 
         match op with
         | Negate -> [Neg]
