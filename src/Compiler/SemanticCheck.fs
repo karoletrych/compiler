@@ -105,7 +105,7 @@ and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType 
     | LiteralExpression(_) -> []
     | InstanceMemberExpression(_, _) -> []
     | NewExpression(_, _) -> [] //TODO: []
-    | StaticMemberExpression(_, _) -> failwith "Not Implemented"
+    | StaticMemberExpression(_, _) -> []
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 

@@ -83,15 +83,21 @@ let rec findMethod this tId (methodRef : MethodRef) =
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
             let methodRef = unboundType.GetMethod(methodRef.MethodName)
-            //TODO: ^^^ only name?
-            TypeBuilder.GetMethod(t, methodRef)
+            //^^^ only by name?
+            let method = TypeBuilder.GetMethod(t, methodRef)
+            if isNull method then
+                failwithf "Method: %A not found" methodRef
+            method
         else
-            t.GetMethod(methodRef.MethodName,
+            let method = t.GetMethod(methodRef.MethodName,
                                 bindingFlags,
                                 null,
                                 methodRef.Parameters 
                                     |> List.map(findFilledType this) |> List.toArray,
                                 null)
+            if isNull method then
+                failwithf "Method: %A not found" methodRef
+            method
 
 let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list) : ConstructorInfo =
     let t = findFilledType this tId
