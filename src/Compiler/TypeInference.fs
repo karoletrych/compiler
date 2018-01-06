@@ -91,14 +91,14 @@ let private findLocalFunctionType otherLocalFunctions ((name, args), _) : Compil
     | None -> Result.failure (FunctionTypeCannotBeInferred(name, args))
 
 let getGenericArgument types number genericParameter calleeType = 
-    match genericParameter.DeclarationPlace with
-    | ParameterizedType ->
+    match genericParameter with
+    | DeclaredInParameterizedType ->
         let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v calleeType)
-        let (GenericArgument arg) = matchedType.GenericParameters.[number].DeclarationPlace
+        let (GenericArgument arg) = matchedType.GenericParameters.[number]
         arg
-    | OtherType t ->
+    | DeclaredInOtherType t ->
         let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v t)
-        let (GenericArgument arg) = matchedType.GenericParameters.[number].DeclarationPlace
+        let (GenericArgument arg) = matchedType.GenericParameters.[number]
         arg
     | GenericArgument t ->
         failwith "unexpected"
@@ -110,10 +110,7 @@ let rec bindGenericParameters (boundDeclaringTypes : List<TypeIdentifier>) unbou
                 unboundTypeId.GenericParameters 
                 |> List.mapi 
                     (fun i genericParameter -> 
-                        {
-                            Name = genericParameter.Name;
-                            DeclarationPlace = GenericArgument (getGenericArgument boundDeclaringTypes i genericParameter calleeType)
-                        })
+                        GenericArgument (getGenericArgument boundDeclaringTypes i genericParameter calleeType))
     }
 
 let getReturnType (calleeType : TypeIdentifier) returnTRef =
@@ -125,7 +122,7 @@ let getReturnType (calleeType : TypeIdentifier) returnTRef =
         | Class ->
             Result.succeed 
                 (
-                match calleeType.GenericParameters.[position].DeclarationPlace with
+                match calleeType.GenericParameters.[position] with
                 | GenericArgument tArg -> tArg
                 | _ -> failwith "not expected")
         | Method -> Result.failure (NotSupported "Usage of generic methods is not supported yet")
@@ -336,10 +333,6 @@ let rec private inferStatement
             Result.map (fun e -> AssignmentStatement(IdentifierAssignee(i), e)) 
                 (annotate e2) 
         |> withOldVariables
-    | BreakStatement ->
-        BreakStatement 
-        |> Result.succeed 
-        |> withOldVariables
     | CompositeStatement cs ->
         cs
         |> List.mapFold inferStatement declaredVariables
@@ -445,7 +438,7 @@ let private inferReturnType leastUpperBound body =
         s @ (elseS |> Option.defaultValue [])
 
     statementFold
-        idFold idFold idFold idFold idFold idFold addReturn idFold id idFold idFold idFold ifStatement
+        idFold idFold idFold idFold idFold idFold addReturn idFold idFold idFold idFold ifStatement
             [] (CompositeStatement body) 
     |> List.map getType
     |> function

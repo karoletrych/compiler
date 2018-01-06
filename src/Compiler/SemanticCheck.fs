@@ -172,7 +172,6 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         fullVariableDeclaration 
         returnStatement 
         assignmentStatement 
-        id 
         ifExpression 
         whileStatement 
         idFold 

@@ -69,7 +69,6 @@ let rec statementCata
     returnStatement
     identifierAssignment
     fieldMemberAssignment
-    breakStatement
     ifStatement
     whileStatement
     instanceFunctionCall
@@ -86,7 +85,6 @@ let rec statementCata
             returnStatement
             identifierAssignment
             fieldMemberAssignment  
-            breakStatement
             ifStatement
             whileStatement
             instanceFunctionCall
@@ -109,7 +107,6 @@ let rec statementCata
         match assignee with
             | IdentifierAssignee i -> identifierAssignment (i, e2)
             | MemberFieldAssignee (e, i) -> fieldMemberAssignment ((e, i), e2)
-    | BreakStatement -> breakStatement
     | IfStatement (e,s,elseS) -> ifStatement (e, recurse s, elseS |> Option.map recurse)
     | InstanceMemberFunctionCallStatement(expr, fc) -> instanceFunctionCall (expr, fc)
     | WhileStatement(e, s) -> whileStatement (e, recurse s)
@@ -123,7 +120,6 @@ let rec statementFold
     fullVariableDeclaration
     returnStatement
     assignment
-    breakStatement
     ifExpression
     whileStatement
     instanceFunctionCall
@@ -140,7 +136,6 @@ let rec statementFold
             fullVariableDeclaration
             returnStatement
             assignment  
-            breakStatement
             ifExpression
             whileStatement
             instanceFunctionCall
@@ -162,7 +157,6 @@ let rec statementFold
         |> List.fold recurse acc
     | ReturnStatement e -> returnStatement acc e
     | AssignmentStatement(e1, e2) -> assignment acc (e1, e2)
-    | BreakStatement -> breakStatement acc
     | IfStatement (e,s,elseS) -> 
         let newAcc = ifExpression acc e
         ifStatement (recurse newAcc s, (elseS |> Option.map (recurse newAcc)))

@@ -22,6 +22,4 @@ fun main
     val dict2 = new System::Collections::Generic::Dictionary<int, A>();
     dict2.Add(1, new A("one"));
     System::Console:.WriteLine(dict2.get_Item(1)._name);
-
-    System::Console:.WriteLine();
 }

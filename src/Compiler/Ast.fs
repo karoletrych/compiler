@@ -61,7 +61,6 @@ and Parameter = string * TypeSpec
 
 and Statement<'Expression> =
 | AssignmentStatement of Assignee<'Expression> * 'Expression
-| BreakStatement
 | CompositeStatement of Statement<'Expression> list
 | LocalFunctionCallStatement of FunctionCall<'Expression>
 | IfStatement of 'Expression * Statement<'Expression> * Statement<'Expression> option
@@ -152,15 +151,10 @@ and ModuleClass<'Expression> = {
     Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
 }
-and DeclarationPlace =
-| ParameterizedType
-| OtherType of TypeIdentifier
+and GenericParameter =
+| DeclaredInParameterizedType
+| DeclaredInOtherType of TypeIdentifier
 | GenericArgument of TypeIdentifier
-
-and GenericParameter = {
-    Name : string
-    DeclarationPlace : DeclarationPlace
-}
 
 and TypeIdentifier = {
     Namespace : string list
@@ -190,18 +184,8 @@ with override ti.ToString() =
         then ""
         else "[" + (ti.GenericParameters |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
-let otherTypeParameter t name = 
-    {
-        Name = name;
-        DeclarationPlace = OtherType t
-    }
-let genericArgument t name =
-    {
-        Name = name;
-        DeclarationPlace = GenericArgument t
-    }
 let getGenericArgument (genericParameter : GenericParameter) =
-    let (GenericArgument arg) = genericParameter.DeclarationPlace
+    let (GenericArgument arg) = genericParameter
     arg
 
 module Identifier = 
@@ -215,11 +199,11 @@ module Identifier =
                 |> List.map (fun parameter -> 
                                 if (isNull parameter.DeclaringType)
                                 then
-                                    {Name = parameter.Name; DeclarationPlace = GenericArgument (fromDotNet parameter)}
+                                    GenericArgument (fromDotNet parameter)
                                 else
                                     if parameter.DeclaringType = t
-                                    then {Name = parameter.Name; DeclarationPlace = ParameterizedType}
-                                    else {Name = parameter.Name; DeclarationPlace = OtherType (fromDotNet parameter.DeclaringType)})
+                                    then DeclaredInParameterizedType
+                                    else DeclaredInOtherType (fromDotNet parameter.DeclaringType))
             else []
         DeclaringType = 
             if not (t.DeclaringType |> isNull)
@@ -240,7 +224,7 @@ module Identifier =
         let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
         { 
             objList 
-                with GenericParameters = [genericArgument t "T"]
+                with GenericParameters = [GenericArgument t]
         }
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
@@ -259,7 +243,7 @@ module Identifier =
             {
                 Namespace = ns |> List.rev
                 Name = cts.Name + if List.isEmpty cts.GenericArgs then "" else "`" + (List.length cts.GenericArgs).ToString()
-                GenericParameters = cts.GenericArgs |> List.map (fun ts -> genericArgument (fromTypeSpec ts) ((fromTypeSpec ts).ToString()) )
+                GenericParameters = cts.GenericArgs |> List.map (fun ts -> GenericArgument (fromTypeSpec ts))
                 DeclaringType = None
                 IsGenericParameter = false
             }

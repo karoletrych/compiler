@@ -43,7 +43,7 @@ let rec resolveTypeIdentifier
                     id.Namespace = currentTypeId.Namespace && id.DeclaringType = Some currentTypeId)
 
     tId.GenericParameters 
-        |> List.map (getGenericArgument >> resolveTypeIdentifier >> Option.map (fun tArg -> genericArgument tArg (tArg.ToString())))
+        |> List.map (getGenericArgument >> resolveTypeIdentifier >> Option.map GenericArgument)
         |> mergeOptions
         |> Option.bind (fun generics ->
                 typesInLocalScope 
@@ -133,7 +133,6 @@ let private resolveStatement resolveExpression resolveType statement =
     let returnStatement e = (Result.mapOption resolveExpression e) |> Result.map (fun e -> ReturnStatement(e)) 
     let assignment ((e1, i), e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(MemberFieldAssignee(e1,i), e2)) 
     let identifierAssignment (i, e2) = (resolveExpression e2) |> Result.map (fun e2 -> AssignmentStatement(IdentifierAssignee(i), e2)) 
-    let breakStatement = Result.succeed BreakStatement
     let ifStatement (e,s,elseS) = 
         match elseS with
         | Some elseS ->
@@ -161,7 +160,6 @@ let private resolveStatement resolveExpression resolveType statement =
         returnStatement
         identifierAssignment
         assignment
-        breakStatement
         ifStatement
         whileStatement
         instanceFunctionCall

@@ -40,6 +40,7 @@ and FieldRef =
     {
         FieldName : string
         IsStatic : bool
+        FieldType : TypeIdentifier
     }
 
 and Method =
