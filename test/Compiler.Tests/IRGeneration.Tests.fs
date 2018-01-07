@@ -4,7 +4,6 @@ open Compiler.Parser
 open Compiler.CompilerResult
 open Compiler.TypeIdentifiersFinding
 open Compiler.TypeInference
-open Compiler.ReferencedAssembliesMetadata
 open Compiler.TypeResolving
 open Compiler.TypeFinding
 

@@ -22,15 +22,16 @@ let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
     types.[t |> Identifier.fromTypeSpec]
 
 let getConstructedType f=
-    match f.Type with
+    match f.TypeRef with
           | ConstructedType t -> (f.FieldName, t)
+          | GenericTypeDefinition(_) -> failwith ""
           | GenericParameter _-> failwith "no support for generic parameters"
 
 let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
         | [] -> [] 
-        | b -> b @ (b |> List.collect (fun t -> (allAncestors t)))
+        | b -> b @ (b |> List.collect allAncestors)
 
     let children allNodes parentNode = 
                 allNodes 
@@ -64,27 +65,81 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
 
 
 
-let private findFunctionTypeInClass t ((name, args : TypeIdentifier list, generics), isStatic) : CompilerResult<TypeRef> =
-    let matchingFunction (t, (name, args : TypeIdentifier list, generics), isStatic) = 
+
+let private findFunction (t, (name, args : TypeIdentifier list, generics), isStatic) = 
         t.Methods 
         |> List.tryFind 
             (fun f -> f.Name = name
-                    // && f.Parameters |> List.map (fun p -> p.Type) = args TODO:
-                    && if not (List.isEmpty generics) then List.length f.GenericParameters = List.length generics else true
-                    && f.IsStatic = isStatic)
+                     // && f.Parameters |> List.map (fun p -> p.Type) = args TODO:
+                     && if not (List.isEmpty generics) 
+                        then List.length f.GenericParameters = List.length generics 
+                        else true
+                        && f.IsStatic = isStatic)
 
-    match matchingFunction (t, (name, args, generics), isStatic) with
-    | Some f -> match f.ReturnType with
-                | Some ret -> Result.succeed ret
-                | None -> failwith "external function should always have a type"
+let private findFunctionTypeInClass t ((name, args : TypeIdentifier list, generics), isStatic) : CompilerResult<TypeRef> =
+    let matchingFunction = findFunction (t, (name, args, generics), isStatic)
+    match matchingFunction with
+    | Some f -> 
+        match f.ReturnType with
+        | Some ret -> Result.succeed ret
+        | None -> failwith "external function should always have a type"
     | None -> Result.failure (FunctionNotFound(t.Identifier, name, args, generics))
 
-let private findLocalFunctionType otherLocalFunctions ((name, args), isStatic) : CompilerResult<TypeIdentifier> =
+let private findLocalFunctionType otherLocalFunctions ((name, args), _) : CompilerResult<TypeIdentifier> =
     match otherLocalFunctions |> Map.tryFind (name,args) with
     | Some ret -> Result.succeed ret
     | None -> Result.failure (FunctionTypeCannotBeInferred(name, args))
 
+let getGenericArgument types number genericParameter calleeType = 
+    match genericParameter with
+    | DeclaredInParameterizedType ->
+        let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v calleeType)
+        let (GenericArgument arg) = matchedType.GenericParameters.[number]
+        arg
+    | DeclaredInOtherType t ->
+        let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v t)
+        let (GenericArgument arg) = matchedType.GenericParameters.[number]
+        arg
+    | GenericArgument t ->
+        failwith "unexpected"
 
+let rec bindGenericParameters (boundDeclaringTypes : List<TypeIdentifier>) unboundTypeId calleeType : TypeIdentifier =
+    {
+        unboundTypeId with
+            GenericParameters = 
+                unboundTypeId.GenericParameters 
+                |> List.mapi 
+                    (fun i genericParameter -> 
+                        GenericArgument (getGenericArgument boundDeclaringTypes i genericParameter calleeType))
+    }
+
+let getReturnType (calleeType : TypeIdentifier) returnTRef =
+    match returnTRef with
+    | ConstructedType(t) -> 
+        Result.succeed t
+    | GenericParameter (declarationPlace, position) ->
+        match declarationPlace with
+        | Class ->
+            Result.succeed 
+                (
+                match calleeType.GenericParameters.[position] with
+                | GenericArgument tArg -> tArg
+                | _ -> failwith "not expected")
+        | Method -> Result.failure (NotSupported "Usage of generic methods is not supported yet")
+    | GenericTypeDefinition unboundT ->
+        let rec substituteGenericArgsIdentifier unboundT =
+            let rec allEnclosingTypes t =
+                t :: 
+                    match t.DeclaringType with 
+                    | Some dt -> allEnclosingTypes dt
+                    | None -> []
+            let boundEnclosingTypes = allEnclosingTypes calleeType    
+            bindGenericParameters boundEnclosingTypes unboundT calleeType
+        let gtd = substituteGenericArgsIdentifier unboundT
+        let gtd = gtd
+        Result.succeed gtd
+        
+ 
 let private findFieldTypeInClass knownTypes calleeType (name, isStatic) = 
     let t = 
         knownTypes 
@@ -93,21 +148,12 @@ let private findFieldTypeInClass knownTypes calleeType (name, isStatic) =
         t.Fields 
         |> List.tryFind (fun f -> f.FieldName = name && f.IsStatic = isStatic)
     match fieldOption with
-    | Some field -> 
-        field.Type 
-        |> fun returnTRef ->
-                match returnTRef with
-                | GenericParameter (declarationPlace, position) ->
-                    match declarationPlace with
-                    | Class c ->
-                        Result.succeed calleeType.TypeName.GenericArguments.[position]
-                    | Method(_, _) -> failwith "Not Implemented"
-                | ConstructedType(t) -> Result.succeed t
+    | Some field -> getReturnType calleeType field.TypeRef 
     | None -> Result.failure (FieldNotFound(calleeType, name))
 
-
 let typeOfLiteral = 
-    (function
+    (
+    function
     | BoolLiteral _-> Identifier.bool
     | IntLiteral _-> Identifier.int
     | FloatLiteral _-> Identifier.float
@@ -118,24 +164,20 @@ let private inferExpression localFunctions (currentClass : Types.Type) (knownTyp
     let instanceMemberFunctionCall (knownTypes : Map<TypeIdentifier, Type>) (callee, (name, args, generics)) : CompilerResult<TypeIdentifier>= 
         (callee, args |> Result.merge) 
         ||> Result.bind2 
-            (fun calleeType args -> 
-                let t = knownTypes 
-                        |> Map.pick (fun tId t -> if Identifier.equalWithoutGeneric tId calleeType then Some t else None)
-                let returnTRef = findFunctionTypeInClass t ((name,args,generics), false)
-                returnTRef 
-                |> Result.bind (fun returnTRef ->
-                    match returnTRef with
-                    | GenericParameter (declarationPlace, position) ->
-                        match declarationPlace with
-                        | Class c ->
-                            Result.succeed calleeType.TypeName.GenericArguments.[position]
-                        | Method(_, _) -> failwith "Not Implemented"
-                    | ConstructedType(t) -> Result.succeed t
-                        )
-            )
+            (fun calleeTypeId args -> 
+                let unboundCalleeType = 
+                    knownTypes 
+                    |> Map.pick (fun tId t -> 
+                        if Identifier.equalWithoutGeneric tId calleeTypeId 
+                        then Some t 
+                        else None)
+                let returnTRef = findFunctionTypeInClass unboundCalleeType ((name,args,generics), false)
+                returnTRef |> Result.bind (getReturnType calleeTypeId)
+                )
     let assignment ((t1, i), _) = 
         t1
-        |> Result.bind (fun calleeType -> findFieldTypeInClass knownTypes calleeType (i, false))
+        |> Result.bind (fun calleeType -> 
+            findFieldTypeInClass knownTypes calleeType (i, false))
     let binary (t1, op, t2) =
         let commonType t1 t2 = 
             if t1 = t2 
@@ -152,7 +194,7 @@ let private inferExpression localFunctions (currentClass : Types.Type) (knownTyp
         | Division, Success e1, Success e2 -> commonType  e1 e2
         | Remainder, Success e1, Success e2 -> commonType e1 e2
         | _ -> Success Identifier.bool
-    let localFunctionCall (name, args, generics) = 
+    let localFunctionCall (name, args, _) = 
         args 
         |> Result.merge 
         |> Result.bind (fun argTypes -> findLocalFunctionType localFunctions ((name, argTypes), currentClass.IsStatic))
@@ -182,8 +224,10 @@ let private inferExpression localFunctions (currentClass : Types.Type) (knownTyp
             (fun args -> findFunctionTypeInClass 
                             (knownTypes.[Identifier.typeId t]) ((name, args, generics), true))
         |> Result.map (fun t ->
-                               let (ConstructedType t) = t
-                               t)
+                            match t with
+                            | ConstructedType t -> t
+                            | GenericTypeDefinition(_) -> failwith "Not Implemented" 
+                            | GenericParameter _ -> failwith "not supported")
     let staticMemberField (t, f) = 
         findFieldTypeInClass knownTypes (Identifier.typeId t)  (f, true)
 
@@ -288,10 +332,6 @@ let rec private inferStatement
         | IdentifierAssignee i ->
             Result.map (fun e -> AssignmentStatement(IdentifierAssignee(i), e)) 
                 (annotate e2) 
-        |> withOldVariables
-    | BreakStatement ->
-        BreakStatement 
-        |> Result.succeed 
         |> withOldVariables
     | CompositeStatement cs ->
         cs
@@ -398,7 +438,7 @@ let private inferReturnType leastUpperBound body =
         s @ (elseS |> Option.defaultValue [])
 
     statementFold
-        idFold idFold idFold idFold idFold idFold addReturn idFold id idFold idFold idFold ifStatement
+        idFold idFold idFold idFold idFold idFold addReturn idFold idFold idFold idFold ifStatement
             [] (CompositeStatement body) 
     |> List.map getType
     |> function
@@ -462,11 +502,8 @@ let inferField knownTypes leastUpperBound (currentType) (field : Ast.Field<AstEx
     let lookupLocalVariable = 
         lookupLocalVariable 
             (currentType.Fields 
-                                 |> List.map (fun f -> 
-                                    match f.Type with
-                                    | ConstructedType t -> (f.FieldName, t)
-                                    | GenericParameter _-> failwith "no support for generic parameters")
-                                    |> Map.ofList)
+                |> List.map getConstructedType
+                |> Map.ofList)
     let inferExpression = inferExpression Map.empty currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     Result.map

@@ -19,6 +19,7 @@ type Failure =
 | AssignmentToReadOnlyFieldOnType of TypeIdentifier * string
 | NoEntryPointOrMoreThanOne
 | OperatorNotApplicableForGivenTypes of BinaryOperator * TypeIdentifier * TypeIdentifier
+| NotSupported of string
 
 
 let toString (errors : Failure list) = 
@@ -46,6 +47,7 @@ let toString (errors : Failure list) =
             | AssignmentToReadOnlyLocalField(name) -> name.ToString()
             | AssignmentToReadOnlyFieldOnType(t, name) -> "Type: " + t.ToString() + " Field: " + name
             | NoEntryPointOrMoreThanOne -> ""
+            | NotSupported s -> s
             | OperatorNotApplicableForGivenTypes(op, t1, t2) -> "Operator: " + op.ToString() + "Types: " + t1.ToString() + ", " + t2.ToString()
         failure + ": " + message
     errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))

@@ -3,9 +3,8 @@ module Compiler.SemanticCheck.Tests
 open Expecto
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeIdentifiersFinding
 open Compiler.TypeResolving
-open Compiler.ReferencedAssembliesMetadata
+open Compiler.ReferencedDllsMetadataRetriever
 open Compiler.TypeInference
 open Compiler.TypeFinding
 open Compiler.SemanticCheck
@@ -13,12 +12,12 @@ open Compiler.Ast
 
 
 let semanticCheck src = 
-    let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
-    >>= (fun modules -> inferTypes (modules, typesDictionary externals modules))
-    >>= (semanticCheck true)
+    >>= (fun modules -> resolve (modules, TypeIdentifiersFinding.find externals modules))
+    >>= (fun modules -> inferTypes (modules, find externals modules))
+    >>= (check true)
 
 [<Tests>]
 let tests =
@@ -43,11 +42,15 @@ let tests =
                 semanticCheckResult 
                 (Failure  [
                     NonBooleanExpressionInIfStatement {Namespace = ["System"];
-                                          TypeName = {Name = ["String"];
-                                                      GenericArguments = [];};}
+                                          Name = "String";
+                                                      GenericParameters = [];
+                                                      DeclaringType = None;
+                                                     IsGenericParameter =false}
                     NonBooleanExpressionInWhileStatement {Namespace = ["System"];
-                                             TypeName = {Name = ["Int32"];
-                                                     GenericArguments = [];};};
+                                             Name = "Int32";
+                                                     GenericParameters = [];
+                                                     DeclaringType = None;
+                                                     IsGenericParameter =false};
                    ]) ""
         testCase "assignment of invalid type in variable declaration" <| fun _ ->
             let semanticCheckResult = 
@@ -61,21 +64,25 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure  [
-                    InvalidType
-                     ("b",{Namespace = ["System"];
-                           TypeName = {Name = ["Int32"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Single"];
-                                   GenericArguments = [];};});
-                   InvalidType
-                     ("a",{Namespace = ["System"];
-                           TypeName = {Name = ["String"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Int32"];
-                                   GenericArguments = [];};})]) ""
+                (Failure  [InvalidType ("b",{Namespace = ["System"];
+                     Name = "Int32";
+                     GenericParameters = [];
+                     DeclaringType = None;
+                     IsGenericParameter = false},
+                                            {Namespace = ["System"];
+                                             Name = "Single";
+                                             GenericParameters = [];
+                                             DeclaringType = None;
+                                             IsGenericParameter = false});
+        InvalidType ("a",{Namespace = ["System"];
+                     Name = "String";
+                     GenericParameters = [];
+                     DeclaringType = None;
+                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             Name = "Int32";
+                                             GenericParameters = [];
+                                             DeclaringType = None;
+                                             IsGenericParameter = false})]) ""
         testCase "declaration with initializer of incompatible type" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -88,21 +95,24 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure  [
-                    InvalidType
-                     ("b",{Namespace = ["System"];
-                           TypeName = {Name = ["Int32"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Single"];
-                                   GenericArguments = [];};});
-                   InvalidType
-                     ("a",{Namespace = ["System"];
-                           TypeName = {Name = ["String"];
-                                       GenericArguments = [];};},
-                      {Namespace = ["System"];
-                       TypeName = {Name = ["Int32"];
-                                   GenericArguments = [];};})]) ""
+                (Failure  [InvalidType ("b",{Namespace = ["System"];
+                     Name = "Int32";
+                     GenericParameters = [];
+                     DeclaringType = None;
+                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             Name = "Single";
+                                             GenericParameters = [];
+                                             DeclaringType = None;
+                                             IsGenericParameter = false});
+        InvalidType ("a",{Namespace = ["System"];
+                     Name = "String";
+                     GenericParameters = [];
+                     DeclaringType = None;
+                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             Name = "Int32";
+                                             GenericParameters = [];
+                                             DeclaringType = None;
+                                             IsGenericParameter = false})]) ""
         testCase "assignment to readonly variable" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -139,10 +149,11 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure [AssignmentToReadOnlyFieldOnType 
-                                        ({Namespace = [];
-                                             TypeName = {Name = ["A"; "test"];
-                                                         GenericArguments = [];};},"b");
+                (Failure [AssignmentToReadOnlyFieldOnType ({Namespace = [];
+                                         Name = "A";
+                                         GenericParameters = [];
+                                         DeclaringType = None;
+                                             IsGenericParameter = false},"b");
    AssignmentToReadOnlyLocalField "b"]) ""                                   
         
         testCase "operator is applicable for type" <| fun _ ->
@@ -159,15 +170,16 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure  [
-                    OperatorNotApplicableForGivenTypes
-                         (Plus, {Namespace = [];
-                                TypeName = {Name = ["A"; "test"];
-                                            GenericArguments = [];};},
-                          {
-                            Namespace = [];
-                            TypeName = {Name = ["A"; "test"];
-                                   GenericArguments = [];};})]) ""
+                (Failure [OperatorNotApplicableForGivenTypes(
+                            Plus,{Namespace = [];
+                            Name = "A";
+                            GenericParameters = [];
+                            DeclaringType = None;
+                                             IsGenericParameter = false},{Namespace = [];
+                                                    Name = "A";
+                                                    GenericParameters = [];
+                                    DeclaringType = None;
+                                             IsGenericParameter = false})]) ""
         testCase "entry point" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -189,11 +201,13 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure [InvalidType
-     ("a",{Namespace = ["System"];
-           TypeName = {Name = ["Int32"];
-                       GenericArguments = [];};},
-      {Namespace = ["System"];
-       TypeName = {Name = ["String"];
-                   GenericArguments = [];};})]) ""
+                (Failure [InvalidType ("a",{Namespace = ["System"];
+                           Name = "Int32";
+                           GenericParameters = [];
+                           DeclaringType = None;
+                                             IsGenericParameter = false},{Namespace = ["System"];
+                                                   Name = "String";
+                                                   GenericParameters = [];
+                                                   DeclaringType = None;
+                                             IsGenericParameter = false})]) ""
     ]

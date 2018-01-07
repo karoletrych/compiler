@@ -5,18 +5,18 @@ open Compiler.CompilerResult
 open Compiler.TypeIdentifiersFinding
 open Compiler.TypeInference
 open Compiler.Ast
-open Compiler.ReferencedAssembliesMetadata
+open Compiler.ReferencedDllsMetadataRetriever
 open Compiler.TypeResolving
 open Compiler.TypeFinding
 
 [<Tests>]
 let tests =
   let infer src =
-    let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
-    >>= (fun modules -> inferTypes (modules, typesDictionary externals modules))
+    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
+    >>= (fun modules -> inferTypes (modules, find externals modules))
 
 
 
@@ -34,11 +34,15 @@ let tests =
                 (Result.failure 
                     (CannotInferBinaryExpressionType
                          ({Namespace = ["System"];
-                       TypeName = {Name = ["Int32"];
-                               GenericArguments = [];};},{
+                       Name = "Int32";
+                               GenericParameters = [];
+                               DeclaringType = None;
+                               IsGenericParameter = false},{
                         Namespace = ["System"];
-                       TypeName = {Name = ["Single"];
-                                   GenericArguments = [];};})))""
+                        Name = "Single";
+                                   GenericParameters = [];
+                                   DeclaringType = None;
+                               IsGenericParameter = false})))""
     testCase "recursive type inference fails" <| fun _ ->
         let inference = infer "
                 fun factorial (n : int) : int
@@ -51,12 +55,16 @@ let tests =
         Expect.equal inference 
             (Failure [FunctionTypeCannotBeInferred
                  ("factorial",[{Namespace = ["System"];
-                                TypeName = {Name = ["Int32"];
-                                            GenericArguments = [];};}]);
+                                Name = "Int32";
+                                            GenericParameters = [];
+                                            DeclaringType = None;
+                               IsGenericParameter = false}]);
                FunctionTypeCannotBeInferred
                  ("factorial",[{Namespace = ["System"];
-                                TypeName = {Name = ["Int32"];
-                                            GenericArguments = [];};}])]) ""
+                               Name = "Int32";
+                                            GenericParameters = [];
+                                            DeclaringType = None;
+                               IsGenericParameter = false}])]) ""
     testCase "basic types" <| fun _ ->
         let inference = infer @"
                 fun main 

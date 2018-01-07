@@ -4,16 +4,14 @@ open Expecto
 open Compiler.Ast
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeIdentifiersFinding
-open Compiler.ReferencedAssembliesMetadata
-open System.Reflection
+open Compiler.ReferencedDllsMetadataRetriever
 
 
 let resolve src = 
-    let externals = externalTypes [Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
+    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
 
 [<Tests>]
 let tests =
@@ -25,16 +23,20 @@ let tests =
         Expect.equal scanResult (
                 Result.succeed 
                     [{Identifier = {Namespace = [];
-                          TypeName = {Name = ["test"];
-                                      GenericArguments = [];};};
+                          Name = "test";
+                                      GenericParameters = [];
+                                      DeclaringType = None;
+                                      IsGenericParameter = false};
                     Functions = [{
                                    Name = "main";
                                    Parameters = [];
                                    ReturnType = None;
                                    Body = [
                                             StaticFunctionCallStatement(TypeIdentifier {Namespace = ["System"];
-                                                        TypeName = {Name = ["Console"];
-                                                                    GenericArguments = [];};},{
+                                                        Name = "Console";
+                                                         GenericParameters = [];
+                                                         DeclaringType = None;
+                                                         IsGenericParameter = false},{
                                                 Name = "WriteLine";
                                                  GenericArguments = [];
                                                  Arguments =
@@ -66,24 +68,31 @@ let tests =
             |> resolve
         Expect.equal scanResult (Result.succeed 
                 [{Identifier = {Namespace = [];
-                      TypeName = {
-                                    Name = ["test"];
-                                  GenericArguments = [];};};
+                                  Name = "test";
+                                  GenericParameters = [];
+                                  DeclaringType = None;
+                                  IsGenericParameter = false};
         Functions = [];
         Classes =
                  [{Identifier = {Namespace = [];
-                                 TypeName = {Name = ["A"; "test"];
-                                             GenericArguments = [];};};
+                                 Name = "A";
+                                 GenericParameters = []
+                                 DeclaringType = None;
+                                 IsGenericParameter = false};
                    BaseClass = None;
                    Fields = [];
                    Constructors = [];
                    Functions = [];};
                   {Identifier = {Namespace = [];
-                                 TypeName = {Name = ["B"; "test"];
-                                             GenericArguments = [];};};
+                                 Name = "B";
+                                 GenericParameters = [];
+                                 DeclaringType = None
+                                 IsGenericParameter = false};
                    BaseClass = Some (TypeIdentifier {Namespace = [];
-                                                     TypeName = {Name = ["A"; "test"];
-                                                                 GenericArguments = [];};});
+                                                     Name = "A";
+                                                      GenericParameters = [];
+                                                      DeclaringType = None
+                                                     IsGenericParameter = false});
                    Fields = [];
                    Constructors = [];
                    Functions =
@@ -93,8 +102,11 @@ let tests =
                       Body =
                        [StaticFunctionCallStatement
                           (TypeIdentifier {Namespace = [];
-                                           TypeName = {Name = ["A"; "test"];
-                                                       GenericArguments = [];};},
+                                           Name = "A";
+                                           GenericParameters = [];
+                                           DeclaringType = None
+                                           IsGenericParameter = false
+                                           },
                            {Name = "Foo";
                             GenericArguments = [];
                             Arguments = [];})];}];}];}]) ""

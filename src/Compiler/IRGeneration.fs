@@ -99,7 +99,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                         )
                         ]
         | MemberField(fieldName) -> 
-            convertExpression calleeExpression @ [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false})]
+             [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false; FieldType = exprType}, convertExpression calleeExpression)]
     | IdentifierExpression(i) -> loadFromIdentifier identifiers i
     | ListInitializerExpression(list) ->
         let add param = {
@@ -122,15 +122,20 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                 [],
                 args)]
         | MemberField f ->
-              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true } )]
-    | UnaryExpression(op, e) -> failwith "Not Implemented"
+              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true; FieldType = exprType}, []);]
+    | UnaryExpression(op, _) -> 
+        match op with
+        | Negate -> [Neg]
+        | LogicalNegate -> [LdcI4 0; Ceq]
     | LocalFunctionCallExpression(lfc) -> 
         [CallLocalMethod ({
                             MethodName = lfc.Name
                             Parameters = lfc.Arguments |> List.map getType
                             Context = context
                            },
-                           [],
+                           (match context with
+                            | Static -> [] 
+                            | Instance ->  [LdThis]),
                            (lfc.Arguments |> List.collect convertExpression))
             ]
 
@@ -142,33 +147,35 @@ let noRetInstruction instructions =
                           | Ret -> true
                           | RetValue _ -> true
                           | _ -> false))
-let rec private convertStatements isStatic identifiers statements : ILInstruction list =
-    let convertExpression = convertExpression identifiers isStatic
+let rec private convertStatements context identifiers statements : ILInstruction list =
+    let convertExpression = convertExpression identifiers context
     let rec generateIR (s : Statement<InferredTypeExpression>) =
         match s with
         | StaticFunctionCallStatement (t, method) -> 
-            let typeId = (Identifier.typeId t)
+            let typeId = Identifier.typeId t
             [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static},[], (method.Arguments |> List.collect convertExpression))]
         | AssignmentStatement(assignee, expr) -> 
             match assignee with
-            | MemberFieldAssignee (callee, i) -> failwith "TODO:"
-            | IdentifierAssignee i -> 
-                match storeToIdentifier identifiers i with
-                | Stfld f -> 
-                    [LdThis] @ convertExpression expr @ [Stfld f]
+            | MemberFieldAssignee (callee, fieldName) -> 
+                failwith "TODO:"
+            | IdentifierAssignee assignee -> 
+                match storeToIdentifier identifiers assignee with
+                | Stfld fieldName -> 
+                    [LdThis] @ convertExpression expr @ [Stfld fieldName]
                 | _ ->
                     convertExpression expr
-                    @ [storeToIdentifier identifiers i]
-        | BreakStatement -> failwith "Not Implemented"
+                    @ [storeToIdentifier identifiers assignee]
         | CompositeStatement(cs) -> cs |> List.collect generateIR
         | LocalFunctionCallStatement(lfc) -> 
             [CallLocalMethod 
                         ({
                             MethodName = lfc.Name
                             Parameters = lfc.Arguments |> List.map getType
-                            Context = Static
+                            Context = context
                            }, 
-                           [LdThis], 
+                           (match context with
+                            | Static -> [] 
+                            | Instance ->  [LdThis]), 
                            (lfc.Arguments |> List.collect convertExpression))]
         | IfStatement(expr, s, elseS) ->
             let elseLabel = randomInt()
@@ -246,7 +253,7 @@ let private findLocalVariables body : Variable list =
             declarationWithInitialization 
             declarationWithType 
             fullVariableDeclaration 
-            idFold idFold id idFold idFold idFold ifStatement
+            idFold idFold idFold idFold idFold ifStatement
                 [] (CompositeStatement body)
     variables
 

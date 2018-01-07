@@ -6,11 +6,10 @@ open Ast
 open AstProcessing
 open Types
 
-// TODO: Break -> no enclosing loop
 // TODO: Sprawdzanie cyklicznego dziedziczenia
-// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 // TODO: sprawdzenie wywolan konstruktorow klas bazowych
 // TODO: confilicting module, class, function, variable, field name
+// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
 
 type LocalVariable = {
     Name : string
@@ -56,13 +55,14 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
             match f.IsReadOnly with
             | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
             | false ->
-                match f.Type with
+                match f.TypeRef with
                 | GenericParameter _ -> failwith "not possible in InferLang"
                 | ConstructedType t -> 
                     if t <> (getType expr) 
                     then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
                     else 
                         acc
+                | GenericTypeDefinition(_) -> failwith "not possible"
         | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
     | MemberFieldAssignee (assignee, name) ->
         let t = getType assignee
@@ -72,7 +72,7 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
             | true -> 
                 {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
             | false ->
-                match f.Type with
+                match f.TypeRef with
                 | GenericParameter _ -> failwith ""
                 | ConstructedType t -> 
                     if t <> (getType expr) 
@@ -105,7 +105,7 @@ and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType 
     | LiteralExpression(_) -> []
     | InstanceMemberExpression(_, _) -> []
     | NewExpression(_, _) -> [] //TODO: []
-    | StaticMemberExpression(_, _) -> failwith "Not Implemented"
+    | StaticMemberExpression(_, _) -> []
     | UnaryExpression(_, _) -> failwith "Not Implemented"
 
 let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 
@@ -172,7 +172,6 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         fullVariableDeclaration 
         returnStatement 
         assignmentStatement 
-        id 
         ifExpression 
         whileStatement 
         idFold 
@@ -204,7 +203,7 @@ let singleEntryPointExists (modules : Module<InferredTypeExpression> list)=
             |> List.collect (fun m -> m.Functions |> List.where (fun f -> f.Name = "main"))
     entryPoints |> List.length = 1
 
-let semanticCheck 
+let check 
     checkForEntryPoint
     (modules : Ast.Module<InferredTypeExpression> list, types : Map<TypeIdentifier, Types.Type>) =
 

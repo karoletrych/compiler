@@ -1,25 +1,17 @@
 module Compiler.Compiler
 
 open CompilerResult
-open Parser
-open TypeResolving
-open TypeInference
-open ReferencedAssembliesMetadata
-open TypeIdentifiersFinding
-open TypeFinding
-open SemanticCheck
-open IRGeneration
 
 let compile 
     source
     referencedAssemblies 
     isExe =
 
-    let externalTypes = externalTypes referencedAssemblies
+    let externalTypes = ReferencedDllsMetadataRetriever.getExternalTypes referencedAssemblies
     source 
-    |> parseModules
-    >>= (fun modules -> resolve (modules, typeIdentifiers externalTypes modules))
-    >>= (fun modules -> inferTypes (modules, typesDictionary externalTypes modules))
-    >>= semanticCheck isExe
-    |> Result.map generateIR
+    |> Parser.parseModules
+    >>= (fun modules -> TypeResolving.resolve (modules, TypeIdentifiersFinding.find externalTypes modules))
+    >>= (fun modules -> TypeInference.inferTypes (modules, TypeFinding.find externalTypes modules))
+    >>= SemanticCheck.check isExe
+    |> Result.map IRGeneration.generateIR
     

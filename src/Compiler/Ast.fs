@@ -61,7 +61,6 @@ and Parameter = string * TypeSpec
 
 and Statement<'Expression> =
 | AssignmentStatement of Assignee<'Expression> * 'Expression
-| BreakStatement
 | CompositeStatement of Statement<'Expression> list
 | LocalFunctionCallStatement of FunctionCall<'Expression>
 | IfStatement of 'Expression * Statement<'Expression> * Statement<'Expression> option
@@ -139,11 +138,6 @@ and  Namespace = {
     Parts : string list
 }
 
-and TypeName = {
-    Name : string list
-    GenericArguments : TypeIdentifier list
-}
-
 and Module<'Expression> = {
     Identifier : TypeIdentifier
     Functions : Function<'Expression> list
@@ -157,36 +151,65 @@ and ModuleClass<'Expression> = {
     Constructors : Constructor<'Expression> list
     Functions : Function<'Expression> list
 }
+and GenericParameter =
+| DeclaredInParameterizedType
+| DeclaredInOtherType of TypeIdentifier
+| GenericArgument of TypeIdentifier
 
 and TypeIdentifier = {
     Namespace : string list
-    TypeName : TypeName
+    Name : string
+    GenericParameters : GenericParameter list
+    DeclaringType : TypeIdentifier option
+    IsGenericParameter : bool
 } 
 with override ti.ToString() =
+        let getName tId =
+            let rec getNameRec tId =
+                match tId.DeclaringType with
+                | Some t -> getNameRec t @ [t.Name]
+                | None -> [tId.Name]
+            (
+            getNameRec tId 
+            |> List.toArray 
+            |> (fun segments -> System.String.Join("+", segments))
+            )
+            
         match ti.Namespace with
         | [] -> ""
         | ns -> 
             (ns |> List.rev |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
-      + (ti.TypeName.Name |> List.rev |> List.toArray |> (fun parts -> System.String.Join("+",  parts)))
-      + if List.isEmpty ti.TypeName.GenericArguments
+      + getName ti
+      + if List.isEmpty ti.GenericParameters
         then ""
-        else "`" + (List.length ti.TypeName.GenericArguments).ToString() + "[" + (ti.TypeName.GenericArguments |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
+        else "[" + (ti.GenericParameters |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
+let getGenericArgument (genericParameter : GenericParameter) =
+    let (GenericArgument arg) = genericParameter
+    arg
 
 module Identifier = 
     let rec fromDotNet (t : System.Type) = {
         Namespace = t.Namespace |> fun ns -> ns.Split('.') |> List.ofArray |> List.rev
-        TypeName = 
-        {
-            Name =  [ (
-                        if t.Name.Contains("`") 
-                        then t.Name.Substring(0, t.Name.LastIndexOf("`"))
-                        else t.Name) ]
-            GenericArguments = 
-                if t.IsGenericTypeDefinition 
-                then t.GetGenericArguments() |> List.ofArray |> List.map fromDotNet 
-                else []
-        }
+        Name =  t.Name
+        GenericParameters = 
+            if t.IsGenericType
+            then t.GetGenericArguments() 
+                |> List.ofArray  
+                |> List.map (fun parameter -> 
+                                if (isNull parameter.DeclaringType)
+                                then
+                                    GenericArgument (fromDotNet parameter)
+                                else
+                                    if parameter.DeclaringType = t
+                                    then DeclaredInParameterizedType
+                                    else DeclaredInOtherType (fromDotNet parameter.DeclaringType))
+            else []
+        DeclaringType = 
+            if not (t.DeclaringType |> isNull)
+            then Some (fromDotNet t.DeclaringType)
+            else None 
+        IsGenericParameter = t.IsGenericParameter
     } 
 
     let object = fromDotNet typeof<obj> 
@@ -197,14 +220,12 @@ module Identifier =
     let char = fromDotNet typeof<char>
     let double = fromDotNet typeof<double>
     let ``void`` = fromDotNet typeof<System.Void>
-    let listOf t = 
+    let listOf (t : TypeIdentifier) = 
         let objList =  fromDotNet typeof<System.Collections.Generic.List<obj>>
-        { objList 
-            with TypeName = 
-                            {
-                            Name = objList.TypeName.Name;
-                            GenericArguments = [t]
-                            }}
+        { 
+            objList 
+                with GenericParameters = [GenericArgument t]
+        }
     let rec fromTypeSpec (typeSpec : TypeSpec) = 
         let builtInTypeSpec =
             function
@@ -219,37 +240,39 @@ module Identifier =
         match typeSpec with
         | BuiltInTypeSpec bits -> builtInTypeSpec bits
         | CustomTypeSpec (ns, cts) -> 
-        {
-            Namespace = ns |> List.rev
-            TypeName = 
             {
-                Name = cts |>  (fun t -> [t.Name]);
-                GenericArguments = cts |> (fun t -> t.GenericArgs |> List.map fromTypeSpec)
+                Namespace = ns |> List.rev
+                Name = cts.Name + if List.isEmpty cts.GenericArgs then "" else "`" + (List.length cts.GenericArgs).ToString()
+                GenericParameters = cts.GenericArgs |> List.map (fun ts -> GenericArgument (fromTypeSpec ts))
+                DeclaringType = None
+                IsGenericParameter = false
             }
-        }
-        | TypeIdentifier(i) -> i
+        | TypeIdentifier(i) -> 
+            i
 
     let typeId = 
         function 
         | TypeIdentifier ti  -> ti
         | BuiltInTypeSpec(_) -> failwith "Invalid operation"
         | CustomTypeSpec _ -> failwith "Invalid operation"
-    let equalWithoutGeneric t1 t2 = 
-        t1.Namespace = t2.Namespace && t1.TypeName.Name = t2.TypeName.Name
-    let withoutGenerics t1 = 
-        {Namespace = t1.Namespace; TypeName = {Name = t1.TypeName.Name; GenericArguments = []}}
-
-
+    let rec equalWithoutGeneric t1 t2 = 
+        t1.Namespace = t2.Namespace
+     && t1.Name = t2.Name
+     && match (t1.DeclaringType, t2.DeclaringType) with
+                        | Some t1DeclaringType, Some t2DeclaringType -> equalWithoutGeneric t1DeclaringType t2DeclaringType
+                        | None, None -> true
+                        | _ -> false
+    
 module Module =
     let create (moduleNamespace : string list) declarations =
         let nspace = moduleNamespace |> List.rev
         let identifier = 
             {
                 Namespace = nspace.Tail;
-                TypeName = {
-                            Name = [nspace.Head];
-                            GenericArguments = []
-                           }
+                Name = nspace.Head;
+                GenericParameters = [];
+                DeclaringType = None;
+                IsGenericParameter = false
             }
         let functions = 
             declarations 
@@ -259,20 +282,19 @@ module Module =
                     | _ -> None)
         let classes = 
             declarations 
-            |> List.choose (fun m ->
-                match m with
+            |> List.choose (fun declaration ->
+                match declaration with
                 | ClassDeclaration c -> Some c
                 | _ -> None)
             |> List.map (fun c -> 
             {
                 Identifier = 
-                    {identifier 
-                        with TypeName = 
-                             {
-                                identifier.TypeName 
-                                with Name = 
-                                        c.Name :: identifier.TypeName.Name
-                             }
+                    {
+                        Name = c.Name
+                        DeclaringType = Some identifier
+                        GenericParameters = []
+                        Namespace = nspace.Tail
+                        IsGenericParameter = false
                      }
                 BaseClass = c.BaseClass
                 Fields = c.Fields
@@ -284,7 +306,6 @@ module Module =
             Functions = functions
             Classes = classes
         }
-    let createDefault declarations = create (["DEFAULT"]) declarations 
 
 let operatorMethodName =
     function

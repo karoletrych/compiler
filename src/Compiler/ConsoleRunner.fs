@@ -34,7 +34,7 @@ let writeOutputMessage errors =
     printfn "%s" (toString errors)
 
 let baseDirectory =
-    Environment.CurrentDirectory + string Path.DirectorySeparatorChar
+    Directory.GetParent(Assembly.GetExecutingAssembly().Location).FullName + string Path.DirectorySeparatorChar
 
 let makeRelativePath path= 
     path
@@ -47,6 +47,7 @@ let makeRelativePath path=
     )
 let getInputFiles () =
     printfn "No input files specified. Searching for .ifr files:"
+    printfn "Base directory: %s" baseDirectory
     let files = 
         Directory.GetFiles(baseDirectory, "*.ifr", SearchOption.AllDirectories)
         |> Array.map makeRelativePath

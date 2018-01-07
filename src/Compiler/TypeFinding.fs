@@ -38,31 +38,32 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                      Type = Identifier.fromTypeSpec t |> ConstructedType
                     });
             }
-        {
-            BaseType = (match declaredType.BaseClass with
+        let baseType = 
+            (match declaredType.BaseClass with
                        | Some t -> t
                        | None -> TypeIdentifier Identifier.object)
-                       |> getType |> Some;
+                       |> getType
+        {
+            BaseType = Some baseType;
             DeclaredConstructors = declaredType.Constructors |> List.map createConstructor;
             Fields = declaredType.Fields 
                      |> List.map (fun field -> 
                          ({FieldName = field.Name; 
-                           Type = Identifier.fromTypeSpec field.Type |> ConstructedType; 
+                           TypeRef = Identifier.fromTypeSpec field.Type |> ConstructedType; 
                            IsStatic = false
                            IsReadOnly = field.IsReadOnly}))
             Identifier = declaredType.Identifier;
             GenericParameters = []
             ImplementedInterfaces = []
-            Methods = declaredType.Functions 
-                      |> List.map (createFunctionSignature false)
-                      |> List.append (knownTypes.[Identifier.object]).Methods
+            Methods = (declaredType.Functions |> List.map (createFunctionSignature false))
+                    @ baseType.Methods
             NestedTypes = []
             IsStatic = false
         }
     modul.Classes 
         |> List.map createTypeFromClassDeclaration
 
-let moduleType (knownTypes : Map<TypeIdentifier, Type>) (modul : Module<AstExpression>) :Types.Type = 
+let moduleType (modul : Module<AstExpression>) classes : Types.Type = 
     {
         BaseType = None
         DeclaredConstructors = []
@@ -70,16 +71,16 @@ let moduleType (knownTypes : Map<TypeIdentifier, Type>) (modul : Module<AstExpre
         Identifier = modul.Identifier
         GenericParameters = [] 
         ImplementedInterfaces = []
-        Methods = modul.Functions 
-                  |> List.map (createFunctionSignature true)
-                  |> List.append (knownTypes.[Identifier.object]).Methods
-        NestedTypes = []
+        Methods = modul.Functions |> List.map (createFunctionSignature true)
+        NestedTypes = classes
         IsStatic = true
     }
-let typesDictionary externalTypes (modules : Module<AstExpression> list) =
+let find externalTypes (modules : Module<AstExpression> list) =
     let withNames (types : Type list) = 
         types |> (List.map (fun c -> (c.Identifier, c)) >> Map.ofList)
     modules    
-    |> List.collect (fun m -> (moduleType externalTypes m) :: findTypesInModule externalTypes m)
+    |> List.collect (fun m -> 
+        moduleType m (findTypesInModule externalTypes m) 
+     :: findTypesInModule externalTypes m)
     |> withNames
     |> Map.union externalTypes

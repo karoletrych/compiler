@@ -1,6 +1,25 @@
+module Dict
+
+class A
+{
+    val _name : string
+
+    construct(name : string)
+    {
+        _name = name;
+    }
+}
+
 fun main
 {
-    var list = ["123"; "321"];
-    var list2 = [1;2;3];
+    val dict = new System::Collections::Generic::Dictionary<int,string>();
+    dict.Add(1, "one");
+    dict.Add(2, "two");
+    dict.Add(4, "four");
 
+    System::Console:.WriteLine(dict.get_Item(1));
+
+    val dict2 = new System::Collections::Generic::Dictionary<int, A>();
+    dict2.Add(1, new A("one"));
+    System::Console:.WriteLine(dict2.get_Item(1)._name);
 }

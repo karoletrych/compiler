@@ -5,16 +5,16 @@ open Compiler.Parser
 open Compiler.CompilerResult
 open Compiler.TypeIdentifiersFinding
 open Compiler.TypeResolving
-open Compiler.ReferencedAssembliesMetadata
+open Compiler.ReferencedDllsMetadataRetriever
 open Compiler.TypeFinding
 
 
 let findTypes src = 
-    let externals = externalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, typeIdentifiers externals modules))
-    |> Result.map (typesDictionary externals)
+    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
+    |> Result.map (find externals)
     |> Result.get
 
 [<Tests>]

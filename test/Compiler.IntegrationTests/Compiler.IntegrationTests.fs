@@ -27,15 +27,15 @@ let withCorrespondingOutput input =
                         Path.GetFileNameWithoutExtension(f) = Path.GetFileNameWithoutExtension(input))
 
 let readFiles (input, output) = ({Path = input; Code = File.ReadAllText input}, File.ReadAllText output)
-let mscorlib = [Assembly.GetAssembly(typeof<obj>)]
-let compile input = compile [input] mscorlib true
+let dlls = [Assembly.GetAssembly(typeof<obj>); Assembly.LoadFile(@"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2\System.Drawing.dll")]
+let compile input = compile [input] dlls true
 let generateAssembly (irResult : CompilerResult<IR.Module list>)=
     let ir = irResult.Value
     File.WriteAllText(Path.Combine(exePath, "ir.fsx"),(sprintf "%A" ir))
 
     let assemblyBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(
                             AssemblyName("a"), AssemblyBuilderAccess.RunAndSave)
-    generateAssembly assemblyBuilder mscorlib ir true
+    generateAssembly assemblyBuilder dlls ir true
     assemblyBuilder
 
 let execute (assemblyBuilder : AssemblyBuilder) =
@@ -66,16 +66,16 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    // if testName = "dictionary.ifr"
-    // then ftestCase testName (fun _ -> 
-    //     let output = test()
-    //     Expect.equal output expectedOutput testName)
-    // else testCase testName (fun _ -> 
-    //     let output = test()
-    //     Expect.equal output expectedOutput testName)
+    if testName = "drawing.ifr"
+    then ftestCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
+    else testCase testName (fun _ -> 
+        let output = test()
+        Expect.equal output expectedOutput testName)
 
-    let output = test()
-    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    // let output = test()
+    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 let allTests = 
     (testFiles 

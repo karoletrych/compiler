@@ -10,34 +10,47 @@ let mergeOptions options =
                       then list |> List.map Option.get |> Some
                       else None
 
-let localTypeIsEqual specifiedType knownType =
-    specifiedType.TypeName.Name.Head = knownType.TypeName.Name.Head
-let typeIsEqual specifiedType knownType =
-    let equals1 = specifiedType = knownType
-    let equals2 = 
-        specifiedType.Namespace = (knownType.TypeName.Name |> List.tail) @ knownType.Namespace && 
-        List.head specifiedType.TypeName.Name = List.head knownType.TypeName.Name
-    equals1 || equals2
+let localTypeIsEqual (specifiedType, knownType) =
+    specifiedType.Name = knownType.Name
+let typeIsEqual (specifiedType, knownType) =
+    match knownType.DeclaringType with
+    | Some knownTypeModule ->
+        // knownType is a nested type
+        // apply type resolution which is substituting "::" with "+"
+        specifiedType.Namespace = knownTypeModule.Name :: knownType.Namespace 
+     && specifiedType.Name = knownType.Name
+    | None ->
+        specifiedType.Namespace = knownType.Namespace 
+     && specifiedType.Name = knownType.Name
 
 let rec resolveTypeIdentifier 
     types
     (currentTypeId : TypeIdentifier)
     tId =
     let resolveTypeIdentifier = resolveTypeIdentifier types currentTypeId
-    let typesInCurrentModule =
-        types
-        |> List.filter 
-            (fun id -> id.Namespace = currentTypeId.Namespace)
-    tId.TypeName.GenericArguments 
-        |> List.map resolveTypeIdentifier
+    // local types depending on whether current type is class or module
+    let typesInLocalScope =
+        match currentTypeId.DeclaringType with
+        // class
+        | Some m -> 
+                types
+                |> List.filter (fun id -> 
+                    id.Namespace = currentTypeId.Namespace && id.DeclaringType = Some m)
+        // module
+        | None ->
+                types
+                |> List.filter (fun id -> 
+                    id.Namespace = currentTypeId.Namespace && id.DeclaringType = Some currentTypeId)
+
+    tId.GenericParameters 
+        |> List.map (getGenericArgument >> resolveTypeIdentifier >> Option.map GenericArgument)
         |> mergeOptions
-        |> Option.bind 
-            (fun generics ->
-                typesInCurrentModule 
-                |> List.tryFind(fun x -> localTypeIsEqual tId x)
-                |> Option.orElse (types |> List.tryFind(fun x -> typeIsEqual tId x))
+        |> Option.bind (fun generics ->
+                typesInLocalScope 
+                |> List.tryFind(fun x -> localTypeIsEqual (tId, x))
+                |> Option.orElse (types |> List.tryFind(fun x -> typeIsEqual (tId, x)))
                 |> Option.map (fun t ->
-                    {t with TypeName = {t.TypeName with GenericArguments = generics}}
+                    {t with GenericParameters = generics}
                 ))
 
 let private resolveTypeSpec 
@@ -120,7 +133,6 @@ let private resolveStatement resolveExpression resolveType statement =
     let returnStatement e = (Result.mapOption resolveExpression e) |> Result.map (fun e -> ReturnStatement(e)) 
     let assignment ((e1, i), e2) = (resolveExpression e1, resolveExpression e2) ||> Result.map2 (fun e1 e2 -> AssignmentStatement(MemberFieldAssignee(e1,i), e2)) 
     let identifierAssignment (i, e2) = (resolveExpression e2) |> Result.map (fun e2 -> AssignmentStatement(IdentifierAssignee(i), e2)) 
-    let breakStatement = Result.succeed BreakStatement
     let ifStatement (e,s,elseS) = 
         match elseS with
         | Some elseS ->
@@ -148,7 +160,6 @@ let private resolveStatement resolveExpression resolveType statement =
         returnStatement
         identifierAssignment
         assignment
-        breakStatement
         ifStatement
         whileStatement
         instanceFunctionCall
@@ -197,20 +208,20 @@ let private resolveClass resolveTypeSpec resolveExpression resolveStatement reso
                      |> Result.merge
     let constructors = clas.Constructors 
                       |> List.map (fun c -> 
-                                let parameters = 
-                                    c.Parameters 
-                                    |> List.map (resolveParameters resolveTypeSpec)
-                                    |> Result.merge
-                                let baseClassConstructorCall = 
-                                    c.BaseClassConstructorCall 
-                                    |> List.map resolveExpression 
-                                    |> Result.merge
-                                let statements = 
-                                    c.Body 
-                                    |> List.map resolveStatement
-                                    |> Result.merge
-                                (parameters, baseClassConstructorCall, statements)
-                                |||> Result.map3 (fun p b s -> {Parameters = p; BaseClassConstructorCall = b; Body = s})
+                            let parameters = 
+                                c.Parameters 
+                                |> List.map (resolveParameters resolveTypeSpec)
+                                |> Result.merge
+                            let baseClassConstructorCall = 
+                                c.BaseClassConstructorCall 
+                                |> List.map resolveExpression 
+                                |> Result.merge
+                            let statements = 
+                                c.Body 
+                                |> List.map resolveStatement
+                                |> Result.merge
+                            (parameters, baseClassConstructorCall, statements)
+                            |||> Result.map3 (fun p b s -> {Parameters = p; BaseClassConstructorCall = b; Body = s})
                        )
                        |> Result.merge
     let functionDeclarations = 

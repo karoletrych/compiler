@@ -10,7 +10,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="CompilerResult.fs" />
     <Compile Include="Parser.fs" />
-    <Compile Include="ReferencedAssembliesMetadata.fs" />
+    <Compile Include="ReferencedDllsMetadataRetriever.fs" />
     <Compile Include="TypeIdentifiersFinding.fs" />
     <Compile Include="TypeResolving.fs" />
     <Compile Include="TypeFinding.fs" />

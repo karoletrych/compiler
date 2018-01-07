@@ -4,9 +4,13 @@ open System.Reflection
 open IR
 open Ast
 
+
 let findGenericTypeDefinition (types : Map<TypeIdentifier, System.Type>) id =
    types
-   |> Map.pick (fun k v -> if k.Namespace = id.Namespace && k.TypeName.Name = id.TypeName.Name  && List.length k.TypeName.GenericArguments = List.length id.TypeName.GenericArguments then Some v else None)
+   |> Map.pick (fun k v -> 
+                    if Identifier.equalWithoutGeneric k id
+                    then Some v 
+                    else None)
 
 type TypeBuilderWrapper = {
     MethodBuilders : Map<IR.MethodRef, MethodBuilder>
@@ -20,7 +24,7 @@ type TypeTable = {
     ExternalTypes : Map<TypeIdentifier, System.Type>
 }
 let rec findType this id : System.Type = 
-    match id.TypeName.GenericArguments with
+    match id.GenericParameters with
     | [] ->
         this.TypeBuilders 
         |> Map.tryFind id 
@@ -29,7 +33,7 @@ let rec findType this id : System.Type =
            | None -> (this.ExternalTypes |> Map.find id)
     | generics ->
         let t = findGenericTypeDefinition this.ExternalTypes id
-        let genericArgs = generics |> List.map (findType this)
+        let genericArgs = generics |> List.map (getGenericArgument >> findType this)
         t.MakeGenericType(genericArgs |> List.toArray)
                 
  
@@ -46,18 +50,19 @@ let isBeingBuilt (t : System.Type)  =
     | :? TypeBuilder -> true
     | _ -> false
 
+    
 let rec findFilledType this id : System.Type = 
-    match id.TypeName.GenericArguments with
+    match id.GenericParameters with
     | [] ->
         this.FilledTypeBuilders 
         |> Map.tryFind id 
         |> function 
            | Some t -> t.TypeBuilder :> System.Type 
-           | None -> (this.ExternalTypes |> Map.find id)
+           | None -> this.ExternalTypes |> Map.find id
     | generics ->
-        let t = findGenericTypeDefinition this.ExternalTypes id
-        let genericArgs = generics |> List.map (findFilledType this)
-        t.MakeGenericType(genericArgs |> List.toArray)
+        let unboundType = findGenericTypeDefinition this.ExternalTypes id
+        let genericArgs = generics |> List.map (getGenericArgument >> findFilledType this)
+        unboundType.MakeGenericType(genericArgs |> List.toArray)
 let rec findMethod this tId (methodRef : MethodRef) = 
     let bindingFlags =
         match methodRef.Context with
@@ -74,19 +79,26 @@ let rec findMethod this tId (methodRef : MethodRef) =
             let baseClassMethod = findMethod this (Identifier.fromDotNet tb.TypeBuilder.BaseType) methodRef
             baseClassMethod
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericParameters)) && tId.GenericParameters |> List.exists (fun tId -> findFilledType this (getGenericArgument tId) |> isBeingBuilt)
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
             let methodRef = unboundType.GetMethod(methodRef.MethodName)
-            //TODO: ^^^ only name?
-            TypeBuilder.GetMethod(t, methodRef)
+            //^^^ only by name?
+            let method = TypeBuilder.GetMethod(t, methodRef)
+            if isNull method then
+                failwithf "Method: %A not found" methodRef
+            method
         else
-            t.GetMethod(methodRef.MethodName,
+            let method = t.GetMethod(methodRef.MethodName,
                                 bindingFlags,
                                 null,
                                 methodRef.Parameters 
                                     |> List.map(findFilledType this) |> List.toArray,
                                 null)
+            if isNull method then
+                failwithf "Method: %A not found" methodRef
+            method
+
 let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list) : ConstructorInfo =
     let t = findFilledType this tId
     match isBeingBuilt t with
@@ -98,7 +110,8 @@ let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list)
             |> Map.find argTypes
         constructorBuilder :> ConstructorInfo
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericParameters)) 
+            && tId.GenericParameters |> List.exists (fun tId -> findFilledType this (getGenericArgument tId) |> isBeingBuilt)
         // external nongeneric type
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
@@ -125,7 +138,8 @@ let rec findFieldOrProperty this tId fieldRef =
             let baseClassMethod = (findFieldOrProperty this) (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
             baseClassMethod
     | false ->
-        if (not (List.isEmpty tId.TypeName.GenericArguments)) && tId.TypeName.GenericArguments |> List.exists (fun tId -> findFilledType this tId |> isBeingBuilt)
+        if (not (List.isEmpty tId.GenericParameters)) 
+                && tId.GenericParameters |> List.exists (fun tId -> findFilledType this (getGenericArgument tId) |> isBeingBuilt)
         then
             let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
             let dotnetField = unboundType.GetField(fieldRef.FieldName)
@@ -172,18 +186,40 @@ let rec emitInstruction
                 label, acc.Labels.Add(l, label)
         foo (fst result)
         {acc with Labels = snd result}
+    let generateCallee 
+        (variables : Map<string, LocalBuilder>) 
+        (il : ILGenerator) 
+        (variableTypeInfo : System.Type)
+        (calleeInstructions) = 
+        let localVariable = 
+            let variableName = 
+                if calleeInstructions |> List.length <> 1 
+                then None
+                else
+                    match calleeInstructions.[0] with
+                    | Ldarg a -> Some a
+                    | Ldloc l -> Some l
+                    | _ -> None
+            variableName |> Option.bind (fun v -> variables |> Map.tryFind v)
+
+        match variableTypeInfo.IsValueType, localVariable with
+        | true, Some variableName -> 
+            il.Emit(OpCodes.Ldloca, variableName);
+        | true, None ->
+            calleeInstructions |> List.iter (emitInstruction >> ignore)
+            let v = il.DeclareLocal(variableTypeInfo)
+            il.Emit(OpCodes.Stloc, v);
+            il.Emit(OpCodes.Ldloca, v);
+        | _ ->
+            calleeInstructions |> List.iter (emitInstruction >> ignore)
+
+    let random = System.Random()
+    let randomInt () = random.Next()
+
     let callMethod t (methodRef : MethodRef) calleeInstructions argsInstructions = 
         let typeInfo = findFilledType typesTable t
 
-        if methodRef.Context = Instance
-            then
-                calleeInstructions |> List.iter (emitInstruction >> ignore)
-
-        if typeInfo.IsValueType
-        then
-            let loc = il.DeclareLocal(typeInfo)
-            il.Emit(OpCodes.Stloc, loc);
-            il.Emit(OpCodes.Ldloca, loc);
+        generateCallee methodInfo.Variables il typeInfo calleeInstructions
 
         argsInstructions |> List.iter (emitInstruction >> ignore)
 
@@ -204,21 +240,15 @@ let rec emitInstruction
         l |> useLabel (fun label -> il.Emit(OpCodes.Brfalse, label))
     | Brtrue(l) -> 
         l |> useLabel (fun label -> il.Emit(OpCodes.Brtrue, label))
+    
     | other -> 
     other |> function
     | Add -> il.Emit(OpCodes.Add)
-    | CallMethod(t, methodRef, callee, args) -> 
-        callMethod t methodRef callee args
-    | CallLocalMethod(methodRef, callee, args) -> 
-        callMethod methodInfo.OwnerClassType methodRef callee args
-    | GetExternalField (t, fieldRef) ->
-        let field = findFieldOrProperty typesTable t fieldRef
-        match field with
-        | Property p -> il.Emit(OpCodes.Call, p)
-        | Field f -> 
-                match fieldRef.IsStatic with
-                | true -> il.Emit(OpCodes.Ldsfld, f)
-                | false -> il.Emit(OpCodes.Ldfld, f)
+    | CallMethod(t, methodRef, calleeInstructions, argsInstructions) -> 
+        callMethod t methodRef calleeInstructions argsInstructions
+    | CallLocalMethod(methodRef, calleeInstructions, argsInstructions) -> 
+        callMethod methodInfo.OwnerClassType methodRef calleeInstructions argsInstructions
+    
     | Ceq        -> il.Emit(OpCodes.Ceq)
     | Cgt        -> il.Emit(OpCodes.Cgt)
     | Clt        -> il.Emit(OpCodes.Clt)
@@ -258,17 +288,35 @@ let rec emitInstruction
         match methodInfo.Context with
         | Static -> il.Emit(OpCodes.Ldarg, argIndex)
         | Instance -> il.Emit(OpCodes.Ldarg, argIndex + 1)
-        // TODO: Inherited properties
-    | Ldfld(field) -> 
-        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
+    | Ldfld(field) -> // Field type is not important when looking for it so we supply Identifier.object
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false; FieldType = Identifier.object}
         il.Emit(OpCodes.Ldfld, field)
     | Stfld(field) -> 
-        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false}
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = false; FieldType = Identifier.object}
         il.Emit(OpCodes.Stfld, field)
     | Stsfld(field) -> 
-        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = true}
+        let field = findField typesTable methodInfo.OwnerClassType {FieldName = field; IsStatic = true; FieldType = Identifier.object}
         il.Emit(OpCodes.Stfld , field)
     | LdThis -> il.Emit(OpCodes.Ldarg_0)
+    | GetExternalField (t, fieldRef, calleeInstructions) ->
+        let field = findFieldOrProperty typesTable t fieldRef
+        match field with
+        | Property p -> 
+            match fieldRef.IsStatic with
+            | true -> 
+                il.Emit(OpCodes.Call, p)
+            | false -> 
+                let typeInfo = findFilledType typesTable t
+                generateCallee methodInfo.Variables il typeInfo calleeInstructions
+                il.Emit(OpCodes.Call, p)
+        | Field f -> 
+            match fieldRef.IsStatic with
+            | true -> 
+                il.Emit(OpCodes.Ldsfld, f)
+            | false -> 
+                let typeInfo = findFilledType typesTable t
+                generateCallee methodInfo.Variables il typeInfo calleeInstructions
+                il.Emit(OpCodes.Ldfld, f)
     | Br(_) -> failwith "covered above"
     | Brfalse(_) -> failwith "covered above"
     | Brtrue(_) -> failwith "covered above"
@@ -358,7 +406,7 @@ let getExternalTypes =
     >> Map.ofList
 
 let defineClassType (mb : TypeBuilder) (t : IR.Class) : TypeBuilder =
-    mb.DefineNestedType(t.Identifier.TypeName.Name |> List.head, TypeAttributes.Class ||| TypeAttributes.NestedPublic)
+    mb.DefineNestedType(t.Identifier.Name, TypeAttributes.Class ||| TypeAttributes.NestedPublic)
 let defineModuleType (mb : ModuleBuilder) (m : IR.Module) : TypeBuilder =
     mb.DefineType(m.Identifier.ToString(), TypeAttributes.Class ||| TypeAttributes.Public)
 

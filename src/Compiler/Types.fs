@@ -18,11 +18,12 @@ type Type =
 and TypeRef =
 | ConstructedType of TypeIdentifier
 | GenericParameter of GenericParameterInfo
+| GenericTypeDefinition of TypeIdentifier
 
 and GenericParameterInfo = GenericTypeDeclarationPlace * int
 and GenericTypeDeclarationPlace =
-| Class of TypeIdentifier
-| Method of TypeIdentifier * string
+| Class 
+| Method 
 
 
 and Function = { 
@@ -43,7 +44,7 @@ and Parameter = {
 }
 
 and Field = { 
-    Type : TypeRef 
+    TypeRef : TypeRef 
     FieldName : string 
     IsStatic : bool 
     IsReadOnly : bool
