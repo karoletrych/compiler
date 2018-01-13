@@ -16,10 +16,11 @@ type SemanticCheckState = {
     LocalVariables : LocalVariable list
     Errors : Error list
 }
-with static member (+) (s1,s2) = {
+with 
+    static member (+) (s1,s2) = {
         LocalVariables = s1.LocalVariables @ s2.LocalVariables
         Errors = s1.Errors @ s2.Errors
-}
+    }
 let initialState = {
     LocalVariables = []
     Errors = []
@@ -63,14 +64,14 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
                     else 
                         acc
                 | GenericTypeDefinition(_) -> failwith "not possible"
-        | _ -> {acc with Errors = UndefinedVariable name :: acc.Errors}
+        | _ -> {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
     | MemberFieldAssignee (assignee, name) ->
         let t = getType assignee
         match name with
         | Field types t f -> 
             match f.IsReadOnly with
             | true -> 
-                {acc with Errors = AssignmentToReadOnlyFieldOnType(t, name) :: acc.Errors}
+                {acc with Errors = AssignmentToReadOnlyField(t, name) :: acc.Errors}
             | false ->
                 match f.TypeRef with
                 | GenericParameter _ -> failwith ""
@@ -78,9 +79,9 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
                     if t <> (getType expr) 
                     then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
                     else 
-                        {acc with Errors = UndefinedVariable name :: acc.Errors}
+                        {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
         | _ ->
-            {acc with Errors = UndefinedVariable name :: acc.Errors}
+            {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
 
 and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType acc =
     function

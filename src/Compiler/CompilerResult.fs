@@ -10,14 +10,17 @@ type Error =
 | VariableAlreadyDefined of string
 | TypeNotFound of TypeSpec
 | FunctionNotFound of calleeType : TypeIdentifier * name : string * arguments : TypeIdentifier list * genericArguments : TypeSpec list
+| ReturnTypeNeedsToBeSpecified of TypeIdentifier * string * TypeIdentifier list * TypeSpec list
+| FunctionTypeCannotBeInferred of string * TypeIdentifier list
 | FieldNotFound of TypeIdentifier * string
 | CannotInferBinaryExpressionType of TypeIdentifier * TypeIdentifier
+| UndefinedVariableOrField of string
 | NonBooleanExpressionInWhileStatement of TypeIdentifier
 | NonBooleanExpressionInIfStatement of TypeIdentifier
 | InvalidType of name : string * t : TypeIdentifier * expected : TypeIdentifier
 | AssignmentToReadOnlyVariable of name : string
 | AssignmentToReadOnlyLocalField of name : string
-| AssignmentToReadOnlyFieldOnType of TypeIdentifier * string
+| AssignmentToReadOnlyField of TypeIdentifier * string
 | NoEntryPointOrMoreThanOne
 | OperatorNotApplicableForGivenTypes of BinaryOperator * TypeIdentifier * TypeIdentifier
 | NotSupported of string
@@ -36,17 +39,20 @@ let toString (errors : Error list) =
             | FunctionNotFound(t, name, args, generics) -> 
                 let generics = System.String.Join(",", (generics |> List.toArray|> Array.map (fun t->t.ToString())))
                 t.ToString() + "::" + name + "<" + generics + ">" + "(" + argsToString args + ")"
+            | ReturnTypeNeedsToBeSpecified(t, name, args, generics) -> 
+                let generics = System.String.Join(",", (generics |> List.toArray|> Array.map (fun t->t.ToString())))
+                t.ToString() + "::" + name + "<" + generics + ">" + "(" + argsToString args + ")"
             | FunctionTypeCannotBeInferred (name,args) ->
                 name + "(" + argsToString args + ")"
             | FieldNotFound (t,name) -> "Type: " + t.ToString() + " FieldName: "+ name
             | CannotInferBinaryExpressionType (t1, t2) -> t1.ToString() + " " + t2.ToString()
-            | UndefinedVariable v -> v.ToString()
+            | UndefinedVariableOrField v -> v.ToString()
             | NonBooleanExpressionInWhileStatement(t) -> "Expected bool but was: " + t.ToString()
             | NonBooleanExpressionInIfStatement(t) ->"Expected bool but was: " + t.ToString()
             | InvalidType(name, t, expected) -> "Variable: " + name + " Expected " + expected.ToString() + " but was " + t.ToString()
             | AssignmentToReadOnlyVariable(name) -> name.ToString()
             | AssignmentToReadOnlyLocalField(name) -> name.ToString()
-            | AssignmentToReadOnlyFieldOnType(t, name) -> "Type: " + t.ToString() + " Field: " + name
+            | AssignmentToReadOnlyField(t, name) -> "Type: " + t.ToString() + " Field: " + name
             | NoEntryPointOrMoreThanOne -> ""
             | NotSupported s -> s
             | VariableAlreadyDefined(name) -> name

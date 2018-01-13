@@ -450,7 +450,7 @@ let pDeclaration =
         Function.pFunctionDeclaration |>> FunctionDeclaration
         Class.pClass |>> ClassDeclaration
         ]
-let moduleIdentifier = opt (Keyword.pModule >>. pIdentifier)
+let moduleIdentifier = opt (Keyword.pModule >>. sepBy1 pIdentifier Char.doubleColon)
 
 /// source file consists of optional module identifier ("module A::B") followed by class and function declarations
 let pProgramFile = 
@@ -478,7 +478,7 @@ let parseModules (source : SourceFile list) =
                 /// either the specified moduleId or one based on path
                 match program.ModuleIdentifier with
                 | None -> fileName.Split(Path.DirectorySeparatorChar) |> List.ofArray
-                | Some s -> s.Split([|"::"|], StringSplitOptions.None) |> List.ofArray
+                | Some s -> s |> List.rev
             Module.create moduleId program.Declarations)
     source
     |> List.map ((fun s -> (s.Path, parse s.Code)) >> buildModule)
