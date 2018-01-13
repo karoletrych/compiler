@@ -68,17 +68,18 @@ let tests =
             |> resolve
         Expect.equal scanResult (Result.succeed 
                 [{Identifier = {Namespace = [];
-                                  Name = "test";
-                                  GenericParameters = [];
-                                  DeclaringType = None;
-                                  };
+                  Name = "test";
+                  GenericParameters = [];
+                  DeclaringType = None;};
         Functions = [];
         Classes =
                  [{Identifier = {Namespace = [];
                                  Name = "A";
-                                 GenericParameters = []
-                                 DeclaringType = None;
-                                 };
+                                 GenericParameters = [];
+                                 DeclaringType = Some {Namespace = [];
+                                                       Name = "test";
+                                                       GenericParameters = [];
+                                                       DeclaringType = None;};};
                    BaseClass = None;
                    Fields = [];
                    Constructors = [];
@@ -86,13 +87,18 @@ let tests =
                   {Identifier = {Namespace = [];
                                  Name = "B";
                                  GenericParameters = [];
-                                 DeclaringType = None
-                                 };
-                   BaseClass = Some (TypeIdentifier {Namespace = [];
-                                                     Name = "A";
-                                                      GenericParameters = [];
-                                                      DeclaringType = None
-                                                     });
+                                 DeclaringType = Some {Namespace = [];
+                                                       Name = "test";
+                                                       GenericParameters = [];
+                                                       DeclaringType = None;};};
+                   BaseClass =
+                    Some (TypeIdentifier {Namespace = [];
+                                          Name = "A";
+                                          GenericParameters = [];
+                                          DeclaringType = Some {Namespace = [];
+                                                                Name = "test";
+                                                                GenericParameters = [];
+                                                                DeclaringType = None;};});
                    Fields = [];
                    Constructors = [];
                    Functions =
@@ -104,8 +110,10 @@ let tests =
                           (TypeIdentifier {Namespace = [];
                                            Name = "A";
                                            GenericParameters = [];
-                                           DeclaringType = None
-                                           },
+                                           DeclaringType = Some {Namespace = [];
+                                                                 Name = "test";
+                                                                 GenericParameters = [];
+                                                                 DeclaringType = None;};},
                            {Name = "Foo";
                             GenericArguments = [];
                             Arguments = [];})];}];}];}]) ""

@@ -7,6 +7,7 @@ type Error =
 | SyntaxError of string
 | FunctionTypeCannotBeInferred of name : string * arguments : TypeIdentifier list
 | UndefinedVariable of string
+| VariableAlreadyDefined of string
 | TypeNotFound of TypeSpec
 | FunctionNotFound of calleeType : TypeIdentifier * name : string * arguments : TypeIdentifier list * genericArguments : TypeSpec list
 | FieldNotFound of TypeIdentifier * string
@@ -23,13 +24,13 @@ type Error =
 
 
 let toString (errors : Error list) = 
-    let errorString x = 
+    let errorString error = 
         let argsToString args = System.String.Join(",", (args |> List.toArray|> Array.map (fun t->t.ToString())))
         let failure = 
-            match Reflection.FSharpValue.GetUnionFields(x, typeof<Error>) with
+            match Reflection.FSharpValue.GetUnionFields(error, typeof<Error>) with
             | case, _ -> case.Name
         let message = 
-            match x with 
+            match error with 
             | SyntaxError s -> s
             | TypeNotFound ts -> (ts.ToString())
             | FunctionNotFound(t, name, args, generics) -> 
@@ -48,6 +49,7 @@ let toString (errors : Error list) =
             | AssignmentToReadOnlyFieldOnType(t, name) -> "Type: " + t.ToString() + " Field: " + name
             | NoEntryPointOrMoreThanOne -> ""
             | NotSupported s -> s
+            | VariableAlreadyDefined(name) -> name
             | OperatorNotApplicableForGivenTypes(op, t1, t2) -> "Operator: " + op.ToString() + "Types: " + t1.ToString() + ", " + t2.ToString()
         failure + ": " + message
     errors |> List.map errorString |> List.toArray |> (fun errStrings -> System.String.Join(Environment.NewLine, errStrings))

@@ -90,17 +90,21 @@ let private findLocalFunctionType otherLocalFunctions ((name, args), _) : Compil
     | Some ret -> Result.succeed ret
     | None -> Result.failure (FunctionTypeCannotBeInferred(name, args))
 
+let genericArgument =
+    function
+    | GenericArgument arg  -> arg
+    | _ -> failwith "unexpected"
 let getGenericArgument types number genericParameter calleeType = 
     match genericParameter with
     | DeclaredInParameterizedType ->
         let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v calleeType)
-        let (GenericArgument arg) = matchedType.GenericParameters.[number]
+        let arg = genericArgument matchedType.GenericParameters.[number]
         arg
     | DeclaredInOtherType t ->
         let matchedType = types |> List.find (fun v -> Identifier.equalWithoutGeneric v t)
-        let (GenericArgument arg) = matchedType.GenericParameters.[number]
+        let arg = genericArgument matchedType.GenericParameters.[number]
         arg
-    | GenericArgument t ->
+    | GenericArgument _ ->
         failwith "unexpected"
 
 let rec bindGenericParameters (boundDeclaringTypes : List<TypeIdentifier>) unboundTypeId calleeType : TypeIdentifier =

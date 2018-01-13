@@ -110,6 +110,11 @@ and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType 
     | UnaryExpression(_, _) -> []
 
 let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 
+    let checkIfVariableExists acc name =
+        if acc.LocalVariables |> List.exists (fun lv -> lv.Name = name)
+        then [VariableAlreadyDefined name]
+        else []
+
     let idFold acc _  = acc
     let checkExpression = checkExpression types ownerType
 
@@ -125,7 +130,7 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
             {acc with Errors = (NonBooleanExpressionInWhileStatement (getType expr)) :: acc.Errors}
         else
             acc
-    let returnStatement acc stmt =
+    let returnStatement acc _ =
         acc
     let ifStatement (s, elseS) = 
         let elseS = elseS |> Option.defaultValue initialState
@@ -134,31 +139,41 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         let t = t |> Option.map Identifier.typeId
         {
             Errors = 
-                (if (t |> Option.isSome && t |> Option.get <> getType expr)
-                then
-                    (InvalidType(name, t |> Option.get, getType expr)) :: acc.Errors
-                else
-                    acc.Errors) 
-                @ (checkExpression acc (getExpression expr))
+                if (t |> Option.isSome && t |> Option.get <> getType expr)
+                    then [InvalidType(name, t |> Option.get, getType expr)]
+                    else []
+              @ checkIfVariableExists acc name
+              @ checkExpression acc (getExpression expr)
+              @ acc.Errors
             LocalVariables = {Name = name; IsReadOnly = true; Type = getType expr} :: acc.LocalVariables
         }
     let declarationWithInitialization acc (name, expr) = 
         { acc 
             with 
                 LocalVariables = {Name = name; IsReadOnly = false; Type = getType expr} :: acc.LocalVariables
-                Errors = acc.Errors @ (checkExpression acc (getExpression expr))
+                Errors = 
+                    checkIfVariableExists acc name
+                  @ checkExpression acc (getExpression expr)
+                  @ acc.Errors
         }
     let declarationWithType acc (name, t) =
-        { acc with LocalVariables = {Name = name; IsReadOnly = false; Type = Identifier.typeId t} :: acc.LocalVariables}
+        {acc 
+            with 
+                LocalVariables = {Name = name; IsReadOnly = false; Type = Identifier.typeId t} :: acc.LocalVariables
+                Errors = 
+                    checkIfVariableExists acc name
+                  @ acc.Errors
+                }
     let fullVariableDeclaration acc (name, t, expr) =
         let t = Identifier.typeId t
         {
             Errors = 
-                (if (t <> getType expr) 
-                then
-                    (InvalidType(name, t, getType expr)) :: acc.Errors
-                else
-                    acc.Errors) @ (checkExpression acc (getExpression expr))
+                if (t <> getType expr) 
+                then [InvalidType(name, t, getType expr)]
+                else []
+              @ checkIfVariableExists acc name
+              @ checkExpression acc (getExpression expr)
+              @ acc.Errors
             LocalVariables = {Name = name; IsReadOnly = false; Type = t} :: acc.LocalVariables
         }
     let assignmentStatement (acc : SemanticCheckState) (assignee, expr) =

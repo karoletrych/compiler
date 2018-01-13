@@ -149,11 +149,14 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure [AssignmentToReadOnlyFieldOnType ({Namespace = [];
-                                         Name = "A";
-                                         GenericParameters = [];
-                                         DeclaringType = None;
-                                             },"b");
+                (Failure[AssignmentToReadOnlyFieldOnType
+     ({Namespace = [];
+       Name = "A";
+       GenericParameters = [];
+       DeclaringType = Some {Namespace = [];
+                             Name = "test";
+                             GenericParameters = [];
+                             DeclaringType = None;};},"b");
    AssignmentToReadOnlyLocalField "b"]) ""                                   
         
         testCase "operator is applicable for type" <| fun _ ->
@@ -170,16 +173,21 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure [OperatorNotApplicableForGivenTypes(
-                            Plus,{Namespace = [];
-                            Name = "A";
-                            GenericParameters = [];
-                            DeclaringType = None;
-                                             },{Namespace = [];
-                                                    Name = "A";
-                                                    GenericParameters = [];
-                                    DeclaringType = None;
-                                             })]) ""
+                (Failure [OperatorNotApplicableForGivenTypes
+     (Plus,{Namespace = [];
+            Name = "A";
+            GenericParameters = [];
+            DeclaringType = Some {Namespace = [];
+                                  Name = "test";
+                                  GenericParameters = [];
+                                  DeclaringType = None;};},
+      {Namespace = [];
+       Name = "A";
+       GenericParameters = [];
+       DeclaringType = Some {Namespace = [];
+                             Name = "test";
+                             GenericParameters = [];
+                             DeclaringType = None;};})] ) ""
         testCase "entry point" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -222,5 +230,5 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure []) ""
+                (Failure [VariableAlreadyDefined "a"]) ""
     ]
