@@ -1,0 +1,33 @@
+module Test::Fields
+
+class A
+{
+    var _a : string
+
+    fun ToString : string
+    {
+        return _a;
+    }
+}
+
+class B : A
+{
+    var _b : string
+    
+    fun ToString : string
+    {
+        return _a + _b;
+    }
+}
+
+fun main
+{
+    val a = new A();
+    val b = new B();
+
+    a._a = "aa";
+    b._a = "ba";
+    b._b = "bb";
+    System::Console:.WriteLine(a.ToString());
+    System::Console:.WriteLine(b.ToString());
+}

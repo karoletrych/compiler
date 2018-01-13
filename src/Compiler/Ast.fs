@@ -1,7 +1,7 @@
 module Compiler.Ast
 
 type ProgramFile = {
-    ModuleIdentifier : string option
+    ModuleIdentifier : string list option
     Declarations : Declaration<AstExpression> list
 }
 
@@ -167,7 +167,7 @@ with override ti.ToString() =
         let getName tId =
             let rec getNameRec tId =
                 match tId.DeclaringType with
-                | Some t -> getNameRec t @ [t.Name]
+                | Some t -> getNameRec t @ [tId.Name]
                 | None -> [tId.Name]
             (
             getNameRec tId 
@@ -178,7 +178,7 @@ with override ti.ToString() =
         match ti.Namespace with
         | [] -> ""
         | ns -> 
-            (ns |> List.rev |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
+            (ns |> List.toArray |> (fun parts -> System.String.Join(".", parts))) + "."
       + getName ti
       + if List.isEmpty ti.GenericParameters
         then ""

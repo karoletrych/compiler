@@ -66,7 +66,7 @@ let getTestData =
 
 let createTest testName testData = 
     let (test, expectedOutput) = testData
-    if testName = "drawing.ifr"
+    if testName = "fields.ifr"
     then ftestCase testName (fun _ -> 
         let output = test()
         Expect.equal output expectedOutput testName)

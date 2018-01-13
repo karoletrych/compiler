@@ -7,27 +7,34 @@ open AstProcessing
 
 type InferredTypeExpression = InferredTypeExpression of Expression<InferredTypeExpression> * TypeIdentifier
 
+/// gets inferred type of expression
 let getType expr = 
     let (InferredTypeExpression(_, t)) = expr
     t
+/// gets expression from InferredTypeExpression
 let getExpression expr = 
     let (InferredTypeExpression(e, _)) = expr
     e
 
+/// gets internal expression from AstExpression
 let unwrapExpression expr = 
     let (AstExpression expr) = expr
     expr
 
-let builtInType (types : Map<TypeIdentifier, Type>) (t : TypeSpec) =
-    types.[t |> Identifier.fromTypeSpec]
+/// gets Types.Type of typespec which represents builtin type
+let builtInType (types : Map<TypeIdentifier, Type>) (typeSpec : TypeSpec) =
+    types.[typeSpec |> Identifier.fromTypeSpec]
 
-let getConstructedType f=
-    match f.TypeRef with
-          | ConstructedType t -> (f.FieldName, t)
-          | GenericTypeDefinition(_) -> failwith ""
+/// assumes type is not a generic type or parameter. return the type.
+let getConstructedType field =
+    match field.TypeRef with
+          | ConstructedType t -> (field.FieldName, t)
+          | GenericTypeDefinition(_) -> failwith "no support for generic type definition"
           | GenericParameter _-> failwith "no support for generic parameters"
 
-let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
+
+/// finds least upper bound of given Types.Type instances
+let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types =
     let rec allAncestors (t : Type) : Type list  =
         match t.BaseTypes with 
         | [] -> [] 
@@ -39,6 +46,7 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
                     t.BaseTypes |> List.contains parentNode
                     )
 
+    /// finds longest path from root to any leaf and returns it and its length
     let rec longestPath (root : Type) allNodes =
         let childrenOf = children allNodes
         let isALeaf = childrenOf root = List.empty
@@ -55,13 +63,13 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types=
     let longest = longestPath (builtInType knownTypes (BuiltInTypeSpec Object))
 
     types
-        |> List.map ( (fun t -> t::allAncestors t) >> Set.ofList)
-        |> Set.intersectMany
+        |> List.map ((fun t -> t::allAncestors t) >> Set.ofList)
+        |> Set.intersectMany // intersection of paths to root
         |> Set.toList
-        |> List.distinct
+        |> List.distinct  // remove duplicate nodes
         |> longest
-        |> fst
-        |> List.last
+        |> fst   // path
+        |> List.last // furthest element from root
 
 
 
@@ -82,7 +90,7 @@ let private findFunctionTypeInClass t ((name, args : TypeIdentifier list, generi
     | Some f -> 
         match f.ReturnType with
         | Some ret -> Result.succeed ret
-        | None -> failwith "external function should always have a type"
+        | None -> Result.failure (ReturnTypeNeedsToBeSpecified( t.Identifier, name, args, generics))
     | None -> Result.failure (FunctionNotFound(t.Identifier, name, args, generics))
 
 let private findLocalFunctionType otherLocalFunctions ((name, args), _) : CompilerResult<TypeIdentifier> =
@@ -306,7 +314,7 @@ let private lookupLocalVariable (variables : Map<string, TypeIdentifier>) name =
     |> Map.tryFind name
     |> function 
        | Some t ->  Result.succeed t
-       | None -> Result.failure (UndefinedVariable name)
+       | None -> Result.failure (UndefinedVariableOrField name)
 
 let rec private inferStatement 
     (knownTypes : Map<TypeIdentifier, Type>)
@@ -389,7 +397,7 @@ let rec private inferStatement
             if t.IsSome 
             then 
                 Result.succeed (Identifier.typeId t.Value)
-            else (inferExpression expr)
+            else inferExpression expr
         Result.map (fun e -> 
             ValueDeclaration(id, t, e) ) (annotate expr)
             |> match valueType with
@@ -401,7 +409,7 @@ let rec private inferStatement
             let valueType = inferExpression e
             Result.map 
                 (fun e -> 
-                    VariableDeclaration(DeclarationWithInitialization(id, e)) )
+                    VariableDeclaration(DeclarationWithInitialization(id, e)))
                 (annotate e)
             |> match valueType with
                    | Success t -> withNewVariable(id, t)
@@ -476,16 +484,16 @@ let private inferFunction knownTypes leastUpperBound (currentType : Types.Type) 
         
 
 let private inferConstructor knownTypes leastUpperBound (currentType : Types.Type) (c : Ast.Constructor<AstExpression>) = 
-    let lookupLocalVariable = lookupLocalVariable 
-                                (currentType.Fields 
-                                 |> List.map (getConstructedType) |> Map.ofList)
+    let lookupLocalVariable = 
+        lookupLocalVariable 
+            (currentType.Fields 
+            |> List.map getConstructedType |> Map.ofList)
     let inferStatement = inferStatement knownTypes (inferExpression Map.empty currentType knownTypes leastUpperBound) currentType 
     let inferExpression = inferExpression Map.empty currentType knownTypes leastUpperBound lookupLocalVariable
     let annotate = annotate inferExpression
     let args =
-        c.Parameters
-        |> List.map (fun p -> (fst p, snd p |> Identifier.typeId))
-        |> List.append (currentType.Fields |> List.map getConstructedType)
+        (c.Parameters |> List.map (fun p -> (fst p, snd p |> Identifier.typeId)))
+      @ (currentType.Fields |> List.map getConstructedType)
         |> Map.ofList
     Result.map2 
         (fun body args -> { Body = body; Parameters = c.Parameters; BaseClassConstructorCall = args})
