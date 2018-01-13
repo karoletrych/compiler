@@ -7,3 +7,6 @@ fun main : void
 
 	System::Console:.WriteLine(z);
 }
+
+
+

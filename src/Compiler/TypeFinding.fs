@@ -1,3 +1,8 @@
+/// this module takes list of modules retrieved from parser and
+/// generates Map<TypeIdentifier, Types.Type> 
+/// it flattens the structure
+/// the result contains modules and types within them
+
 module Compiler.TypeFinding
 open Types
 open Ast

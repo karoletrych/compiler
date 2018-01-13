@@ -1,6 +1,11 @@
 module Compiler.AstProcessing
 open Compiler.Ast
 
+/// takes functions processing expression nodes into some type
+/// then takes expressions and applies one of the functions
+/// depending on expression type
+/// if expression consists of another one 
+/// the function is called recursively on it
 let rec expressionCata 
     assignment
     binary 
@@ -58,6 +63,8 @@ let rec expressionCata
              | MemberField (f) ->
                 staticMemberField (t, f)
         | UnaryExpression(op, e) -> unary (op, (recurse e))
+
+/// same as above but for statements
 let rec statementCata 
     functionCall
     staticFunctionCall
@@ -111,6 +118,11 @@ let rec statementCata
     | InstanceMemberFunctionCallStatement(expr, fc) -> instanceFunctionCall (expr, fc)
     | WhileStatement(e, s) -> whileStatement (e, recurse s)
 
+/// takes:
+/// - functions which take accumulator and process statement
+/// - accumulator
+/// - statement
+/// passes accumulator to every recursive call
 let rec statementFold
     functionCall
     staticFunctionCall

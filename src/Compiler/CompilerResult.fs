@@ -3,10 +3,12 @@ open Compiler.Ast
 open System
 
 
-type Failure = 
+type Error = 
 | SyntaxError of string
+| FunctionTypeCannotBeInferred of name : string * arguments : TypeIdentifier list
+| UndefinedVariable of string
 | TypeNotFound of TypeSpec
-| FunctionNotFound of TypeIdentifier * string * TypeIdentifier list * TypeSpec list
+| FunctionNotFound of calleeType : TypeIdentifier * name : string * arguments : TypeIdentifier list * genericArguments : TypeSpec list
 | ReturnTypeNeedsToBeSpecified of TypeIdentifier * string * TypeIdentifier list * TypeSpec list
 | FunctionTypeCannotBeInferred of string * TypeIdentifier list
 | FieldNotFound of TypeIdentifier * string
@@ -23,11 +25,11 @@ type Failure =
 | NotSupported of string
 
 
-let toString (errors : Failure list) = 
+let toString (errors : Error list) = 
     let errorString x = 
         let argsToString args = System.String.Join(",", (args |> List.toArray|> Array.map (fun t->t.ToString())))
         let failure = 
-            match Reflection.FSharpValue.GetUnionFields(x, typeof<Failure>) with
+            match Reflection.FSharpValue.GetUnionFields(x, typeof<Error>) with
             | case, _ -> case.Name
         let message = 
             match x with 
@@ -58,7 +60,7 @@ let toString (errors : Failure list) =
 
 type CompilerResult<'TSuccess> = 
 | Success of 'TSuccess
-| Failure of Failure list
+| Failure of Error list
 with member x.Value = 
         match x with
         | Success x -> x

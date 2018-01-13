@@ -1,0 +1,80 @@
+module Classes
+
+class Animal 
+{
+    val _noise : string
+
+    construct (noise : string)
+    {
+        _noise = noise;
+    }
+
+    fun MakeNoise
+    {
+        System::Console:.WriteLine(_noise);
+    }
+}
+
+class Dog : Animal
+{
+    construct : ("Hau!") // wywołanie konstruktora klasy bazowej Animal
+    {
+    }
+}
+
+class Cat : Animal
+{
+    construct : ("Miau!")
+    {
+    }
+}
+
+class Duck : Animal
+{
+    construct : ("") 
+    {
+    }
+
+    fun MakeNoise // nadpisanie (ang. override) metody z klasy bazowej
+    {
+        System::Console:.WriteLine("Kwak!");
+        System::Console:.WriteLine("Kwak!");
+    }
+}
+
+fun createAnimal (animalType : string) 
+// typ zwracany funkcji jest dedukowany na podstawie typów wyrażeń w instrukcji return
+{
+    if(animalType == "dog")
+        return new Dog();
+    else if(animalType == "cat")
+        return new Cat();
+    else 
+        return new Duck();
+}
+
+fun printAnimals (animals : System::Collections::Generic::List<Animal>)
+{
+    var i = 0;
+    while(i < animals.Count)
+    {
+        val animal = animals.get_Item(i); // pobranie elementu z listy spod indeksu i
+
+        System::Console:.Write("I am: ");
+        System::Console:.WriteLine(animal.GetType()); // wypisanie typu klasy pochodnej
+
+        animal.MakeNoise();
+
+        i = i + 1;
+    }
+}
+
+fun main
+{
+    val dog = createAnimal("dog");
+    val cat = createAnimal("cat");
+    val duck = createAnimal("duck");
+
+    val animals = [dog; cat; duck];
+    printAnimals(animals);
+}

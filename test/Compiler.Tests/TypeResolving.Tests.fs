@@ -8,10 +8,10 @@ open Compiler.ReferencedDllsMetadataRetriever
 
 
 let resolve src = 
-    let externals = getExternalTypes [Assembly.GetAssembly(typeof<obj>)]
+    let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
+    >>= (fun modules -> resolve (modules, externals))
 
 [<Tests>]
 let tests =
@@ -26,7 +26,7 @@ let tests =
                           Name = "test";
                                       GenericParameters = [];
                                       DeclaringType = None;
-                                      IsGenericParameter = false};
+                                      };
                     Functions = [{
                                    Name = "main";
                                    Parameters = [];
@@ -36,11 +36,11 @@ let tests =
                                                         Name = "Console";
                                                          GenericParameters = [];
                                                          DeclaringType = None;
-                                                         IsGenericParameter = false},{
-                                                Name = "WriteLine";
-                                                 GenericArguments = [];
-                                                 Arguments =
-                                                  [AstExpression (LiteralExpression (StringLiteral "Hello, world!"))]
+                                                         },{
+                                                             Name = "WriteLine";
+                                                             GenericArguments = [];
+                                                             Arguments =
+                                                             [AstExpression (LiteralExpression (StringLiteral "Hello, world!"))]
                                                   })];}]; Classes = [];}]) ""
     testCase "resolving invalid Sys.Cons.WriteL call" <| fun _ ->
         let scanResult = 
@@ -71,14 +71,14 @@ let tests =
                                   Name = "test";
                                   GenericParameters = [];
                                   DeclaringType = None;
-                                  IsGenericParameter = false};
+                                  };
         Functions = [];
         Classes =
                  [{Identifier = {Namespace = [];
                                  Name = "A";
                                  GenericParameters = []
                                  DeclaringType = None;
-                                 IsGenericParameter = false};
+                                 };
                    BaseClass = None;
                    Fields = [];
                    Constructors = [];
@@ -87,12 +87,12 @@ let tests =
                                  Name = "B";
                                  GenericParameters = [];
                                  DeclaringType = None
-                                 IsGenericParameter = false};
+                                 };
                    BaseClass = Some (TypeIdentifier {Namespace = [];
                                                      Name = "A";
                                                       GenericParameters = [];
                                                       DeclaringType = None
-                                                     IsGenericParameter = false});
+                                                     });
                    Fields = [];
                    Constructors = [];
                    Functions =
@@ -105,7 +105,6 @@ let tests =
                                            Name = "A";
                                            GenericParameters = [];
                                            DeclaringType = None
-                                           IsGenericParameter = false
                                            },
                            {Name = "Foo";
                             GenericArguments = [];

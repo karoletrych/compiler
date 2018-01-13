@@ -77,3 +77,4 @@ fun main
     val animals = [dog; cat; duck];
     printAnimals(animals);
 }
+

@@ -8,3 +8,4 @@ nuget FParsec
 nuget FsCheck
 nuget FSharp.Core
 nuget FSharpx.Collections
+nuget ilmerge

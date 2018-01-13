@@ -17,9 +17,9 @@ open System.IO
 
 let appReferences = !! "/**/*.fsproj"
 let srcAppReferences = !! "/src/**/*.fsproj"
+let ilMergePath = @"./packages/ilmerge/tools/ILMerge.exe"
 let releaseDir  = "./release/"
-let version = "0.2"
-let buildDir = "./src/Compiler/bin/Release/"
+let buildDir = "./src/Compiler/bin/Release/net461/"
 
 let buildDirs = 
     appReferences
@@ -106,12 +106,19 @@ Target "IntegrationTest" (fun () ->
      
 )
 
-Target "Zip" (fun _ ->
-    let zipPath = releaseDir + "Compiler." + version + ".zip" 
-
-    !! (buildDir + "/**/*.*") 
-    |> Zip buildDir zipPath
+Target "Release" (fun _ ->
+    CreateDir releaseDir
+    ILMerge (fun p ->  {p with 
+                            ToolPath   = ilMergePath
+                            TargetKind = Exe
+                            TargetPlatform = "v4" 
+                            Libraries = (!! (buildDir + "*.dll"))
+                            DebugInfo = false
+                            })
+        (combinePaths releaseDir "Compile.exe")
+        (combinePaths buildDir "Compiler.exe")
 )
+
 
 
 // --------------------------------------------------------------------------------------
@@ -134,6 +141,6 @@ Target "Zip" (fun _ ->
 
 
 "BuildRelease"
-  ==> "Zip"
+  ==> "Release"
 
-RunTargetOrDefault "Build"
+RunTargetOrDefault "Release"

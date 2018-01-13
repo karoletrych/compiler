@@ -1,0 +1,7 @@
+class OClass
+{
+	construct
+	{
+		System::Console:.WriteLine("O is constructed");
+	}
+}

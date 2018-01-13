@@ -1,6 +1,0 @@
-fun main
-{
-	val o = new O::OClass();
-
-	val b = new B::BModule::BClass();
-}

@@ -74,8 +74,8 @@ let createTest testName testData =
         let output = test()
         Expect.equal output expectedOutput testName)
 
-    // let output = test()
-    // testCase testName (fun _ -> Expect.equal output expectedOutput testName)
+    let output = test()
+    testCase testName (fun _ -> Expect.equal output expectedOutput testName)
 
 let allTests = 
     (testFiles 

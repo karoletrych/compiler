@@ -3,6 +3,10 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net461</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
     <Compile Include="Ast.fs" />
@@ -11,7 +15,6 @@
     <Compile Include="CompilerResult.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ReferencedDllsMetadataRetriever.fs" />
-    <Compile Include="TypeIdentifiersFinding.fs" />
     <Compile Include="TypeResolving.fs" />
     <Compile Include="TypeFinding.fs" />
     <Compile Include="TypeInference.fs" />

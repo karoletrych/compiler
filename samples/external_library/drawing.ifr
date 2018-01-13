@@ -1,0 +1,21 @@
+fun DrawFilledRectangle (x : int) (y : int)
+{
+    val bmp = new System::Drawing::Bitmap(x, y);
+    val graphics = System::Drawing::Graphics:.FromImage(bmp);
+    
+    val imageRectangle = new System::Drawing::Rectangle(0, 0, x, y);
+    graphics.FillRectangle(System::Drawing::Brushes:.White, imageRectangle);
+    
+    val blackBrush = new System::Drawing::SolidBrush(System::Drawing::Color:.Red);
+    graphics.FillEllipse(blackBrush, imageRectangle);
+
+    graphics.Dispose();
+    return bmp;
+}
+
+fun main
+{
+	val bitmap = DrawFilledRectangle(640, 480);
+	bitmap.Save("rectangle.jpg");
+}
+
