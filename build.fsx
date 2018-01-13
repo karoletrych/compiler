@@ -107,7 +107,7 @@ Target "IntegrationTest" (fun () ->
 )
 
 Target "Release" (fun _ ->
-
+    CreateDir releaseDir
     ILMerge (fun p ->  {p with 
                             ToolPath   = ilMergePath
                             TargetKind = Exe
