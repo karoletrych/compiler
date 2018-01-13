@@ -3,7 +3,6 @@ module Compiler.TypeFinding.Tests
 open Expecto
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeIdentifiersFinding
 open Compiler.TypeResolving
 open Compiler.ReferencedDllsMetadataRetriever
 open Compiler.TypeFinding
@@ -13,7 +12,7 @@ let findTypes src =
     let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
+    >>= (fun modules -> resolve (modules, externals))
     |> Result.map (find externals)
     |> Result.get
 

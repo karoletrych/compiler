@@ -1,14 +1,19 @@
+/// this modules scans all type specs within Ast
+/// genereates typeIdentifiers from them, and checks
+/// whether they are known
+/// if not return error
 module Compiler.TypeResolving
 
 open CompilerResult
 open AstProcessing
 open Ast
+/// merges list of option into option of list
 let mergeOptions options = 
     match options with
-            | [] -> Some []
-            | list -> if list |> List.forall Option.isSome
-                      then list |> List.map Option.get |> Some
-                      else None
+    | [] -> Some []
+    | list -> if list |> List.forall Option.isSome
+              then list |> List.map Option.get |> Some
+              else None
 
 let localTypeIsEqual (specifiedType, knownType) =
     specifiedType.Name = knownType.Name
@@ -264,7 +269,21 @@ let private resolveModule knownTypes (modul : Module<AstExpression>) =
                 |> List.map resolveClass 
                 |> Result.merge)
 
-let resolve (modules : Module<AstExpression> list, knownTypes : TypeIdentifier list) =
+let private typeIdentifiersInModule (modul : Module<AstExpression>) =
+    modul.Identifier :: (modul.Classes |> List.map (fun c -> c.Identifier))
+
+let private find (externalTypes: Map<TypeIdentifier, Types.Type>) modules =
+    let externalTypeIds = 
+        externalTypes
+        |> Map.toList 
+        |> List.map fst
+    modules 
+    |> List.collect typeIdentifiersInModule 
+    |> List.append externalTypeIds
+
+
+let resolve (modules : Module<AstExpression> list, externalTypes : Map<TypeIdentifier, Types.Type>) =
+    let knownTypes = find externalTypes modules
     modules
     |> List.map (resolveModule knownTypes)
     |> Result.merge

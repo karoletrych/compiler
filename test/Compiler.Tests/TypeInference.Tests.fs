@@ -2,7 +2,6 @@ module Compiler.TypeInference.Tests
 open Expecto
 open Compiler.Parser
 open Compiler.CompilerResult
-open Compiler.TypeIdentifiersFinding
 open Compiler.TypeInference
 open Compiler.Ast
 open Compiler.ReferencedDllsMetadataRetriever
@@ -15,7 +14,7 @@ let tests =
     let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, findtypeIdentifiers externals modules))
+    >>= (fun modules -> resolve (modules, externals ))
     >>= (fun modules -> inferTypes (modules, find externals modules))
 
 
@@ -37,12 +36,12 @@ let tests =
                        Name = "Int32";
                                GenericParameters = [];
                                DeclaringType = None;
-                               IsGenericParameter = false},{
+                               },{
                         Namespace = ["System"];
                         Name = "Single";
                                    GenericParameters = [];
                                    DeclaringType = None;
-                               IsGenericParameter = false})))""
+                               })))""
     testCase "recursive type inference fails" <| fun _ ->
         let inference = infer "
                 fun factorial (n : int) : int
@@ -58,13 +57,13 @@ let tests =
                                 Name = "Int32";
                                             GenericParameters = [];
                                             DeclaringType = None;
-                               IsGenericParameter = false}]);
+                               }]);
                FunctionTypeCannotBeInferred
                  ("factorial",[{Namespace = ["System"];
                                Name = "Int32";
                                             GenericParameters = [];
                                             DeclaringType = None;
-                               IsGenericParameter = false}])]) ""
+                               }])]) ""
     testCase "basic types" <| fun _ ->
         let inference = infer @"
                 fun main 

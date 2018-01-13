@@ -1,0 +1,12 @@
+class BClass2
+{
+	construct
+	{
+		System::Console:.WriteLine("B2 is constructed");
+	}
+}
+
+fun B2Function : void
+{
+
+}

@@ -1,3 +1,4 @@
+/// modules checking whether code is correct
 module Compiler.SemanticCheck
 
 open CompilerResult
@@ -6,11 +7,6 @@ open Ast
 open AstProcessing
 open Types
 
-// TODO: Sprawdzanie cyklicznego dziedziczenia
-// TODO: sprawdzenie wywolan konstruktorow klas bazowych
-// TODO: confilicting module, class, function, variable, field name
-// TODO: if(p == 0) return 0; else if(p == 1) return "1"; else if(p == 2) return 2.0;
-
 type LocalVariable = {
     Name : string
     IsReadOnly : bool
@@ -18,7 +14,7 @@ type LocalVariable = {
 }
 type SemanticCheckState = {
     LocalVariables : LocalVariable list
-    Errors : Failure list
+    Errors : Error list
 }
 with static member (+) (s1,s2) = {
         LocalVariables = s1.LocalVariables @ s2.LocalVariables
@@ -28,6 +24,7 @@ let initialState = {
     LocalVariables = []
     Errors = []
 }
+/// active pattern returning Some when name is referring to a field
 let (|Field|_|) types (t : TypeIdentifier) name =
     let t = types |> Map.tryFind t
     match t with
@@ -36,6 +33,9 @@ let (|Field|_|) types (t : TypeIdentifier) name =
         | Some f -> Some (Field f)
         | None -> None
     | None -> failwith "should fail in type inference"
+
+/// active pattern returning Some when name is referring 
+/// to a variable or an argument
 let (|Variable|_|) variables name =
     match variables |> List.tryFind (fun v -> v.Name = name) with
     | Some v -> Some (Variable v)
@@ -94,6 +94,7 @@ and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType 
         | i when i = Identifier.int -> []
         | f when f = Identifier.float -> []
         | d when d = Identifier.double -> []
+        | b when b = Identifier.bool -> []
         | _ ->
             if Option.isNone (t.Methods |> List.tryFind (fun m -> m.Name = (operatorMethodName op)))
             then [OperatorNotApplicableForGivenTypes(op, getType e1, getType e2)]
@@ -104,9 +105,9 @@ and private checkExpression (types : Map<TypeIdentifier, Types.Type>) ownerType 
     | ListInitializerExpression(_) -> []
     | LiteralExpression(_) -> []
     | InstanceMemberExpression(_, _) -> []
-    | NewExpression(_, _) -> [] //TODO: []
+    | NewExpression(_, _) -> [] 
     | StaticMemberExpression(_, _) -> []
-    | UnaryExpression(_, _) -> failwith "Not Implemented"
+    | UnaryExpression(_, _) -> []
 
 let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.Type>)) body = 
     let idFold acc _  = acc
@@ -178,7 +179,7 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         ifStatement
             initialState (CompositeStatement body) 
  
-let private checkFunction (ownerType, types) (``function`` : Function<InferredTypeExpression>) : Failure list= 
+let private checkFunction (ownerType, types) (``function`` : Function<InferredTypeExpression>) : Error list= 
     (checkStatements (ownerType, types) ``function``.Body).Errors
 
 let private checkClass types ``class`` =

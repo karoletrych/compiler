@@ -15,7 +15,7 @@ let semanticCheck src =
     let externals = getExternalTypes [System.Reflection.Assembly.GetAssembly(typeof<obj>)]
     [{Path = "test"; Code = src}]
     |> parseModules 
-    >>= (fun modules -> resolve (modules, TypeIdentifiersFinding.find externals modules))
+    >>= (fun modules -> resolve (modules, externals))
     >>= (fun modules -> inferTypes (modules, find externals modules))
     >>= (check true)
 
@@ -45,12 +45,12 @@ let tests =
                                           Name = "String";
                                                       GenericParameters = [];
                                                       DeclaringType = None;
-                                                     IsGenericParameter =false}
+                                                     }
                     NonBooleanExpressionInWhileStatement {Namespace = ["System"];
                                              Name = "Int32";
                                                      GenericParameters = [];
                                                      DeclaringType = None;
-                                                     IsGenericParameter =false};
+                                                     };
                    ]) ""
         testCase "assignment of invalid type in variable declaration" <| fun _ ->
             let semanticCheckResult = 
@@ -68,21 +68,21 @@ let tests =
                      Name = "Int32";
                      GenericParameters = [];
                      DeclaringType = None;
-                     IsGenericParameter = false},
+                     },
                                             {Namespace = ["System"];
                                              Name = "Single";
                                              GenericParameters = [];
                                              DeclaringType = None;
-                                             IsGenericParameter = false});
+                                             });
         InvalidType ("a",{Namespace = ["System"];
                      Name = "String";
                      GenericParameters = [];
                      DeclaringType = None;
-                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             },{Namespace = ["System"];
                                              Name = "Int32";
                                              GenericParameters = [];
                                              DeclaringType = None;
-                                             IsGenericParameter = false})]) ""
+                                             })]) ""
         testCase "declaration with initializer of incompatible type" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -99,20 +99,20 @@ let tests =
                      Name = "Int32";
                      GenericParameters = [];
                      DeclaringType = None;
-                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             },{Namespace = ["System"];
                                              Name = "Single";
                                              GenericParameters = [];
                                              DeclaringType = None;
-                                             IsGenericParameter = false});
+                                             });
         InvalidType ("a",{Namespace = ["System"];
                      Name = "String";
                      GenericParameters = [];
                      DeclaringType = None;
-                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             },{Namespace = ["System"];
                                              Name = "Int32";
                                              GenericParameters = [];
                                              DeclaringType = None;
-                                             IsGenericParameter = false})]) ""
+                                             })]) ""
         testCase "assignment to readonly variable" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -153,7 +153,7 @@ let tests =
                                          Name = "A";
                                          GenericParameters = [];
                                          DeclaringType = None;
-                                             IsGenericParameter = false},"b");
+                                             },"b");
    AssignmentToReadOnlyLocalField "b"]) ""                                   
         
         testCase "operator is applicable for type" <| fun _ ->
@@ -175,11 +175,11 @@ let tests =
                             Name = "A";
                             GenericParameters = [];
                             DeclaringType = None;
-                                             IsGenericParameter = false},{Namespace = [];
+                                             },{Namespace = [];
                                                     Name = "A";
                                                     GenericParameters = [];
                                     DeclaringType = None;
-                                             IsGenericParameter = false})]) ""
+                                             })]) ""
         testCase "entry point" <| fun _ ->
             let semanticCheckResult = 
                 @"
@@ -205,9 +205,22 @@ let tests =
                            Name = "Int32";
                            GenericParameters = [];
                            DeclaringType = None;
-                                             IsGenericParameter = false},{Namespace = ["System"];
+                                             },{Namespace = ["System"];
                                                    Name = "String";
                                                    GenericParameters = [];
                                                    DeclaringType = None;
-                                             IsGenericParameter = false})]) ""
+                                             })]) ""
+        testCase "duplicate variable declaration" <| fun _ ->
+            let semanticCheckResult = 
+                @"
+                fun main
+                {
+                    var a = ""123"";
+                    var a = 3;
+                }
+                "
+                |> semanticCheck
+            Expect.equal 
+                semanticCheckResult 
+                (Failure []) ""
     ]

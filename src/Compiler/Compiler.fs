@@ -10,7 +10,7 @@ let compile
     let externalTypes = ReferencedDllsMetadataRetriever.getExternalTypes referencedAssemblies
     source 
     |> Parser.parseModules
-    >>= (fun modules -> TypeResolving.resolve (modules, TypeIdentifiersFinding.find externalTypes modules))
+    >>= (fun modules -> TypeResolving.resolve (modules, externalTypes))
     >>= (fun modules -> TypeInference.inferTypes (modules, TypeFinding.find externalTypes modules))
     >>= SemanticCheck.check isExe
     |> Result.map IRGeneration.generateIR

@@ -70,6 +70,10 @@ let generateOutputFile (outputPath, isExe, referencedAssemblies) modules =
 let validateFilePaths filePaths =
     filePaths
     |> List.iter (fun p -> if not (File.Exists(p)) then failwithf "File %s does not exist" p)
+let getAbsolutePath (p : string) = 
+    if (System.IO.Path.IsPathRooted(p))
+    then p
+    else Path.Combine(baseDirectory, p)
 
 
 [<EntryPoint>]
@@ -105,7 +109,7 @@ let main argv =
 
         let referencedAssemblies =
             Assembly.GetAssembly(typeof<obj>) 
-                :: (referencedDlls |> List.map Assembly.LoadFile)
+                :: (referencedDlls |> List.map (getAbsolutePath >> Assembly.LoadFile))
         compile 
             sourceFiles
             referencedAssemblies

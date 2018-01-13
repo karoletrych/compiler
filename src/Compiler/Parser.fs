@@ -98,7 +98,7 @@ module Types =
         pNonGenericTypeSpec 
         |>> fun t -> ({Name = t; GenericArgs = []})
 
-    /// validates typespec consisting of namespace and type name at the end
+    /// validates TypeSpec consisting of namespace and type name at the end
     /// fails if it contains generic segment not at the last position f. e.
     /// Foo::Bar<string>::End 
     let convertToFullyQualifiedType =
@@ -126,13 +126,10 @@ module Types =
     let builtInTypesParsersDict =
         [ 
             ("bool", stringReturn "bool" Bool);
-            ("char", stringReturn "char" Char);
             ("int", stringReturn "int" Int);
             ("float", stringReturn "float" Float);
-            ("double", stringReturn "double" Double);
             ("string", stringReturn "string" String);
             ("void", stringReturn "void" Void);
-            ("obj", stringReturn "obj" Object);
         ]
         |> Map.ofList
     let builtInTypeSpecParsers =
@@ -217,23 +214,28 @@ module Expression =
             | _ -> failwith "assignee have to be either identifier or member field"
         AssignmentExpression(x,y)
 
-    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> createAssignmentExpr x y |> AstExpression))
-    opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, LogicalOr, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("==", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("!=", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("<=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, LessEqual, y) |> AstExpression))
-    opp.AddOperator(InfixOperator(">=", spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, GreaterEqual, y) |> AstExpression))
-    opp.AddOperator(InfixOperator(">",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Greater, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("<",  spaces, 4, Associativity.None, fun x y -> BinaryExpression(x, Less, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("&&", spaces, 5, Associativity.Left, fun x y -> BinaryExpression(x, LogicalAnd, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("+",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Plus, y) |> AstExpression))
-    opp.AddOperator(InfixOperator("-",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Minus, y) |> AstExpression))
+    opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x) |> AstExpression)) 
+    opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x) |> AstExpression)) 
+
     opp.AddOperator(InfixOperator("*",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Multiplication, y) |> AstExpression))
     opp.AddOperator(InfixOperator("/",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Division, y) |> AstExpression))
     opp.AddOperator(InfixOperator("%",  spaces, 7, Associativity.Left, fun x y -> BinaryExpression(x, Remainder, y) |> AstExpression))
 
-    opp.AddOperator(PrefixOperator("!", spaces, 8, true, fun x -> UnaryExpression(LogicalNegate, x) |> AstExpression)) 
-    opp.AddOperator(PrefixOperator("-", spaces, 8, true, fun x -> UnaryExpression(Negate, x) |> AstExpression)) 
+    opp.AddOperator(InfixOperator("+",  spaces, 6, Associativity.Left, fun x y -> AstExpression(BinaryExpression(x, Plus, y))))
+    opp.AddOperator(InfixOperator("-",  spaces, 6, Associativity.Left, fun x y -> BinaryExpression(x, Minus, y) |> AstExpression))
+
+    opp.AddOperator(InfixOperator("<=", spaces, 5, Associativity.None, fun x y -> BinaryExpression(x, LessEqual, y) |> AstExpression))
+    opp.AddOperator(InfixOperator(">=", spaces, 5, Associativity.None, fun x y -> BinaryExpression(x, GreaterEqual, y) |> AstExpression))
+    opp.AddOperator(InfixOperator(">",  spaces, 5, Associativity.None, fun x y -> BinaryExpression(x, Greater, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("<",  spaces, 5, Associativity.None, fun x y -> BinaryExpression(x, Less, y) |> AstExpression))
+
+    opp.AddOperator(InfixOperator("==", spaces, 4, Associativity.Left, fun x y -> BinaryExpression(x, Equal, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("!=", spaces, 4, Associativity.Left, fun x y -> BinaryExpression(x, NotEqual, y) |> AstExpression))
+
+    opp.AddOperator(InfixOperator("&&", spaces, 3, Associativity.Left, fun x y -> BinaryExpression(x, LogicalAnd, y) |> AstExpression))
+    opp.AddOperator(InfixOperator("||", spaces, 2, Associativity.Left, fun x y -> BinaryExpression(x, LogicalOr, y) |> AstExpression))
+
+    opp.AddOperator(InfixOperator("=", spaces, 1, Associativity.Right, fun x y -> createAssignmentExpr x y |> AstExpression))
 
     /// assumes second expression is either member field or member function call
     /// creates MemberExpression out of first expression and above member
@@ -367,13 +369,13 @@ module Statement =
             ]
     
 module Function = 
-    let parameter =
-        Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. Types.pTypeSpec) .>> Char.rightParen 
-    let parametersList =
-        many parameter
-
     let pFunctionDeclaration = 
-        let returnType = opt (Char.colon >>. Types.pTypeSpec)
+        let parameter =
+            Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. Types.pTypeSpec) .>> Char.rightParen 
+
+        let parametersList =
+            many parameter
+        let returnType = opt (Char.colon >>. Types.pTypeSpec) 
         let body =
             between 
                 Char.leftBrace
@@ -385,11 +387,11 @@ module Function =
             parametersList 
             returnType
             body 
-            (fun name parameters ret body 
+            (fun name parameters returnType body 
                 -> {
                     Name = name;
                     Parameters = parameters;
-                    ReturnType = ret;
+                    ReturnType = returnType;
                     Body = body
                 }
             )
@@ -402,12 +404,17 @@ module Class =
     
     let pClassBody = 
         let pConstructor = // construct(a : int, b : float) : (a, b)
+            let parameter =
+                Char.leftParen >>. pIdentifier  .>>. (Char.colon >>. Types.pTypeSpec) .>> Char.rightParen 
+
+            let parametersList =
+                many parameter
             let pBaseCall =  
                 opt (Char.colon >>. (between Char.leftParen Char.rightParen 
                         (sepBy1 Expression.pExpression Char.comma))) 
                     >>= toList
             pipe3 
-                (Keyword.pConstructor >>. Function.parametersList)
+                (Keyword.pConstructor >>. parametersList)
                 pBaseCall
                 (between Char.leftBrace Char.rightBrace (many Statement.pStatement))
                 (fun pars baseCall body -> { Parameters = pars; BaseClassConstructorCall = baseCall; Body = body})

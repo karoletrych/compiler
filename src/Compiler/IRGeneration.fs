@@ -4,25 +4,31 @@ open Ast
 open TypeInference
 open AstProcessing
 
+/// memory location type to which identifier is referring
 type DataStorage =
 | Field
 | Argument
 | LocalVariable
 
+/// instructions necessery to access given identifier
 let loadFromIdentifier identifiers (id : string) =
     match identifiers |> Map.find id with
     | Field -> [LdThis; Ldfld(id)]
     | Argument -> [Ldarg(id)]
     | LocalVariable -> [Ldloc(id)]
+/// instructions necessery to store to given identifier
 let storeToIdentifier identifiers (id : string) =
     match identifiers |> Map.find id with
     | Field -> Stfld(id)
     | Argument -> Starg(id)
     | LocalVariable -> Stloc(id)
 
+/// takes mapping of identifiers to local data location, context
+/// of current method and an expression
+/// return list of instructions for a given expression
 let rec private convertExpression identifiers context (expr : InferredTypeExpression) =
     let convertExpression = convertExpression identifiers context
-    let (InferredTypeExpression(expr, exprType)) = expr
+    let (InferredTypeExpression(expr, expressionTypeIdentifier)) = expr
     match expr with
     | LiteralExpression l -> 
         match l with 
@@ -45,12 +51,12 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         let args = convertExpression e1 @ convertExpression e2 
         let t = getType e1
         match t with
-        | t when t = Identifier.int || t = Identifier.float || t = Identifier.double -> 
+        | t when t = Identifier.int || t = Identifier.float || t = Identifier.double || t = Identifier.bool-> 
             match op with
             | Equal -> args @ [Ceq]
             | NotEqual -> args @ [Ceq; LdcI4 0; Ceq]
-            | LogicalOr -> [Or]
-            | LogicalAnd -> [And]
+            | LogicalOr -> args @ [Or]
+            | LogicalAnd -> args @ [And]
             | LessEqual -> args @ [Clt; LdcI4 0; Ceq]
             | Less -> args @ [Clt]
             | GreaterEqual -> args @ [Cgt; LdcI4 0; Ceq]
@@ -99,16 +105,21 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                         )
                         ]
         | MemberField(fieldName) -> 
-             [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false; FieldType = exprType}, convertExpression calleeExpression)]
+             [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false; FieldType = expressionTypeIdentifier}, convertExpression calleeExpression)]
     | IdentifierExpression(i) -> loadFromIdentifier identifiers i
-    | ListInitializerExpression(list) ->
+    | ListInitializerExpression list ->
         let add param = {
             MethodName = "Add"
             Parameters = [getType param]
             Context = Instance
-            }
-        [NewObj(exprType, [])]
-      @ (list |> List.collect (fun elem -> [Duplicate] @ convertExpression elem @ [CallMethod(exprType, add elem, [], [])]))
+        }
+        [NewObj(expressionTypeIdentifier, [])]
+      @ (list 
+         |> List.collect (fun item -> 
+                            [Duplicate] 
+                          @ convertExpression item 
+                          @ [CallMethod(expressionTypeIdentifier, add item, [], [])])
+        )
     | NewExpression(t, args) -> 
         (args |> List.collect convertExpression)
       @ [NewObj(Identifier.typeId t, args |> List.map getType)]
@@ -122,11 +133,11 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                 [],
                 args)]
         | MemberField f ->
-              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true; FieldType = exprType}, []);]
-    | UnaryExpression(op, _) -> 
+              [GetExternalField(Identifier.typeId t, { FieldName = f; IsStatic = true; FieldType = expressionTypeIdentifier}, []);]
+    | UnaryExpression(op, e) -> 
         match op with
-        | Negate -> [Neg]
-        | LogicalNegate -> [LdcI4 0; Ceq]
+        | Negate -> convertExpression e @ [Neg]
+        | LogicalNegate -> convertExpression e @ [LdcI4 0; Ceq]
     | LocalFunctionCallExpression(lfc) -> 
         [CallLocalMethod ({
                             MethodName = lfc.Name
@@ -139,18 +150,29 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                            (lfc.Arguments |> List.collect convertExpression))
             ]
 
-let random = System.Random()
-let randomInt () = random.Next()
+/// unique id of label
+let mutable label = 0
+/// generate next label id
+let nextLabelId () = 
+    label <- label + 1
+    label
 let noRetInstruction instructions = 
         not (instructions 
            |> List.exists (function
-                          | Ret -> true
-                          | RetValue _ -> true
+                          | Ret _ -> true
                           | _ -> false))
-let rec private convertStatements context identifiers statements : ILInstruction list =
+let retIsNotLast instructions = 
+    instructions 
+    |> List.last 
+    |> function 
+       | Ret _ -> false
+       | _ -> true
+
+/// converts statements to IR instructions
+let rec private convertStatements context identifiers statements : Instruction list =
     let convertExpression = convertExpression identifiers context
-    let rec generateIR (s : Statement<InferredTypeExpression>) =
-        match s with
+    let rec generateIRFromStatement (statement : Statement<InferredTypeExpression>) =
+        match statement with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = Identifier.typeId t
             [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static},[], (method.Arguments |> List.collect convertExpression))]
@@ -165,7 +187,7 @@ let rec private convertStatements context identifiers statements : ILInstruction
                 | _ ->
                     convertExpression expr
                     @ [storeToIdentifier identifiers assignee]
-        | CompositeStatement(cs) -> cs |> List.collect generateIR
+        | CompositeStatement(cs) -> cs |> List.collect generateIRFromStatement
         | LocalFunctionCallStatement(lfc) -> 
             [CallLocalMethod 
                         ({
@@ -177,22 +199,26 @@ let rec private convertStatements context identifiers statements : ILInstruction
                             | Static -> [] 
                             | Instance ->  [LdThis]), 
                            (lfc.Arguments |> List.collect convertExpression))]
-        | IfStatement(expr, s, elseS) ->
-            let elseLabel = randomInt()
-            let endLabel = randomInt()
-            let elseStatements = 
-                elseS 
-                |> Option.map generateIR
+        | IfStatement(condition, statement, elseStatement) ->
+            let elseLabel = nextLabelId() // wygenerowanie etykiety dla początku else
+            let endLabel = nextLabelId()  // wygenerowanie etykiety dla końca if'a
+            
+            // transformacja instrukcji z opcjonalnego bloku else 
+            // do listy instrukcji reprezentacji pośredniej
+            let elseStatements =          
+                elseStatement
+                |> Option.map generateIRFromStatement
                 |> Option.toList
                 |> List.concat
 
-            convertExpression expr 
-            @ [Brfalse elseLabel]
-            @ generateIR s 
-            @ [Br endLabel]
-            @ [Label elseLabel]
-            @ elseStatements
-            @ [Label endLabel]
+            // zwracane są skonkatenowane następujące instrukcje:
+            convertExpression condition  // instrukcje warunku if'a
+            @ [Brfalse elseLabel]        // jeśli warunek nieprawdziwy skocz do else
+            @ generateIRFromStatement statement  // instrukcje z właściwego bloku kodu
+            @ [Br endLabel]              // skok do końca if'a
+            @ [Label elseLabel]          // etykieta początku bloku else
+            @ elseStatements             // instrukcje z bloku else
+            @ [Label endLabel]           // etykieta końca instrukcji if
 
         | InstanceMemberFunctionCallStatement(calleeExpression, call) ->
             [CallMethod(
@@ -205,8 +231,8 @@ let rec private convertStatements context identifiers statements : ILInstruction
                         ]
         | ReturnStatement(r) -> 
             match r with 
-            | Some r -> convertExpression r @ [RetValue (getType r)]
-            | None -> [Ret]
+            | Some r -> convertExpression r @ [Ret (Some (getType r))]
+            | None -> [Ret None]
         | VariableDeclaration(vd) -> 
             match vd with
             | DeclarationWithInitialization (name, init) -> 
@@ -221,29 +247,30 @@ let rec private convertStatements context identifiers statements : ILInstruction
             convertExpression init 
             @ [Stloc(name)]
         | WhileStatement(expr, s) -> 
-            let endLabel = randomInt()
-            let beginLabel = randomInt()
+            let endLabel = nextLabelId()
+            let beginLabel = nextLabelId()
             [Label beginLabel]
             @ convertExpression expr 
             @ [Brfalse endLabel]
-            @ generateIR s 
+            @ generateIRFromStatement s 
             @ [Br beginLabel] 
             @ [Label endLabel]
 
     let instructions = 
-        statements |> generateIR
+        statements |> generateIRFromStatement
     
     instructions 
-      @ if noRetInstruction instructions || instructions |> List.last <> Ret 
-        then [Ret] 
+      @ if noRetInstruction instructions || retIsNotLast instructions 
+        then [Ret None] 
         else []
 
-let private findLocalVariables body : Variable list =
+/// finds all variable declarations in a method body
+let findLocalVariables body : Variable list =
     let idFold acc _ = acc
-    let valueDeclaration acc (name, _, expr) = {Name = name; Type = getType expr} :: acc
-    let declarationWithInitialization acc (name,expr) = {Name =name; Type = getType expr} :: acc
-    let declarationWithType acc (name, t) = {Name = name; Type = Identifier.typeId t} :: acc
-    let fullVariableDeclaration acc (name, _, expr) = {Name = name; Type = getType expr} :: acc
+    let valueDeclaration acc (name, _, expr) = {Name = name; TypeId = getType expr} :: acc
+    let declarationWithInitialization acc (name,expr) = {Name =name; TypeId = getType expr} :: acc
+    let declarationWithType acc (name, t) = {Name = name; TypeId = Identifier.typeId t} :: acc
+    let fullVariableDeclaration acc (name, _, expr) = {Name = name; TypeId = getType expr} :: acc
     let ifStatement (stmt, elseStmt) = 
         stmt @ (elseStmt |> Option.defaultValue []) 
 
@@ -257,7 +284,8 @@ let private findLocalVariables body : Variable list =
                 [] (CompositeStatement body)
     variables
 
-let private buildFunction context fields (func : Function<InferredTypeExpression>) : IR.Method = 
+/// converts AST function to its IR counterpart
+let private buildFunction context fields (func : Function<InferredTypeExpression>) : IR.Function = 
     let localVariables = findLocalVariables func.Body
     let identifiers = 
         (localVariables |> List.map (fun v -> v.Name, LocalVariable))
@@ -270,27 +298,30 @@ let private buildFunction context fields (func : Function<InferredTypeExpression
         ReturnType = Identifier.typeId func.ReturnType.Value
         Parameters = 
             func.Parameters 
-            |> List.map (fun p -> {Name = fst p; Type = Identifier.typeId (snd p) })
+            |> List.map (fun p -> {Name = fst p; TypeId = Identifier.typeId (snd p) })
         LocalVariables = localVariables
         Context = context
     }
 
+/// converts field to IR.Variable
 let private buildField (prop : Ast.Field<InferredTypeExpression>) = {
     Name = prop.Name;
-    Type = prop.Type |> Identifier.typeId
+    TypeId = prop.Type |> Identifier.typeId
 }
 
+/// returns instructions necessary to initalize fields
 let fieldInitializers identifiers = 
-        List.collect (fun f -> 
-                f.Initializer 
-                |> Option.map (fun initializer -> 
-                        [LdThis] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
-                    )
-                |> function
-                   | Some o -> o
-                   | None -> []
-            )
+    List.collect (fun f -> 
+            f.Initializer 
+            |> Option.map (fun initializer -> 
+                    [LdThis] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
+                )
+            |> function
+               | Some o -> o
+               | None -> []
+        )
 
+/// converts AST constructor to its IR counterpart
 let private buildConstructor (fields : Field<InferredTypeExpression> list) baseType (ctor : Constructor<InferredTypeExpression>) : IR.Constructor = 
     let baseArgTypes = 
         ctor.BaseClassConstructorCall
@@ -306,7 +337,7 @@ let private buildConstructor (fields : Field<InferredTypeExpression> list) baseT
         |> List.collect (convertExpression identifiers Static)
     { 
         Parameters = ctor.Parameters 
-                     |> List.map (fun p -> { Name = fst p; Type = Identifier.typeId (snd p) })
+                     |> List.map (fun p -> { Name = fst p; TypeId = Identifier.typeId (snd p) })
         Body = [LdThis]
                @ baseInitialiserArgs
                @ [CallConstructor(baseType, baseArgTypes)]
@@ -314,6 +345,9 @@ let private buildConstructor (fields : Field<InferredTypeExpression> list) baseT
                @ (fieldInitializers identifiers fields)
         LocalVariables = findLocalVariables ctor.Body
     }
+
+/// generates instructions for default constructor
+/// calling base class constructor basically
 let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseType =
     let identifiers = 
         (fields |> List.map (fun f -> (f.Name, Field)))
@@ -322,10 +356,11 @@ let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseTy
         [LdThis; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
     { 
         Parameters = []
-        Body = instructions @ if noRetInstruction instructions then [Ret] else []
+        Body = instructions @ if noRetInstruction instructions then [Ret None] else []
         LocalVariables = []
     }
 
+/// converts class to its IR counterpart
 let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class = 
     let baseType = c.BaseClass |> Option.map Identifier.typeId |> Option.defaultValue Identifier.object
     let fieldNames = (c.Fields |> List.map(fun f -> f.Name))
@@ -340,10 +375,12 @@ let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class 
             | ctors -> ctors |> List.map (buildConstructor c.Fields baseType )
     }
 
+/// converts module to its IR counterpart
 let private buildModule (modul : Module<InferredTypeExpression>) : IR.Module = {
     Identifier = modul.Identifier
     Classes = modul.Classes |> List.map buildClass
     Functions = modul.Functions |> List.map (buildFunction Static [])
 } 
+/// generates IR.Modules from AST.Modules
 let generateIR modules : IR.Module list =
     modules |> List.map buildModule
