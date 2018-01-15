@@ -3,7 +3,7 @@ fun main
     val primes = [2];
 
     var i = 3;
-    while(i<100)
+    while(i<30)
     {
         var isPrime = true;
 
@@ -30,7 +30,8 @@ fun main
     val enumerator = primes.GetEnumerator(); // pobranie iteratora listy
     while(enumerator.MoveNext()) // przejście do kolejnego elementu listy
     {
-        System::Console:.WriteLine(enumerator.Current);
+        System::Console:.Write(enumerator.Current);
+        System::Console:.Write(", ");
     }
 
     enumerator.Dispose();
