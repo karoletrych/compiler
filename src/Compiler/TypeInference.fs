@@ -98,10 +98,6 @@ let private findLocalFunctionType otherLocalFunctions ((name, args), _) : Compil
     | Some ret -> Result.succeed ret
     | None -> Result.failure (FunctionTypeCannotBeInferred(name, args))
 
-let genericArgument =
-    function
-    | GenericArgument arg  -> arg
-    | _ -> failwith "unexpected"
 let getGenericArgument types number genericParameter calleeType = 
     match genericParameter with
     | DeclaredInParameterizedType ->

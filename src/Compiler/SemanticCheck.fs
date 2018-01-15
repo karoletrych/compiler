@@ -29,8 +29,8 @@ let initialState = {
 let (|Field|_|) types (t : TypeIdentifier) name =
     let t = types |> Map.tryFind t
     match t with
-    | Some t ->
-        match (t.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
+    | Some tSome ->
+        match (tSome.Fields |> List.tryFind (fun f -> f.FieldName = name)) with
         | Some f -> Some (Field f)
         | None -> None
     | None -> failwith "should fail in type inference"
@@ -57,14 +57,14 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
             | true -> {acc with Errors = AssignmentToReadOnlyLocalField(name) :: acc.Errors}
             | false ->
                 match f.TypeRef with
-                | GenericParameter _ -> failwith "not possible in InferLang"
                 | ConstructedType t -> 
                     if t <> (getType expr) 
                     then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
                     else 
                         acc
-                | GenericTypeDefinition(_) -> failwith "not possible"
-        | _ -> {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
+                | _ -> failwith "not possible"
+        | _ -> 
+            {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
     | MemberFieldAssignee (assignee, name) ->
         let t = getType assignee
         match name with
@@ -74,12 +74,11 @@ let rec private checkAssignment types ownerType acc (assignee, expr) =
                 {acc with Errors = AssignmentToReadOnlyField(t, name) :: acc.Errors}
             | false ->
                 match f.TypeRef with
-                | GenericParameter _ -> failwith ""
                 | ConstructedType t -> 
                     if t <> (getType expr) 
                     then {acc with Errors = InvalidType(name, getType expr, t) :: acc.Errors}
-                    else 
-                        {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
+                    else acc
+                | _ -> failwith "not possible"
         | _ ->
             {acc with Errors = UndefinedVariableOrField name :: acc.Errors}
 
@@ -227,4 +226,7 @@ let check
     if checkForEntryPoint && not (singleEntryPointExists modules)
     then Result.failure (NoEntryPointOrMoreThanOne)
     else
-        modules |> List.map (checkModule types) |> Result.merge
+        modules 
+        |> List.map (checkModule types) 
+        |> Result.merge
+        |> Result.map (fun modules -> (modules, types))

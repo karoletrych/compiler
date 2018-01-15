@@ -75,7 +75,7 @@ let tests =
                 }"
         Expect.isTrue (inference |> Result.isSuccess) ""
     testCase "classes" <| fun _ ->
-        let inference = infer @"
+        let inference = infer """
              class A
              {
              }
@@ -89,13 +89,13 @@ let tests =
              fun testFunction
              {
                  val types = [
-                  new obj();
+                  new System::Object();
                   new A();
                   new B();
                   new C();
-                  ""str"";
+                  "str";
                   42];
              }
-             "
+             """
         Expect.isTrue (inference |> Result.isSuccess) ""
 ]

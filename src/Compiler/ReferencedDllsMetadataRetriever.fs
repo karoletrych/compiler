@@ -48,6 +48,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             TypeRef = createTypeRef dotnetField.FieldType
             IsStatic = dotnetField.IsStatic
             IsReadOnly = dotnetField.IsInitOnly || dotnetField.IsLiteral
+            FieldDeclaringType = Identifier.fromDotNet dotnetField.DeclaringType
         }
     let createFieldFromProperty (dotnetProperty : PropertyInfo) =
         {
@@ -55,6 +56,7 @@ let rec createTypeFromDotNetType (dotnetType : System.Type) : Types.Type =
             TypeRef = createTypeRef dotnetProperty.PropertyType
             IsStatic = dotnetProperty.GetMethod.IsStatic
             IsReadOnly = not dotnetProperty.CanWrite
+            FieldDeclaringType = Identifier.fromDotNet dotnetProperty.DeclaringType
         }
     // if dotnetType.Name = "Enumerator" && dotnetType.DeclaringType.Name = "Dictionary`2"
     // then Debugger.Break()

@@ -149,7 +149,7 @@ let tests =
                 |> semanticCheck
             Expect.equal 
                 semanticCheckResult 
-                (Failure[AssignmentToReadOnlyFieldOnType
+                (Failure[AssignmentToReadOnlyField
      ({Namespace = [];
        Name = "A";
        GenericParameters = [];

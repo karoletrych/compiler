@@ -181,8 +181,12 @@ with override ti.ToString() =
         then ""
         else "[" + (ti.GenericParameters |> List.map (fun x -> x.ToString()) |> String.concat ",") + "]"
 
+let genericArgument =
+    function
+    | GenericArgument arg  -> arg
+    | _ -> failwith "unexpected"
 let getGenericArgument (genericParameter : GenericParameter) =
-    let (GenericArgument arg) = genericParameter
+    let arg = genericArgument genericParameter
     arg
 
 module Identifier = 

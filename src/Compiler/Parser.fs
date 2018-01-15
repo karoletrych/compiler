@@ -478,7 +478,7 @@ let parseModules (source : SourceFile list) =
                 /// either the specified moduleId or one based on path
                 match program.ModuleIdentifier with
                 | None -> fileName.Split(Path.DirectorySeparatorChar) |> List.ofArray
-                | Some s -> s |> List.rev
+                | Some s -> s
             Module.create moduleId program.Declarations)
     source
     |> List.map ((fun s -> (s.Path, parse s.Code)) >> buildModule)

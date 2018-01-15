@@ -5,8 +5,6 @@ open System
 
 type Error = 
 | SyntaxError of string
-| FunctionTypeCannotBeInferred of name : string * arguments : TypeIdentifier list
-| UndefinedVariable of string
 | VariableAlreadyDefined of string
 | TypeNotFound of TypeSpec
 | FunctionNotFound of calleeType : TypeIdentifier * name : string * arguments : TypeIdentifier list * genericArguments : TypeSpec list
@@ -66,7 +64,9 @@ type CompilerResult<'TSuccess> =
 with member x.Value = 
         match x with
         | Success x -> x
-        | Failure errors -> failwith (sprintf "Value retrieved from CompilerResult being Failure %s" (toString errors))
+        | Failure errors -> 
+            failwith 
+                (sprintf "Value retrieved from CompilerResult being Failure %s" (toString errors))
 
 
 module Result = 

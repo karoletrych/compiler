@@ -138,27 +138,31 @@ let findConstructor this (tId : TypeIdentifier) (argTypes : TypeIdentifier list)
 
 /// finds field or property belonging to a given type and with a 
 /// given fieldRef
-let rec findFieldOrProperty this tId fieldRef = 
+let rec findFieldOrProperty typesTable tId fieldRef = 
     let bindingFlags =
         match fieldRef.IsStatic with
         | true -> BindingFlags.Static ||| BindingFlags.Public
         | false -> BindingFlags.Instance ||| BindingFlags.Public
         
-    let t = findFilledType this tId
+    let t = findFilledType typesTable tId
     match isBeingBuilt t with
     | true ->
-        let tb = this.FilledTypeBuilders.[tId]
-        let fieldBuilder = tb.FieldBuilders |> Map.tryFind fieldRef.FieldName |> Option.map (fun m -> m :> FieldInfo)
+        let tb = typesTable.FilledTypeBuilders.[tId]
+        let fieldBuilder = 
+            tb.FieldBuilders 
+            |> Map.tryFind fieldRef.FieldName 
+            |> Option.map (fun m -> m :> FieldInfo)
         match fieldBuilder with
         | Some f -> Field f
         | None -> 
-            let baseClassMethod = (findFieldOrProperty this) (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
+            let baseClassMethod = 
+                findFieldOrProperty typesTable (Identifier.fromDotNet tb.TypeBuilder.BaseType) fieldRef
             baseClassMethod
     | false ->
         if (not (List.isEmpty tId.GenericParameters)) 
-                && tId.GenericParameters |> List.exists (fun tId -> findFilledType this (getGenericArgument tId) |> isBeingBuilt)
+                && tId.GenericParameters |> List.exists (fun tId -> findFilledType typesTable (getGenericArgument tId) |> isBeingBuilt)
         then
-            let unboundType = findGenericTypeDefinition this.ExternalTypes tId 
+            let unboundType = findGenericTypeDefinition typesTable.ExternalTypes tId 
             let dotnetField = unboundType.GetField(fieldRef.FieldName)
             match dotnetField with
             | null -> 
@@ -348,6 +352,20 @@ let rec emitInstruction
                 let typeInfo = findFilledType t
                 generateCallee methodInfo.Variables il typeInfo calleeInstructions
                 il.Emit(OpCodes.Ldfld, f)
+    | SetExternalField(t, fieldRef, accessInstructions, setterInstuctions) ->
+        let field = findFieldOrProperty typesTable t fieldRef
+        match field with
+        | Property _ -> 
+            failwith "Setting properties not implemented"
+        | Field f -> 
+            match fieldRef.IsStatic with
+            | true -> 
+                il.Emit(OpCodes.Stfld, f)
+            | false -> 
+                let typeInfo = findFilledType t
+                generateCallee methodInfo.Variables il typeInfo accessInstructions
+                setterInstuctions |> List.iter (emitInstruction >> ignore)
+                il.Emit(OpCodes.Stfld, f)
     | Br(_) -> failwith "covered above"
     | Brfalse(_) -> failwith "covered above"
     | Brtrue(_) -> failwith "covered above"

@@ -44,6 +44,7 @@ and Parameter = {
 }
 
 and Field = { 
+    FieldDeclaringType : TypeIdentifier
     TypeRef : TypeRef 
     FieldName : string 
     IsStatic : bool 

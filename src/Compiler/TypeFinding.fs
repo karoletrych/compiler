@@ -56,8 +56,9 @@ let private findTypesInModule (knownTypes : Map<TypeIdentifier, Type>) modul =
                          ({FieldName = field.Name; 
                            TypeRef = Identifier.fromTypeSpec field.Type |> ConstructedType; 
                            IsStatic = false
-                           IsReadOnly = field.IsReadOnly})))
-                            @ baseType.Fields
+                           IsReadOnly = field.IsReadOnly
+                           FieldDeclaringType = declaredType.Identifier})))
+                     @ baseType.Fields
             Identifier = declaredType.Identifier;
             GenericParameters = []
             ImplementedInterfaces = []

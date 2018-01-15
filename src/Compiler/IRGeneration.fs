@@ -3,25 +3,41 @@ open IR
 open Ast
 open TypeInference
 open AstProcessing
+open Types
 
 /// memory location type to which identifier is referring
+type FieldDeclarationPlace =
+| ThisType
+| External of TypeIdentifier
+
 type DataStorage =
-| Field
+| FieldRef of FieldDeclarationPlace
 | Argument
 | LocalVariable
 
+
 /// instructions necessery to access given identifier
-let loadFromIdentifier identifiers (id : string) =
+let loadFromIdentifier identifiers idType (id : string) =
     match identifiers |> Map.find id with
-    | Field -> [LdThis; Ldfld(id)]
+    | FieldRef place -> 
+        match place with
+        | ThisType -> [LdThis; Ldfld(id)]
+        | External tId -> 
+            let fieldRef = {FieldName = id; IsStatic = false; FieldType = idType}
+            [GetExternalField(tId, fieldRef, [LdThis])]
     | Argument -> [Ldarg(id)]
     | LocalVariable -> [Ldloc(id)]
 /// instructions necessery to store to given identifier
-let storeToIdentifier identifiers (id : string) =
+let storeToIdentifier identifiers idType (id : string) setter =
     match identifiers |> Map.find id with
-    | Field -> Stfld(id)
-    | Argument -> Starg(id)
-    | LocalVariable -> Stloc(id)
+    | FieldRef place -> 
+        match place with
+        | ThisType -> [LdThis] @ setter @ [Stfld(id)]
+        | External tId -> 
+            let fieldRef = {FieldName = id; IsStatic = false; FieldType = idType}
+            [SetExternalField(tId, fieldRef, [LdThis], setter)]
+    | Argument -> setter @ [Starg(id)]
+    | LocalVariable -> setter @ [Stloc(id)]
 
 /// takes mapping of identifiers to local data location, context
 /// of current method and an expression
@@ -38,15 +54,11 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
         | StringLiteral s -> [ Ldstr(s) ]
     | AssignmentExpression(assignee, expr) -> 
         match assignee with
-        | MemberFieldAssignee (callee, i) -> failwith "TODO:"
+        | MemberFieldAssignee (callee, i) ->
+            failwith ""
         | IdentifierAssignee i -> 
-            match storeToIdentifier identifiers i with
-            | Stfld f -> 
-                [LdThis] @ convertExpression expr @ [Stfld f]
-            | _ -> 
-            convertExpression expr
-            @ [Duplicate]
-            @ [storeToIdentifier identifiers i]
+                [Duplicate]
+                @ storeToIdentifier identifiers expressionTypeIdentifier i (convertExpression expr)
     | BinaryExpression(e1, op, e2) ->
         let args = convertExpression e1 @ convertExpression e2 
         let t = getType e1
@@ -106,7 +118,7 @@ let rec private convertExpression identifiers context (expr : InferredTypeExpres
                         ]
         | MemberField(fieldName) -> 
              [GetExternalField(calleeT, {FieldName = fieldName; IsStatic = false; FieldType = expressionTypeIdentifier}, convertExpression calleeExpression)]
-    | IdentifierExpression(i) -> loadFromIdentifier identifiers i
+    | IdentifierExpression(identifier) -> loadFromIdentifier identifiers expressionTypeIdentifier identifier 
     | ListInitializerExpression list ->
         let add param = {
             MethodName = "Add"
@@ -156,37 +168,51 @@ let mutable label = 0
 let nextLabelId () = 
     label <- label + 1
     label
-let noRetInstruction instructions = 
-        not (instructions 
-           |> List.exists (function
-                          | Ret _ -> true
-                          | _ -> false))
-let retIsNotLast instructions = 
+
+let isRet = 
+    function
+    | Ret _ -> true
+    | _ -> false
+
+let isLabel = 
+    function
+    | Label _ -> true
+    | _ -> false
+
+let retExists instructions = 
+        instructions 
+           |> List.exists isRet
+let retIsLast instructions = 
     instructions 
-    |> List.last 
-    |> function 
-       | Ret _ -> false
-       | _ -> true
+    // |> List.findBack (isLabel >> not)
+    |> List.last
+    |> isRet
+
+    
+
 
 /// converts statements to IR instructions
-let rec private convertStatements context identifiers statements : Instruction list =
+let rec private convertStatements types context identifiers statements : Instruction list =
     let convertExpression = convertExpression identifiers context
     let rec generateIRFromStatement (statement : Statement<InferredTypeExpression>) =
         match statement with
         | StaticFunctionCallStatement (t, method) -> 
             let typeId = Identifier.typeId t
-            [CallMethod(typeId, {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static},[], (method.Arguments |> List.collect convertExpression))]
-        | AssignmentStatement(assignee, expr) -> 
+            let methodRef = {MethodName = method.Name; Parameters = method.Arguments |> List.map getType; Context = Static}
+            [CallMethod(typeId, methodRef, [], (method.Arguments |> List.collect convertExpression))]
+        | AssignmentStatement(assignee, setterExpression) -> 
             match assignee with
-            | MemberFieldAssignee (callee, fieldName) -> 
-                failwith "TODO:"
+            | MemberFieldAssignee (assignee, fieldName) -> 
+                    let declaringType = 
+                        (
+                        types 
+                        |> Map.find (getType assignee)
+                        |> (fun t -> t.Fields |> List.find (fun f -> f.FieldName = fieldName))
+                        ).FieldDeclaringType
+                    let fieldRef = {FieldName = fieldName; IsStatic = false; FieldType = getType setterExpression}
+                    [SetExternalField(declaringType, fieldRef, convertExpression assignee, convertExpression setterExpression)]
             | IdentifierAssignee assignee -> 
-                match storeToIdentifier identifiers assignee with
-                | Stfld fieldName -> 
-                    [LdThis] @ convertExpression expr @ [Stfld fieldName]
-                | _ ->
-                    convertExpression expr
-                    @ [storeToIdentifier identifiers assignee]
+                    storeToIdentifier identifiers (getType setterExpression) assignee (convertExpression setterExpression)
         | CompositeStatement(cs) -> cs |> List.collect generateIRFromStatement
         | LocalFunctionCallStatement(lfc) -> 
             [CallLocalMethod 
@@ -260,7 +286,7 @@ let rec private convertStatements context identifiers statements : Instruction l
         statements |> generateIRFromStatement
     
     instructions 
-      @ if noRetInstruction instructions || retIsNotLast instructions 
+      @ if not (retExists instructions) || not (retIsLast instructions)
         then [Ret None] 
         else []
 
@@ -285,16 +311,16 @@ let findLocalVariables body : Variable list =
     variables
 
 /// converts AST function to its IR counterpart
-let private buildFunction context fields (func : Function<InferredTypeExpression>) : IR.Function = 
+let private buildFunction types context fields (func : Function<InferredTypeExpression>) : IR.Function = 
     let localVariables = findLocalVariables func.Body
     let identifiers = 
         (localVariables |> List.map (fun v -> v.Name, LocalVariable))
         @ (func.Parameters |> List.map (fun p -> fst p, Argument))
-        @ (fields |> List.map (fun f -> (f, Field)))
+        @ fields
         |> Map.ofList
     {
         Name = func.Name
-        Body = convertStatements context identifiers (CompositeStatement func.Body)
+        Body = convertStatements types context identifiers (CompositeStatement func.Body)
         ReturnType = Identifier.typeId func.ReturnType.Value
         Parameters = 
             func.Parameters 
@@ -310,8 +336,9 @@ let private buildField (prop : Ast.Field<InferredTypeExpression>) = {
 }
 
 /// returns instructions necessary to initalize fields
-let fieldInitializers identifiers = 
-    List.collect (fun f -> 
+let fieldInitializers identifiers fields = 
+    fields
+    |> List.collect (fun f -> 
             f.Initializer 
             |> Option.map (fun initializer -> 
                     [LdThis] @ (convertExpression identifiers Instance initializer) @ [Stfld f.Name]
@@ -322,7 +349,7 @@ let fieldInitializers identifiers =
         )
 
 /// converts AST constructor to its IR counterpart
-let private buildConstructor (fields : Field<InferredTypeExpression> list) baseType (ctor : Constructor<InferredTypeExpression>) : IR.Constructor = 
+let private buildConstructor types classFields fields baseType (ctor : Constructor<InferredTypeExpression>) : IR.Constructor = 
     let baseArgTypes = 
         ctor.BaseClassConstructorCall
         |> List.map getType
@@ -330,8 +357,8 @@ let private buildConstructor (fields : Field<InferredTypeExpression> list) baseT
     let identifiers = 
         (localVariables |> List.map (fun v -> v.Name, LocalVariable))
       @ (ctor.Parameters |> List.map (fun p -> fst p, Argument))
-      @ (fields |> List.map (fun f -> (f.Name, Field)))
-        |> Map.ofList
+      @ fields
+      |> Map.ofList
     let baseInitialiserArgs =
         ctor.BaseClassConstructorCall 
         |> List.collect (convertExpression identifiers Static)
@@ -341,46 +368,49 @@ let private buildConstructor (fields : Field<InferredTypeExpression> list) baseT
         Body = [LdThis]
                @ baseInitialiserArgs
                @ [CallConstructor(baseType, baseArgTypes)]
-               @ convertStatements Static identifiers (CompositeStatement ctor.Body)
-               @ (fieldInitializers identifiers fields)
+               @ convertStatements types Static identifiers (CompositeStatement ctor.Body)
+               @ (classFields |> fieldInitializers identifiers)
         LocalVariables = findLocalVariables ctor.Body
     }
 
 /// generates instructions for default constructor
 /// calling base class constructor basically
-let buildDefaultConstructor (fields : Field<InferredTypeExpression> list) baseType =
+let buildDefaultConstructor classFields fields baseType =
     let identifiers = 
-        (fields |> List.map (fun f -> (f.Name, Field)))
+        fields    
         |> Map.ofList
     let instructions = 
-        [LdThis; CallConstructor(baseType, [])] @ fieldInitializers identifiers fields
+        [LdThis; CallConstructor(baseType, [])] @ fieldInitializers identifiers classFields
     { 
         Parameters = []
-        Body = instructions @ if noRetInstruction instructions then [Ret None] else []
+        Body = instructions @ if not (retExists instructions) then [Ret None] else []
         LocalVariables = []
     }
 
+
 /// converts class to its IR counterpart
-let private buildClass (c : Ast.ModuleClass<InferredTypeExpression>) : IR.Class = 
-    let baseType = c.BaseClass |> Option.map Identifier.typeId |> Option.defaultValue Identifier.object
-    let fieldNames = (c.Fields |> List.map(fun f -> f.Name))
+let private buildClass (types : Map<TypeIdentifier, Types.Type>) (clas : Ast.ModuleClass<InferredTypeExpression>)  : IR.Class = 
+    let baseType = clas.BaseClass |> Option.map Identifier.typeId |> Option.defaultValue Identifier.object
+    let fields = 
+        (clas.Fields |> List.map (fun f -> (f.Name, FieldRef ThisType)))
+      @ (types.[baseType].Fields |> List.map(fun f -> f.FieldName, FieldRef(External baseType)))
     {
-        Identifier = c.Identifier
-        Methods = c.Functions |> List.map (buildFunction Instance fieldNames)
-        Fields = c.Fields |> List.map buildField
+        Identifier = clas.Identifier
+        Methods = clas.Functions |> List.map (buildFunction types Instance fields)
+        Fields = clas.Fields |> List.map buildField
         BaseClass = baseType
         Constructors = 
-            match c.Constructors with
-            | [] -> [buildDefaultConstructor c.Fields baseType]
-            | ctors -> ctors |> List.map (buildConstructor c.Fields baseType )
+            match clas.Constructors with
+            | [] -> [buildDefaultConstructor clas.Fields fields baseType]
+            | ctors -> ctors |> List.map (buildConstructor types clas.Fields fields baseType)
     }
 
 /// converts module to its IR counterpart
-let private buildModule (modul : Module<InferredTypeExpression>) : IR.Module = {
+let private buildModule types (modul : Module<InferredTypeExpression>) : IR.Module = {
     Identifier = modul.Identifier
-    Classes = modul.Classes |> List.map buildClass
-    Functions = modul.Functions |> List.map (buildFunction Static [])
+    Classes = modul.Classes |> List.map (buildClass types)
+    Functions = modul.Functions |> List.map (buildFunction types Static [])
 } 
 /// generates IR.Modules from AST.Modules
-let generateIR modules : IR.Module list =
-    modules |> List.map buildModule
+let generateIR (modules, types) : IR.Module list =
+    modules |> List.map (buildModule types)
