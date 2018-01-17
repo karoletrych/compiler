@@ -47,7 +47,7 @@ let tests =
             @"fun main{Sys::Cons:.WriteL(""Hello, world!"");}"
             |> resolve
         Expect.equal scanResult (Result.failure (TypeNotFound (CustomTypeSpec (["Sys"],{Name = "Cons";
-                                                     GenericArgs = [];})))) ""
+                                                     GenericArguments = [];})))) ""
         
     
     testCase "classes in the same module are found and substituted" <| fun _ ->

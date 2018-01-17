@@ -52,7 +52,7 @@ and BuiltInTypeSpec =
 
 and CustomType = { 
     Name : string 
-    GenericArgs : TypeSpec list // lista argumentów generycznych
+    GenericArguments : TypeSpec list 
 }
 
 and Parameter = string * TypeSpec
@@ -240,8 +240,8 @@ module Identifier =
         | CustomTypeSpec (ns, cts) -> 
             {
                 Namespace = ns |> List.rev
-                Name = cts.Name + if List.isEmpty cts.GenericArgs then "" else "`" + (List.length cts.GenericArgs).ToString()
-                GenericParameters = cts.GenericArgs |> List.map (fun ts -> GenericArgument (fromTypeSpec ts))
+                Name = cts.Name + if List.isEmpty cts.GenericArguments then "" else "`" + (List.length cts.GenericArguments).ToString()
+                GenericParameters = cts.GenericArguments |> List.map (fun ts -> GenericArgument (fromTypeSpec ts))
                 DeclaringType = None
             }
         | TypeIdentifier(i) -> 

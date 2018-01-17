@@ -140,7 +140,7 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         {
             Errors = 
                 if (t |> Option.isSome && t |> Option.get <> getType expr)
-                    then [InvalidType(name, t |> Option.get, getType expr)]
+                    then [InvalidType(name, getType expr, t |> Option.get)]
                     else []
               @ checkIfVariableExists acc name
               @ checkExpression acc (getExpression expr)
@@ -169,7 +169,7 @@ let rec private checkStatements (ownerType, (types : Map<TypeIdentifier, Types.T
         {
             Errors = 
                 if (t <> getType expr) 
-                then [InvalidType(name, t, getType expr)]
+                then [InvalidType(name, getType expr, t)]
                 else []
               @ checkIfVariableExists acc name
               @ checkExpression acc (getExpression expr)

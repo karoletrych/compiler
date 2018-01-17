@@ -50,3 +50,4 @@ and Field = {
     IsStatic : bool 
     IsReadOnly : bool
 }
+

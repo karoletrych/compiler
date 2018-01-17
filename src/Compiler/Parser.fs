@@ -92,11 +92,11 @@ module Types =
     /// generic type spec consists of nonGenericTypeSpec followed by arguments. 
     let pGenericType =
         pNonGenericTypeSpec .>>. pGenericArguments
-        |>> (fun (name, types) -> {Name = name; GenericArgs = types})
+        |>> (fun (name, types) -> {Name = name; GenericArguments = types})
         /// ^ build appropriate AST record out of generic type spec parts 
     let pNonGenericType = 
         pNonGenericTypeSpec 
-        |>> fun t -> ({Name = t; GenericArgs = []})
+        |>> fun t -> ({Name = t; GenericArguments = []})
 
     /// validates TypeSpec consisting of namespace and type name at the end
     /// fails if it contains generic segment not at the last position f. e.
@@ -107,7 +107,7 @@ module Types =
             | [lastTypeSpec] -> preturn (acc, lastTypeSpec)
             | head :: tail -> 
                 match head with
-                | {Name = identifier; GenericArgs = []}
+                | {Name = identifier; GenericArguments = []}
                     -> segments (acc @ [identifier]) tail 
                 | _
                     -> fail "No generic type is allowed as namespace segment"

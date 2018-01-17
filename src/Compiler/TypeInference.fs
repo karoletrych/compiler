@@ -71,9 +71,7 @@ let private leastUpperBound (knownTypes : Map<TypeIdentifier, Type>) types =
         |> fst   // path
         |> List.last // furthest element from root
 
-
-
-
+/// finds function with given name parameter types and generic arguments within given type
 let private findFunction (t, (name, args : TypeIdentifier list, generics), isStatic) = 
         t.Methods 
         |> List.tryFind 

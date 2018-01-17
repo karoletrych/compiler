@@ -15,7 +15,9 @@ fun DrawFilledRectangle (x : int) (y : int)
 
 fun main
 {
-	val bitmap = DrawFilledRectangle(640, 480);
-	bitmap.Save("rectangle.jpg");
+	val width = System::Convert:.ToInt32(System::Console:.ReadLine());
+	val height = System::Convert:.ToInt32(System::Console:.ReadLine());
+	val bitmap = DrawFilledRectangle(width, height);
+	bitmap.Save("ellipse.jpg");
 }
 
