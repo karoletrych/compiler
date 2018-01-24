@@ -10,7 +10,7 @@ Module namespaces can be specified with ``module`` keyword.
     module Company::Project::Component::ExampleModule2
 
 If the module namespace is not given it will be set based on file location and name.
-For example if the code is placed in file `ProjectRoot/A/B/Program.inf` and the compiler is launched in `ProjectRoot` the module namespace will be: `A::B::Program`.
+For example if the code is placed in file `ProjectRoot/A/B/Program.ifr` and the compiler is launched in `ProjectRoot` the module namespace will be: `A::B::Program`.
 
 
 
@@ -103,8 +103,6 @@ Class members need to be declared in the following order:
 
 All functions are virtual and can be overloaded in inheriting classes.
 
-### Inheritance
-
 
 ## Type Inference
 Type inference is looking for a least upper bound of types.
@@ -124,3 +122,4 @@ Closest common type of Dog and Cat is Animal so the return type will be inferred
     }
 
 ## Setup and compiler usage
+``Compile.exe`` need to be placed in the root of the source project. It finds all files with .ifr extension.
