@@ -125,13 +125,7 @@ Target "Release" (fun _ ->
 // Build order
 // --------------------------------------------------------------------------------------
 
-"Clean"
-  ==> "InstallDotNetCLI"
-  ==> "Restore"
-  ==> "Build"
 
-"RestoreSrc"
-  ==> "BuildRelease"
 
 "RestoreSrc"
  ==> "BuildDebug"
@@ -139,8 +133,10 @@ Target "Release" (fun _ ->
 "BuildDebug"
  ==> "IntegrationTest"
 
-
-"BuildRelease"
+"Clean"
+  ==> "InstallDotNetCLI"
+  ==> "RestoreSrc"
+  ==> "BuildRelease"
   ==> "Release"
 
 RunTargetOrDefault "Release"

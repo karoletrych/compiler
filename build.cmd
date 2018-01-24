@@ -1,8 +1,2 @@
-@echo off
-cls
-.paket\paket.exe restore
-if errorlevel 1 (
-  exit /b %errorlevel%
-)
-
-packages\FAKE\tools\FAKE.exe build.fsx %*
+.paket\paket.exe install
+packages\FAKE\tools\FAKE.exe %cd%\build.fsx %*
