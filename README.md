@@ -31,13 +31,10 @@ The return type can be omitted. The compiler will be able to infer it.
     }
 ### Built-in types
 * ``bool`` 
-* ``int`` 32-bit integer
-* ``float`` 32-bit floating point
-* ``double`` 64-bit floating point
-* ``char`` 
-* ``string`` 
-* ``void`` 
-* ``obj`` 
+* ``int`` 
+* ``float`` 
+* ``string``
+* ``void``
 
 ### Local variables
 Variables are defined using ``var``. Constants are defined using ``val``. 
