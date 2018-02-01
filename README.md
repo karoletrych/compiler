@@ -23,7 +23,7 @@ Here is a function taking parameters of types ``int`` and ``float`` and returnin
         return a.ToString() + b.ToString();
     }
 Types of parameters need to be specified.
-The return type can be omitted. The compiler is be able to infer it.
+The return type can be omitted. The compiler will be able to infer it.
 
     fun exampleFunction2 (a : int) (b : float)
     {
@@ -98,7 +98,7 @@ Classes can be created using ``class`` keyword. Example:
 Class members need to be declared in the following order:
 
 1. Fields
-2. Constructor (defined with ``construct`` keyword)
+2. Constructors (defined with ``construct`` keyword)
 3. Functions
 
 All functions are virtual and can be overloaded in inheriting classes.
@@ -107,11 +107,11 @@ All functions are virtual and can be overloaded in inheriting classes.
 ## Type Inference
 Type inference is looking for a least upper bound of types.
 
-Closest common ancestor of ``int``, ``string`` and ``float`` is ``obj``.
+Closest common ancestor of ``int``, ``string`` and ``float`` is ``obj``:
 
     val objList = [1;"A";3.2]
 
-Closest common type of Dog and Cat is Animal so the return type will be inferred to it.
+Closest common ancestor type of Dog and Cat is Animal:
 
     fun createAnimal(animalType : string)
     {
