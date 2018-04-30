@@ -119,4 +119,32 @@ Closest common ancestor type of Dog and Cat is Animal:
     }
 
 ## Setup and compiler usage
-``Compile.exe`` need to be placed in the root of the source project. It finds all files with .ifr extension.
+``Compile.exe`` need to be placed in the root of the source project.
+``Compile.exe --help`` prints available options:
+```release> .\Compile.exe --help
+USAGE: Compile.exe [--help] [--output <path>] [--outputtype <exe|dll>] [--referenceddlls [<paths>...]] [--printir]
+                    [<path>...]
+
+SOURCEFILES:
+
+    <path>...             source file paths.
+
+OPTIONS:
+
+    --output, -o <path>   output path.
+    --outputtype, -O <exe|dll>
+                          output type.
+    --referenceddlls, -R [<paths>...]
+                          referenced dll paths
+    --printir, -S         print intermediate representation
+    --help                display this list of options. 
+```
+    
+When source file paths are not provided it automatically compiles all files with .ifr extension:
+```
+polymorphism> .\Compile.exe
+No input files specified. Searching for .ifr files:
+Base directory: C:\Users\Karol\Desktop\compiler\samples\polymorphism\
+classes.ifr
+Writing output file to: Program.exe
+```
