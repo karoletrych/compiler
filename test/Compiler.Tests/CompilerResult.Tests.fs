@@ -14,7 +14,7 @@ open Compiler.Ast
 open Compiler.Tests.ResultTestHelper
 
 let failure1 = Result.failure (SyntaxError "error")
-let failure2 = Result.failure (TypeNotFound (CustomTypeSpec([], {Name = "A"; GenericArgs = []})))
+let failure2 = Result.failure (TypeNotFound (CustomTypeSpec([], {Name = "A"; GenericArguments = []})))
 
 let x = 
     Result.succeed 1
