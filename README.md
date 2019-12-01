@@ -1,6 +1,6 @@
 # InferLang
 Compiler of a simple language featuring local type inference and targeting Common Language Runtime.
-[![Build Status](https://travis-ci.org/karoletrych/compiler.svg?branch=master)](https://travis-ci.org/karoletrych/compiler)
+
 ## Syntax
 ### Modules
 All code in InferLang is placed in modules.
